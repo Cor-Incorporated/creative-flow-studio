@@ -308,7 +308,7 @@ const App: React.FC = () => {
                 parts: [{ media: { type: 'image', url: editedImageUrl, mimeType: 'image/png' } }] 
             } : m));
         } catch (error) {
-            handleApiError(error, 'image editing');
+            await handleApiError(error, 'image editing');
         } finally {
             setIsLoading(false);
         }
