@@ -14,6 +14,8 @@ import {
     MAX_VIDEO_POLL_ATTEMPTS,
     ERROR_MESSAGES
 } from './constants';
+import type { GeminiResponse } from './types/gemini';
+import { extractTextFromResponse } from './types/gemini';
 
 // Fix: Use a named interface 'AIStudio' to resolve declaration conflicts.
 declare global {
@@ -39,6 +41,19 @@ const App: React.FC = () => {
     const isDjShachoModeRef = useRef(isDjShachoMode);
     // Update ref immediately during render to avoid race conditions
     isDjShachoModeRef.current = isDjShachoMode;
+
+    // Cleanup blob URLs on unmount to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            messages.forEach(msg => {
+                msg.parts.forEach(part => {
+                    if (part.media?.url && part.media.url.startsWith('blob:')) {
+                        URL.revokeObjectURL(part.media.url);
+                    }
+                });
+            });
+        };
+    }, []); // Empty deps: only run on unmount
 
     const checkApiKey = useCallback(async () => {
         if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
@@ -138,7 +153,7 @@ const App: React.FC = () => {
             );
 
             // テキストレスポンスの取得（型の違いに対応）
-            const responseText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const responseText = extractTextFromResponse(result as GeminiResponse);
             return responseText || errorMessage;
         } catch (error) {
             // 変換に失敗した場合は元のエラーメッセージを返す
@@ -257,7 +272,7 @@ const App: React.FC = () => {
             } else if (uploadedMedia && uploadedMedia.type === 'image') {
                  const result = await geminiService.analyzeImage(prompt, uploadedMedia, systemInstruction);
                  // analyzeImageの戻り値はGenerateContentResponse型
-                 const responseText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                 const responseText = extractTextFromResponse(result as GeminiResponse);
                  setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: responseText }] } : m));
             } else {
                 let result: GenerateContentResponse;
@@ -299,7 +314,7 @@ const App: React.FC = () => {
                 const sources = groundingChunks?.map((c: any) => ({ uri: c.web.uri, title: c.web.title })) || [];
 
                 // テキストレスポンスの取得（型の違いに対応）
-                const responseText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const responseText = extractTextFromResponse(result as GeminiResponse);
                 setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: responseText, sources }] } : m));
             }
         } catch (error) {

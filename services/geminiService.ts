@@ -8,6 +8,8 @@ import {
     VALID_IMAGE_ASPECT_RATIOS,
     ERROR_MESSAGES
 } from '../constants';
+import type { GeminiResponse } from '../types/gemini';
+import { extractTextFromResponse } from '../types/gemini';
 
 // This function creates a new GoogleGenAI instance for each call.
 // This is crucial for Veo to ensure the latest API key from the selection dialog is used.
@@ -87,7 +89,7 @@ export const generateSearchGroundedResponse = async (prompt: string, systemInstr
     const searchResult = await ai.models.generateContent(searchRequestConfig);
     
     // 検索結果を取得
-    const searchResponseText = (searchResult as any).text || searchResult.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const searchResponseText = extractTextFromResponse(searchResult as GeminiResponse);
     const groundingChunks = searchResult.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     
     // DJ社長モードがONの場合、検索結果をDJ社長の口調で再フォーマット
@@ -124,7 +126,7 @@ ${prompt}
         const reformatResult = await ai.models.generateContent(reformatRequestConfig);
         
         // 再フォーマットされたテキストを取得
-        const reformattedText = (reformatResult as any).text || reformatResult.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const reformattedText = extractTextFromResponse(reformatResult as GeminiResponse);
         
         // 元の検索結果の構造を保持しながら、テキストを置き換え
         // groundingChunksは元の検索結果から保持

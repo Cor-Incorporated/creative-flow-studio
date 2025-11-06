@@ -84,9 +84,29 @@ const VideoContent: React.FC<{ part: ContentPart }> = ({ part }) => {
 
 const TextContent: React.FC<{ part: ContentPart }> = ({ part }) => {
     if (!part.text) return null;
-    // Super simple markdown to HTML
-    const formattedText = part.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    return <p className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formattedText }} />;
+
+    // Parse markdown-style bold (**text**) safely without dangerouslySetInnerHTML
+    const parts: React.ReactNode[] = [];
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = boldRegex.exec(part.text)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+            parts.push(part.text.substring(lastIndex, match.index));
+        }
+        // Add bold text
+        parts.push(<strong key={match.index}>{match[1]}</strong>);
+        lastIndex = boldRegex.lastIndex;
+    }
+
+    // Add remaining text
+    if (lastIndex < part.text.length) {
+        parts.push(part.text.substring(lastIndex));
+    }
+
+    return <p className="whitespace-pre-wrap">{parts.length > 0 ? parts : part.text}</p>;
 };
 
 const SourceList: React.FC<{ sources: GroundingSource[] }> = ({ sources }) => (
