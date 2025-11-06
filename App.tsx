@@ -42,18 +42,18 @@ const App: React.FC = () => {
     // Update ref immediately during render to avoid race conditions
     isDjShachoModeRef.current = isDjShachoMode;
 
-    // Cleanup blob URLs on unmount to prevent memory leaks
+    // Track blob URLs for cleanup to prevent memory leaks
+    const blobUrlsRef = useRef<Set<string>>(new Set());
+
+    // Cleanup all blob URLs on unmount
     useEffect(() => {
         return () => {
-            messages.forEach(msg => {
-                msg.parts.forEach(part => {
-                    if (part.media?.url && part.media.url.startsWith('blob:')) {
-                        URL.revokeObjectURL(part.media.url);
-                    }
-                });
+            blobUrlsRef.current.forEach(url => {
+                URL.revokeObjectURL(url);
             });
+            blobUrlsRef.current.clear();
         };
-    }, []); // Empty deps: only run on unmount
+    }, []);
 
     const checkApiKey = useCallback(async () => {
         if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
@@ -98,6 +98,7 @@ const App: React.FC = () => {
 
     const updateLastMessage = (updater: (lastMessage: Message) => Message) => {
         setMessages(prev => {
+            if (prev.length === 0) return prev; // Guard against empty messages
             const newMessages = [...prev];
             newMessages[newMessages.length - 1] = updater(newMessages[newMessages.length - 1]);
             return newMessages;
@@ -197,9 +198,12 @@ const App: React.FC = () => {
             } : m));
 
             await new Promise(resolve => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
+
+            // Increment counter before API call to ensure timeout protection works even if calls fail
+            pollAttempts++;
+
             try {
                 currentOperation = await geminiService.pollVideoOperation(currentOperation);
-                pollAttempts++;
             } catch (error) {
                 await handleApiError(error, 'video polling', true);
                 return;
@@ -223,6 +227,9 @@ const App: React.FC = () => {
             const videoResponse = await fetch(videoUrl);
             const videoBlob = await videoResponse.blob();
             const videoDataUrl = URL.createObjectURL(videoBlob);
+
+            // Track blob URL for cleanup
+            blobUrlsRef.current.add(videoDataUrl);
 
             setMessages(prev => prev.map(m => m.id === messageId ? {
                 ...m,
