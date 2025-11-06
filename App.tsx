@@ -8,6 +8,12 @@ import { SparklesIcon } from './components/icons';
 import * as geminiService from './services/geminiService';
 import { fileToBase64, dataUrlToBase64 } from './utils/fileUtils';
 import { DJ_SHACHO_INITIAL_MESSAGE, DJ_SHACHO_SYSTEM_PROMPT } from './services/prompts/djShachoPrompt';
+import {
+    DJ_SHACHO_TEMPERATURE,
+    VIDEO_POLL_INTERVAL_MS,
+    MAX_VIDEO_POLL_ATTEMPTS,
+    ERROR_MESSAGES
+} from './constants';
 
 // Fix: Use a named interface 'AIStudio' to resolve declaration conflicts.
 declare global {
@@ -87,10 +93,10 @@ const App: React.FC = () => {
         if (import.meta.env.DEV) {
             console.error(`Error in ${context}:`, error);
         }
-        let errorMessage = `エラーが発生しました。もう一度お試しください。`;
-        
+        let errorMessage = ERROR_MESSAGES.GENERIC_ERROR;
+
         if (error.message && error.message.includes("Requested entity was not found")) {
-            errorMessage = "APIキーが見つからないか、無効です。有効なキーを選択してください。";
+            errorMessage = ERROR_MESSAGES.API_KEY_NOT_FOUND;
             setIsApiKeySelected(false); // Force user to re-select key
         } else if (error.message) {
             errorMessage = error.message;
@@ -128,7 +134,7 @@ const App: React.FC = () => {
                 [],
                 prompt,
                 DJ_SHACHO_SYSTEM_PROMPT,
-                0.9
+                DJ_SHACHO_TEMPERATURE
             );
 
             // テキストレスポンスの取得（型の違いに対応）
@@ -154,24 +160,40 @@ const App: React.FC = () => {
 
     const pollVideoStatus = async (operation: any, messageId: string) => {
         let currentOperation = operation;
+        let pollAttempts = 0;
+
         while (!currentOperation.done) {
+            // Check for timeout
+            if (pollAttempts >= MAX_VIDEO_POLL_ATTEMPTS) {
+                const timeoutError = await formatErrorMessage(ERROR_MESSAGES.VIDEO_POLL_TIMEOUT);
+                setMessages(prev => prev.map(m => m.id === messageId ? {
+                    ...m,
+                    parts: [{ isError: true, text: timeoutError }]
+                } : m));
+                return;
+            }
+
+            // Validate and display progress
+            const progress = currentOperation.metadata?.progressPercentage || 0;
+            const validatedProgress = Math.max(0, Math.min(100, progress)); // Clamp to 0-100
             setMessages(prev => prev.map(m => m.id === messageId ? {
                 ...m,
-                parts: [{ isLoading: true, status: `ビデオを処理中...(${(currentOperation.metadata?.progressPercentage || 0).toFixed(0)}%)` }]
+                parts: [{ isLoading: true, status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)` }]
             } : m));
-            
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5s
+
+            await new Promise(resolve => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
             try {
-                 currentOperation = await geminiService.pollVideoOperation(currentOperation);
+                currentOperation = await geminiService.pollVideoOperation(currentOperation);
+                pollAttempts++;
             } catch (error) {
-                 await handleApiError(error, 'video polling', true);
-                 return;
+                await handleApiError(error, 'video polling', true);
+                return;
             }
         }
         
         // When operation is done, check for explicit errors from the API
         if (currentOperation.error) {
-            const apiErrorMessage = currentOperation.error.message || "不明なエラーによりビデオの生成に失敗しました。";
+            const apiErrorMessage = currentOperation.error.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED;
             const formattedError = await formatErrorMessage(`ビデオ生成エラー: ${apiErrorMessage}`);
             setMessages(prev => prev.map(m => m.id === messageId ? {
                 ...m,
@@ -186,14 +208,13 @@ const App: React.FC = () => {
             const videoResponse = await fetch(videoUrl);
             const videoBlob = await videoResponse.blob();
             const videoDataUrl = URL.createObjectURL(videoBlob);
-            
+
             setMessages(prev => prev.map(m => m.id === messageId ? {
                 ...m,
                 parts: [{ media: { type: 'video', url: videoDataUrl, mimeType: 'video/mp4' } }]
             } : m));
         } else {
-            const errorMessage = "ビデオの生成は完了しましたが、ビデオデータが返されませんでした。プロンプトの内容に問題があるか、一時的なAPIの問題の可能性があります。";
-            const formattedError = await formatErrorMessage(errorMessage);
+            const formattedError = await formatErrorMessage(ERROR_MESSAGES.VIDEO_GENERATION_FAILED);
             setMessages(prev => prev.map(m => m.id === messageId ? { ...m, parts: [{ isError: true, text: formattedError }] } : m));
         }
     };
@@ -213,7 +234,7 @@ const App: React.FC = () => {
         try {
             // DJ社長モードの設定
             const systemInstruction = isDjShachoMode ? DJ_SHACHO_SYSTEM_PROMPT : undefined;
-            const temperature = isDjShachoMode ? 0.9 : undefined;
+            const temperature = isDjShachoMode ? DJ_SHACHO_TEMPERATURE : undefined;
 
             if (mode === 'image') {
                 // 画像生成ではプロンプトはそのまま使用（DJ社長モードはエラーメッセージにのみ適用）
@@ -223,7 +244,7 @@ const App: React.FC = () => {
                 if (!isApiKeySelected) {
                     await checkApiKey();
                     if (!(await window.aistudio.hasSelectedApiKey())) {
-                         await handleApiError({message: "ビデオ生成にはAPIキーが必要です。"}, "video generation", true);
+                         await handleApiError({message: ERROR_MESSAGES.VIDEO_API_KEY_REQUIRED}, "video generation", true);
                          setIsLoading(false);
                          return;
                     }

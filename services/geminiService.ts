@@ -3,6 +3,11 @@ import { GoogleGenAI, Modality } from '@google/genai';
 import { Media } from '../types';
 // Fix: Use renamed utility function for clarity.
 import { dataUrlToBase64 } from '../utils/fileUtils';
+import {
+    THINKING_BUDGET,
+    VALID_IMAGE_ASPECT_RATIOS,
+    ERROR_MESSAGES
+} from '../constants';
 
 // This function creates a new GoogleGenAI instance for each call.
 // This is crucial for Veo to ensure the latest API key from the selection dialog is used.
@@ -45,7 +50,7 @@ export const generateProResponse = async (prompt: string, systemInstruction?: st
             parts: [{ text: prompt }]
         },
         config: {
-            thinkingConfig: { thinkingBudget: 32768 }
+            thinkingConfig: { thinkingBudget: THINKING_BUDGET }
         }
     };
     // systemInstructionを設定（DJ社長モードがONの場合）
@@ -145,11 +150,10 @@ ${prompt}
 // （Imagen 4.0のポリシーで実在人物名を含むプロンプトがブロックされるため）
 export const generateImage = async (prompt: string, aspectRatio: string) => {
     const ai = getAiClient();
-    
+
     // Imagen 4.0のaspectRatio形式を確認（文字列形式の可能性）
     // aspectRatioの値が正しい形式か確認
-    const validAspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'];
-    const normalizedAspectRatio = validAspectRatios.includes(aspectRatio) ? aspectRatio : '1:1';
+    const normalizedAspectRatio = VALID_IMAGE_ASPECT_RATIOS.includes(aspectRatio as any) ? aspectRatio : '1:1';
     
     const result = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
@@ -164,21 +168,21 @@ export const generateImage = async (prompt: string, aspectRatio: string) => {
     // エラーハンドリング: generatedImagesが存在し、要素があることを確認
     if (!result || !result.generatedImages || result.generatedImages.length === 0) {
         const httpResponse = result?.sdkHttpResponse as any;
-        const errorMessage = httpResponse?.body 
-            ? `画像生成に失敗しました: ${JSON.stringify(httpResponse.body)}`
-            : '画像生成に失敗しました。生成された画像がありません。プロンプトの内容を確認してください。';
+        const errorMessage = httpResponse?.body
+            ? `${ERROR_MESSAGES.IMAGE_GENERATION_FAILED}: ${JSON.stringify(httpResponse.body)}`
+            : ERROR_MESSAGES.IMAGE_NO_IMAGES;
         throw new Error(errorMessage);
     }
-    
+
     const firstImage = result.generatedImages[0];
     if (!firstImage) {
-        throw new Error('画像生成に失敗しました。画像データが取得できませんでした。');
+        throw new Error(ERROR_MESSAGES.IMAGE_NO_DATA);
     }
-    
+
     // 画像データの取得方法を確認（APIレスポンス構造に応じて）
     let base64ImageBytes: string;
     const imageData = firstImage as any; // 型エラーを回避するため一時的にany型を使用
-    
+
     if (imageData.image && imageData.image.imageBytes) {
         base64ImageBytes = imageData.image.imageBytes;
     } else if (imageData.imageBytes) {
@@ -186,7 +190,7 @@ export const generateImage = async (prompt: string, aspectRatio: string) => {
     } else if (imageData.data) {
         base64ImageBytes = imageData.data;
     } else {
-        throw new Error('画像生成に失敗しました。画像データの構造が予期されない形式です。');
+        throw new Error(ERROR_MESSAGES.IMAGE_UNEXPECTED_FORMAT);
     }
     
     return `data:image/png;base64,${base64ImageBytes}`;
@@ -240,7 +244,7 @@ export const editImage = async (prompt: string, image: Media) => {
             return `data:image/png;base64,${base64ImageBytes}`;
         }
     }
-    throw new Error("No image found in edit response");
+    throw new Error(ERROR_MESSAGES.IMAGE_EDIT_NO_IMAGE);
 };
 
 // --- Video Generation ---

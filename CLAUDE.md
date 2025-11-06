@@ -106,6 +106,37 @@ Video generation is asynchronous and requires polling:
 - **Conversation History**: For chat mode, entire message history is flattened and passed to maintain context
 - **Media Handling**: Images/videos use data URLs (base64) for display; `dataUrlToBase64()` utility extracts raw base64 for API calls
 
+## Input Validation and Constants
+
+The application includes comprehensive input validation and centralized constants for better maintainability and security.
+
+**Constants (`constants.ts`):**
+
+- `MAX_PROMPT_LENGTH`: 30,000 characters (Gemini API limit)
+- `MAX_FILE_SIZE`: 10MB limit for uploaded files
+- `ALLOWED_IMAGE_TYPES`: Permitted image MIME types (JPEG, PNG, WebP, GIF)
+- `ALLOWED_VIDEO_TYPES`: Permitted video MIME types (MP4, WebM, QuickTime, AVI, MPEG)
+- `DJ_SHACHO_TEMPERATURE`: 0.9 (creative temperature for DJ Shacho responses)
+- `THINKING_BUDGET`: 32,768 tokens for Pro mode thinking
+- `VIDEO_POLL_INTERVAL_MS`: 5,000ms polling interval
+- `MAX_VIDEO_POLL_ATTEMPTS`: 120 attempts (10 minutes max)
+- `ERROR_MESSAGES`: Centralized error message strings
+
+**Validation in ChatInput:**
+
+- File size checked against MAX_FILE_SIZE before upload
+- MIME type validated against allowed types
+- Prompt length validated before submission
+- Visual error messages displayed to user
+- Paste functionality includes same validation
+
+**Video Polling Improvements:**
+
+- Timeout protection with MAX_VIDEO_POLL_ATTEMPTS
+- Progress percentage clamped to 0-100 range
+- Clear timeout error messages
+- Prevents infinite polling loops
+
 ## DJ Shacho Mode
 
 DJ Shacho Mode is a special persona mode that transforms text responses to match the speaking style of DJ Shacho (Shunsuke Kimoto), leader of Repezen Foxx and charismatic entrepreneur.
@@ -148,6 +179,7 @@ The app uses Tailwind CSS for styling:
 ├── index.html                 # HTML template
 ├── index.css                  # Tailwind directives & global styles
 ├── types.ts                   # TypeScript interfaces for messages, media, modes
+├── constants.ts               # Centralized constants & validation limits
 ├── vite-env.d.ts             # Vite type definitions
 ├── tailwind.config.js        # Tailwind CSS configuration
 ├── postcss.config.js         # PostCSS configuration
