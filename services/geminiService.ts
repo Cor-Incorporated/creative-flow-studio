@@ -18,7 +18,10 @@ export const generateChatResponse = async (history: any[], prompt: string, syste
     const ai = getAiClient();
     const chatConfig: any = { model: 'gemini-2.5-flash', history };
     if (systemInstruction) {
-        chatConfig.systemInstruction = systemInstruction;
+        // Gemini API requires systemInstruction in Content format
+        chatConfig.systemInstruction = {
+            parts: [{ text: systemInstruction }]
+        };
     }
     if (temperature !== undefined) {
         chatConfig.config = { temperature };
@@ -45,12 +48,28 @@ export const generateProResponse = async (prompt: string, systemInstruction?: st
     };
     // systemInstructionを設定（DJ社長モードがONの場合）
     if (systemInstruction) {
-        requestConfig.systemInstruction = systemInstruction;
+        // Gemini API requires systemInstruction in Content format for some models
+        requestConfig.systemInstruction = {
+            parts: [{ text: systemInstruction }]
+        };
     }
     // temperatureを設定（DJ社長モードがONの場合は0.9に設定）
     if (temperature !== undefined) {
         requestConfig.config = { ...requestConfig.config, temperature };
     }
+
+    // Debug: Check if systemInstruction is being applied
+    if (import.meta.env.DEV && systemInstruction) {
+        console.log('[DEBUG] generateProResponse - systemInstruction length:', systemInstruction.length);
+        console.log('[DEBUG] generateProResponse - temperature:', temperature);
+        console.log('[DEBUG] generateProResponse - config:', JSON.stringify({
+            model: requestConfig.model,
+            hasSystemInstruction: !!requestConfig.systemInstruction,
+            temperature: requestConfig.config?.temperature,
+            hasThinkingConfig: !!requestConfig.config?.thinkingConfig
+        }, null, 2));
+    }
+
     const result = await ai.models.generateContent(requestConfig);
     return result;
 };
@@ -100,7 +119,9 @@ ${prompt}
         
         // DJ社長のシステムプロンプトを設定
         if (systemInstruction) {
-            reformatRequestConfig.systemInstruction = systemInstruction;
+            reformatRequestConfig.systemInstruction = {
+                parts: [{ text: systemInstruction }]
+            };
         }
         if (temperature !== undefined) {
             reformatRequestConfig.config = { temperature };
@@ -198,7 +219,9 @@ export const analyzeImage = async (prompt: string, image: Media, systemInstructi
         contents: { parts: [imagePart, textPart] },
     };
     if (systemInstruction) {
-        requestConfig.systemInstruction = systemInstruction;
+        requestConfig.systemInstruction = {
+            parts: [{ text: systemInstruction }]
+        };
     }
     const result = await ai.models.generateContent(requestConfig);
     return result;
