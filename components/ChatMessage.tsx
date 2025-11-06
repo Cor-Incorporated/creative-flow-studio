@@ -1,11 +1,12 @@
-
 import React, { useState } from 'react';
 import { Message, Media, GroundingSource, ContentPart } from '../types';
-import { PencilIcon, DownloadIcon, SparklesIcon, LoadingSpinner } from './icons';
+import { PencilIcon, DownloadIcon, LoadingSpinner } from './icons';
+import djShachoAvatar from '../DJ_Shacho_400x400.jpg';
 
 interface ChatMessageProps {
   message: Message;
   onEditImage: (prompt: string, image: Media) => void;
+  isDjShachoMode?: boolean;
 }
 
 const handleDownload = (url: string, filename: string) => {
@@ -83,9 +84,29 @@ const VideoContent: React.FC<{ part: ContentPart }> = ({ part }) => {
 
 const TextContent: React.FC<{ part: ContentPart }> = ({ part }) => {
     if (!part.text) return null;
-    // Super simple markdown to HTML
-    const formattedText = part.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    return <p className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formattedText }} />;
+
+    // Parse markdown-style bold (**text**) safely without dangerouslySetInnerHTML
+    const parts: React.ReactNode[] = [];
+    const boldRegex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = boldRegex.exec(part.text)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+            parts.push(part.text.substring(lastIndex, match.index));
+        }
+        // Add bold text
+        parts.push(<strong key={match.index}>{match[1]}</strong>);
+        lastIndex = boldRegex.lastIndex;
+    }
+
+    // Add remaining text
+    if (lastIndex < part.text.length) {
+        parts.push(part.text.substring(lastIndex));
+    }
+
+    return <p className="whitespace-pre-wrap">{parts.length > 0 ? parts : part.text}</p>;
 };
 
 const SourceList: React.FC<{ sources: GroundingSource[] }> = ({ sources }) => (
@@ -103,35 +124,52 @@ const SourceList: React.FC<{ sources: GroundingSource[] }> = ({ sources }) => (
     </div>
 );
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onEditImage }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ message, onEditImage, isDjShachoMode = false }) => {
   const isUser = message.role === 'user';
   const bgColor = isUser ? 'bg-gray-800' : 'bg-gray-700/50';
   const alignment = isUser ? 'justify-end' : 'justify-start';
+  const flexDirection = isUser ? 'flex-row-reverse' : 'flex-row';
+  const avatar = isUser ? (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-semibold">
+      YOU
+    </div>
+  ) : isDjShachoMode ? (
+    <img src={djShachoAvatar} alt="DJ社長" className="w-full h-full object-cover" />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
+      AI
+    </div>
+  );
 
   return (
     <div className={`flex ${alignment} mb-4`}>
-      <div className={`max-w-2xl px-4 py-3 rounded-2xl ${bgColor} flex flex-col gap-3`}>
-        {message.parts.map((part, index) => (
-          <div key={index}>
-            {part.isLoading && (
-              <div className="flex items-center gap-2 text-gray-400">
-                {part.status ? (
-                    <>
-                        <LoadingSpinner />
-                        <span>{part.status}</span>
-                    </>
-                ) : (
-                    <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
-                )}
-              </div>
-            )}
-            {part.isError && <p className="text-red-400">{part.text}</p>}
-            {part.media?.type === 'image' && <ImageContent part={part} onEditImage={onEditImage} />}
-            {part.media?.type === 'video' && <VideoContent part={part} />}
-            {part.text && <TextContent part={part} />}
-            {part.sources && part.sources.length > 0 && <SourceList sources={part.sources} />}
-          </div>
-        ))}
+      <div className={`flex ${flexDirection} items-end gap-3 max-w-2xl`}>
+        <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-700 bg-gray-800 flex-shrink-0">
+          {avatar}
+        </div>
+        <div className={`px-4 py-3 rounded-2xl ${bgColor} flex flex-col gap-3`}>
+          {message.parts.map((part, index) => (
+            <div key={index}>
+              {part.isLoading && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  {part.status ? (
+                      <>
+                          <LoadingSpinner />
+                          <span>{part.status}</span>
+                      </>
+                  ) : (
+                      <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
+                  )}
+                </div>
+              )}
+              {part.isError && <p className="text-red-400">{part.text}</p>}
+              {part.media?.type === 'image' && <ImageContent part={part} onEditImage={onEditImage} />}
+              {part.media?.type === 'video' && <VideoContent part={part} />}
+              {part.text && <TextContent part={part} />}
+              {part.sources && part.sources.length > 0 && <SourceList sources={part.sources} />}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

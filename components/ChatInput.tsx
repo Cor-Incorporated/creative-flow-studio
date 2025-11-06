@@ -3,6 +3,13 @@ import React, { useState, useRef, useCallback } from 'react';
 import { GenerationMode, AspectRatio, Media } from '../types';
 import { SendIcon, AttachmentIcon, SparklesIcon } from './icons';
 import { fileToBase64 } from '../utils/fileUtils';
+import {
+    MAX_FILE_SIZE,
+    MAX_PROMPT_LENGTH,
+    ALLOWED_IMAGE_TYPES,
+    ALLOWED_VIDEO_TYPES,
+    ERROR_MESSAGES
+} from '../constants';
 
 interface ChatInputProps {
   onSendMessage: (prompt: string, uploadedMedia?: Media) => void;
@@ -11,6 +18,8 @@ interface ChatInputProps {
   setMode: (mode: GenerationMode) => void;
   aspectRatio: AspectRatio;
   setAspectRatio: (ratio: AspectRatio) => void;
+  isDjShachoMode: boolean;
+  setIsDjShachoMode: (isDjShachoMode: boolean) => void;
 }
 
 const ModeButton: React.FC<{
@@ -49,24 +58,62 @@ const AspectRatioButton: React.FC<{
     </button>
 );
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, setMode, aspectRatio, setAspectRatio }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, setMode, aspectRatio, setAspectRatio, isDjShachoMode, setIsDjShachoMode }) => {
     const [prompt, setPrompt] = useState('');
     const [uploadedMedia, setUploadedMedia] = useState<Media | null>(null);
+    const [validationError, setValidationError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = async (files: FileList | null) => {
         if (files && files[0]) {
             const file = files[0];
+
+            // Validate file size
+            if (file.size > MAX_FILE_SIZE) {
+                setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+                return;
+            }
+
+            // Validate MIME type
+            const isImage = file.type.startsWith('image');
+            const isVideo = file.type.startsWith('video');
+
+            if (isImage && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                return;
+            }
+
+            if (isVideo && !ALLOWED_VIDEO_TYPES.includes(file.type)) {
+                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                return;
+            }
+
+            if (!isImage && !isVideo) {
+                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                return;
+            }
+
+            // Clear any previous validation errors
+            setValidationError(null);
+
             const url = await fileToBase64(file);
-            const type = file.type.startsWith('video') ? 'video' : 'image';
+            const type = isVideo ? 'video' : 'image';
             setUploadedMedia({ url, mimeType: file.type, type });
             if (type === 'video') setMode('video');
         }
     };
-    
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validate prompt length
+        if (prompt.length > MAX_PROMPT_LENGTH) {
+            setValidationError(ERROR_MESSAGES.PROMPT_TOO_LONG);
+            return;
+        }
+
         if ((prompt.trim() || uploadedMedia) && !isLoading) {
+            setValidationError(null);
             onSendMessage(prompt.trim(), uploadedMedia || undefined);
             setPrompt('');
             setUploadedMedia(null);
@@ -80,6 +127,19 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, s
             if (items[i].type.indexOf('image') !== -1) {
                 const file = items[i].getAsFile();
                 if (file) {
+                    // Validate file size
+                    if (file.size > MAX_FILE_SIZE) {
+                        setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+                        return;
+                    }
+
+                    // Validate MIME type
+                    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                        setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                        return;
+                    }
+
+                    setValidationError(null);
                     const url = await fileToBase64(file);
                     setUploadedMedia({ url, mimeType: file.type, type: 'image' });
                 }
@@ -98,6 +158,32 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, s
                 <ModeButton currentMode={mode} buttonMode="image" onClick={() => setMode('image')}>画像</ModeButton>
                 <ModeButton currentMode={mode} buttonMode="video" onClick={() => setMode('video')}>動画</ModeButton>
             </div>
+            <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-gray-400 mr-2">DJ社長モード:</span>
+                <button
+                    onClick={() => setIsDjShachoMode(!isDjShachoMode)}
+                    aria-label="DJ社長モード切り替え"
+                    aria-pressed={isDjShachoMode}
+                    role="switch"
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        isDjShachoMode ? 'bg-blue-600' : 'bg-gray-700'
+                    }`}
+                >
+                    <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            isDjShachoMode ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                </button>
+                <span className={`text-sm ${isDjShachoMode ? 'text-blue-400' : 'text-gray-400'}`}>
+                    {isDjShachoMode ? 'ON' : 'OFF'}
+                </span>
+            </div>
+            {validationError && (
+                <div className="mb-2 p-2 bg-red-900/50 border border-red-500 rounded-md text-red-200 text-sm">
+                    {validationError}
+                </div>
+            )}
             {(mode === 'image' || mode === 'video') && (
                 <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold text-gray-400 mr-2">アスペクト比:</span>
