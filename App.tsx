@@ -6,7 +6,7 @@ import ChatMessage from './components/ChatMessage';
 import ApiKeyModal from './components/ApiKeyModal';
 import { SparklesIcon } from './components/icons';
 import * as geminiService from './services/geminiService';
-import { fileToBase64 } from './utils/fileUtils';
+import { fileToBase64, dataUrlToBase64 } from './utils/fileUtils';
 import { DJ_SHACHO_INITIAL_MESSAGE, DJ_SHACHO_SYSTEM_PROMPT } from './services/prompts/djShachoPrompt';
 
 // Fix: Use a named interface 'AIStudio' to resolve declaration conflicts.
@@ -248,10 +248,29 @@ const App: React.FC = () => {
                     // 検索結果をDJ社長の口調（九州弁、ハイテンション、ポジティブ）で返す
                     result = await geminiService.generateSearchGroundedResponse(prompt, systemInstruction, temperature);
                 } else { // chat
+                    // Build conversation history preserving multimodal content
                     const history = messages
                         .filter(m => m.role === 'user' || m.role === 'model')
-                        .flatMap(m => m.parts.map(p => ({ role: m.role, parts: [{ text: p.text || '' }] }))) as GeminiContentPart[];
-                    // Fix: Directly await the response and assign to result, simplifying the logic.
+                        .map(m => ({
+                            role: m.role,
+                            parts: m.parts
+                                .filter(p => p.text || p.media)  // Only include content parts
+                                .map(p => {
+                                    if (p.text) return { text: p.text };
+                                    if (p.media && p.media.type === 'image') {
+                                        return {
+                                            inlineData: {
+                                                mimeType: p.media.mimeType,
+                                                data: dataUrlToBase64(p.media.url)
+                                            }
+                                        };
+                                    }
+                                    return null;
+                                })
+                                .filter((part): part is { text: string } | { inlineData: { mimeType: string, data: string } } => part !== null)
+                        }))
+                        .filter(m => m.parts.length > 0);  // Exclude messages with no valid parts
+
                     result = await geminiService.generateChatResponse(history, prompt, systemInstruction, temperature);
                 }
                 

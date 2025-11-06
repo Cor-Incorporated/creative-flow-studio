@@ -58,19 +58,7 @@ export const generateProResponse = async (prompt: string, systemInstruction?: st
         requestConfig.config = { ...requestConfig.config, temperature };
     }
 
-    // Debug: Check if systemInstruction is being applied
-    if (import.meta.env.DEV) {
-        console.log('[DEBUG] generateProResponse - systemInstruction length:', systemInstruction?.length || 0);
-        console.log('[DEBUG] generateProResponse - temperature:', temperature);
-        console.log('[DEBUG] generateProResponse - Full requestConfig:', JSON.stringify(requestConfig, null, 2));
-    }
-
     const result = await ai.models.generateContent(requestConfig);
-
-    if (import.meta.env.DEV) {
-        console.log('[DEBUG] generateProResponse - Response received, candidates:', result.candidates?.length || 0);
-    }
-
     return result;
 };
 
