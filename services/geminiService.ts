@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, GenerateContentResponse, Modality, ContentPart as GeminiContentPart } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 import { Media } from '../types';
 // Fix: Use renamed utility function for clarity.
 import { dataUrlToBase64 } from '../utils/fileUtils';
@@ -14,55 +14,180 @@ const getAiClient = () => {
 };
 
 // --- Text Generation ---
-export const generateChatResponse = async (history: GeminiContentPart[], prompt: string) => {
+export const generateChatResponse = async (history: any[], prompt: string, systemInstruction?: string, temperature?: number) => {
     const ai = getAiClient();
-    const chat = ai.chats.create({ model: 'gemini-2.5-flash', history });
+    const chatConfig: any = { model: 'gemini-2.5-flash', history };
+    if (systemInstruction) {
+        chatConfig.systemInstruction = systemInstruction;
+    }
+    if (temperature !== undefined) {
+        chatConfig.config = { temperature };
+    }
+    const chat = ai.chats.create(chatConfig);
     const result = await chat.sendMessage({ message: prompt });
     // Fix: According to the guidelines, the direct result from `sendMessage` should be returned. Accessing `.response` is incorrect.
     return result;
 };
 
-export const generateProResponse = async (prompt: string) => {
+// プロモード: gemini-2.5-proを使用（思考過程を含む高度な応答）
+// DJ社長モードがONの場合、systemInstructionで口調を制御
+export const generateProResponse = async (prompt: string, systemInstruction?: string, temperature?: number) => {
     const ai = getAiClient();
-    const result = await ai.models.generateContent({
+    // contentsをparts形式に変更（systemInstructionと併用する場合に推奨）
+    const requestConfig: any = {
         model: 'gemini-2.5-pro',
-        contents: prompt,
+        contents: {
+            parts: [{ text: prompt }]
+        },
         config: {
             thinkingConfig: { thinkingBudget: 32768 }
         }
-    });
+    };
+    // systemInstructionを設定（DJ社長モードがONの場合）
+    if (systemInstruction) {
+        requestConfig.systemInstruction = systemInstruction;
+        console.log('[generateProResponse] systemInstruction設定:', systemInstruction.substring(0, 100) + '...');
+    }
+    // temperatureを設定（DJ社長モードがONの場合は0.9に設定）
+    if (temperature !== undefined) {
+        requestConfig.config = { ...requestConfig.config, temperature };
+        console.log('[generateProResponse] temperature設定:', temperature);
+    }
+    console.log('[generateProResponse] リクエスト設定:', JSON.stringify(requestConfig, null, 2));
+    const result = await ai.models.generateContent(requestConfig);
+    console.log('[generateProResponse] レスポンス受信');
     return result;
 };
 
-export const generateSearchGroundedResponse = async (prompt: string) => {
+// リサーチモード（Google Search使用）
+// DJ社長モードがONの場合、検索結果をDJ社長の口調で返す
+export const generateSearchGroundedResponse = async (prompt: string, systemInstruction?: string, temperature?: number) => {
     const ai = getAiClient();
-    const result = await ai.models.generateContent({
+    
+    // まず、Google Searchツールを使用して検索を実行
+    const searchRequestConfig: any = {
         model: 'gemini-2.5-flash',
-        contents: prompt,
+        contents: {
+            parts: [{ text: prompt }]
+        },
         config: {
-            tools: [{ googleSearch: {} }]
+            tools: [{ googleSearch: {} }] // Google Searchツールを使用して検索を実行
         }
-    });
-    return result;
+    };
+    
+    // 検索を実行（systemInstructionは検索実行時には使用しない）
+    const searchResult = await ai.models.generateContent(searchRequestConfig);
+    
+    // 検索結果を取得
+    const searchResponseText = (searchResult as any).text || searchResult.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const groundingChunks = searchResult.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    
+    // DJ社長モードがONの場合、検索結果をDJ社長の口調で再フォーマット
+    if (systemInstruction && searchResponseText) {
+        // 検索結果をDJ社長の口調で再フォーマットするためのプロンプト
+        const reformatPrompt = `以下の検索結果を、DJ社長（木元駿之介）のスタイルで説明してください。九州弁を使い、ハイテンションで、ポジティブに、でも検索結果の内容は正確に伝えてください。
+
+【検索結果】
+${searchResponseText}
+
+【元の質問】
+${prompt}
+
+上記の検索結果をもとに、DJ社長の口調で回答してください。`;
+
+        const reformatRequestConfig: any = {
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [{ text: reformatPrompt }]
+            },
+        };
+        
+        // DJ社長のシステムプロンプトを設定
+        if (systemInstruction) {
+            reformatRequestConfig.systemInstruction = systemInstruction;
+        }
+        if (temperature !== undefined) {
+            reformatRequestConfig.config = { temperature };
+        }
+        
+        // 検索結果をDJ社長の口調で再フォーマット
+        const reformatResult = await ai.models.generateContent(reformatRequestConfig);
+        
+        // 再フォーマットされたテキストを取得
+        const reformattedText = (reformatResult as any).text || reformatResult.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        // 元の検索結果の構造を保持しながら、テキストを置き換え
+        // groundingChunksは元の検索結果から保持
+        return {
+            ...searchResult,
+            candidates: [{
+                ...searchResult.candidates?.[0],
+                content: {
+                    ...searchResult.candidates?.[0]?.content,
+                    parts: [{ text: reformattedText }]
+                },
+                groundingMetadata: searchResult.candidates?.[0]?.groundingMetadata
+            }]
+        } as any;
+    }
+    
+    // DJ社長モードがOFFの場合は、そのまま検索結果を返す
+    return searchResult;
 };
 
 // --- Image Generation & Understanding ---
+// 注意: 画像生成ではDJ社長モードをONにしてもプロンプトは変更しない
+// （Imagen 4.0のポリシーで実在人物名を含むプロンプトがブロックされるため）
 export const generateImage = async (prompt: string, aspectRatio: string) => {
     const ai = getAiClient();
+    
+    // Imagen 4.0のaspectRatio形式を確認（文字列形式の可能性）
+    // aspectRatioの値が正しい形式か確認
+    const validAspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'];
+    const normalizedAspectRatio = validAspectRatios.includes(aspectRatio) ? aspectRatio : '1:1';
+    
     const result = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
-        prompt,
+        prompt: prompt, // ユーザーのプロンプトをそのまま使用
         config: {
             numberOfImages: 1,
             outputMimeType: 'image/png',
-            aspectRatio,
+            aspectRatio: normalizedAspectRatio,
         },
     });
-    const base64ImageBytes = result.generatedImages[0].image.imageBytes;
+    
+    // エラーハンドリング: generatedImagesが存在し、要素があることを確認
+    if (!result || !result.generatedImages || result.generatedImages.length === 0) {
+        const httpResponse = result?.sdkHttpResponse as any;
+        const errorMessage = httpResponse?.body 
+            ? `画像生成に失敗しました: ${JSON.stringify(httpResponse.body)}`
+            : '画像生成に失敗しました。生成された画像がありません。プロンプトの内容を確認してください。';
+        throw new Error(errorMessage);
+    }
+    
+    const firstImage = result.generatedImages[0];
+    if (!firstImage) {
+        throw new Error('画像生成に失敗しました。画像データが取得できませんでした。');
+    }
+    
+    // 画像データの取得方法を確認（APIレスポンス構造に応じて）
+    let base64ImageBytes: string;
+    const imageData = firstImage as any; // 型エラーを回避するため一時的にany型を使用
+    
+    if (imageData.image && imageData.image.imageBytes) {
+        base64ImageBytes = imageData.image.imageBytes;
+    } else if (imageData.imageBytes) {
+        base64ImageBytes = imageData.imageBytes;
+    } else if (imageData.data) {
+        base64ImageBytes = imageData.data;
+    } else {
+        throw new Error('画像生成に失敗しました。画像データの構造が予期されない形式です。');
+    }
+    
     return `data:image/png;base64,${base64ImageBytes}`;
 };
 
-export const analyzeImage = async (prompt: string, image: Media) => {
+export const analyzeImage = async (prompt: string, image: Media, systemInstruction?: string) => {
     const ai = getAiClient();
     const imagePart = {
         inlineData: {
@@ -72,10 +197,14 @@ export const analyzeImage = async (prompt: string, image: Media) => {
         },
     };
     const textPart = { text: prompt };
-    const result = await ai.models.generateContent({
+    const requestConfig: any = {
         model: 'gemini-2.5-flash',
         contents: { parts: [imagePart, textPart] },
-    });
+    };
+    if (systemInstruction) {
+        requestConfig.systemInstruction = systemInstruction;
+    }
+    const result = await ai.models.generateContent(requestConfig);
     return result;
 };
 
@@ -108,6 +237,8 @@ export const editImage = async (prompt: string, image: Media) => {
 };
 
 // --- Video Generation ---
+// 注意: 動画生成ではDJ社長モードをONにしてもプロンプトは変更しない
+// （Veo 3.1のポリシーで実在人物名を含むプロンプトがブロックされるため）
 export const generateVideo = async (prompt: string, aspectRatio: '16:9' | '9:16', startImage?: Media) => {
     const ai = getAiClient();
     const imagePayload = startImage ? {
@@ -118,7 +249,7 @@ export const generateVideo = async (prompt: string, aspectRatio: '16:9' | '9:16'
 
     let operation = await ai.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',
-        prompt,
+        prompt: prompt, // ユーザーのプロンプトをそのまま使用
         image: imagePayload,
         config: {
             numberOfVideos: 1,

@@ -11,6 +11,8 @@ interface ChatInputProps {
   setMode: (mode: GenerationMode) => void;
   aspectRatio: AspectRatio;
   setAspectRatio: (ratio: AspectRatio) => void;
+  isDjShachoMode: boolean;
+  setIsDjShachoMode: (isDjShachoMode: boolean) => void;
 }
 
 const ModeButton: React.FC<{
@@ -49,7 +51,7 @@ const AspectRatioButton: React.FC<{
     </button>
 );
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, setMode, aspectRatio, setAspectRatio }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, setMode, aspectRatio, setAspectRatio, isDjShachoMode, setIsDjShachoMode }) => {
     const [prompt, setPrompt] = useState('');
     const [uploadedMedia, setUploadedMedia] = useState<Media | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +99,24 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, s
                 <ModeButton currentMode={mode} buttonMode="search" onClick={() => setMode('search')}>検索</ModeButton>
                 <ModeButton currentMode={mode} buttonMode="image" onClick={() => setMode('image')}>画像</ModeButton>
                 <ModeButton currentMode={mode} buttonMode="video" onClick={() => setMode('video')}>動画</ModeButton>
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-gray-400 mr-2">DJ社長モード:</span>
+                <button
+                    onClick={() => setIsDjShachoMode(!isDjShachoMode)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        isDjShachoMode ? 'bg-blue-600' : 'bg-gray-700'
+                    }`}
+                >
+                    <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            isDjShachoMode ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                </button>
+                <span className={`text-sm ${isDjShachoMode ? 'text-blue-400' : 'text-gray-400'}`}>
+                    {isDjShachoMode ? 'ON' : 'OFF'}
+                </span>
             </div>
             {(mode === 'image' || mode === 'video') && (
                 <div className="flex items-center gap-2 mb-2">

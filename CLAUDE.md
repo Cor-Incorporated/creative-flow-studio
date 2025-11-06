@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Creative Flow Studio is a React + TypeScript application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions.
+Creative Flow Studio is a React + TypeScript application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features a DJ Shacho Mode that applies a unique persona (high-energy, Kyushu dialect speaking entrepreneur) to text responses.
 
 ## Development Commands
 
@@ -29,20 +29,24 @@ npm run preview
 **App.tsx** is the main orchestrator that:
 - Manages conversation state (`messages` array)
 - Handles mode switching between 5 generation modes: `chat`, `pro`, `search`, `image`, `video`
+- Manages DJ Shacho Mode toggle (`isDjShachoMode` state) which applies persona styling to text responses
 - Integrates with AI Studio's API key management via `window.aistudio` global
-- Delegates all Gemini API calls to `services/geminiService.ts`
+- Delegates all Gemini API calls to `services/geminiService.ts` with optional `systemInstruction` and `temperature` parameters
 - Handles async video generation polling with progress updates
+- Converts error messages to DJ Shacho style when DJ Shacho Mode is enabled
 
 ### Key Components
 
 **ChatInput** (`components/ChatInput.tsx`)
 - Mode selector buttons for switching between generation modes
+- DJ Shacho Mode toggle button for persona switching
 - Aspect ratio controls for image/video generation
 - File upload handling for multimodal inputs
 - Paste support for images
 
 **ChatMessage** (`components/ChatMessage.tsx`)
 - Renders different content types: text, images, videos, loading states
+- Displays DJ Shacho avatar when DJ Shacho Mode is enabled
 - Supports image editing workflow (hover to trigger edit prompt)
 - Downloads generated media
 - Displays grounding sources for search mode
@@ -53,13 +57,13 @@ npm run preview
 - All Gemini API interactions go through this service
 - Creates fresh `GoogleGenAI` client on each call to ensure latest API key is used
 - Key functions:
-  - `generateChatResponse()` - Uses gemini-2.5-flash with conversation history
-  - `generateProResponse()` - Uses gemini-2.5-pro with thinking budget
-  - `generateSearchGroundedResponse()` - Uses googleSearch tool for grounded answers
-  - `generateImage()` - Imagen 4.0 with configurable aspect ratios
-  - `analyzeImage()` - Vision capabilities for uploaded images
+  - `generateChatResponse()` - Uses gemini-2.5-flash with conversation history; supports `systemInstruction` and `temperature` for DJ Shacho Mode
+  - `generateProResponse()` - Uses gemini-2.5-pro with thinking budget; supports `systemInstruction` and `temperature` for DJ Shacho Mode
+  - `generateSearchGroundedResponse()` - Uses googleSearch tool for grounded answers; supports DJ Shacho Mode with dual-pass approach (search then reformat)
+  - `generateImage()` - Imagen 4.0 with configurable aspect ratios (note: DJ Shacho Mode does not modify prompts to comply with policy)
+  - `analyzeImage()` - Vision capabilities for uploaded images; supports `systemInstruction` for DJ Shacho Mode
   - `editImage()` - Uses gemini-2.5-flash-image with IMAGE response modality
-  - `generateVideo()` - Veo 3.1 (long-running operation, requires polling)
+  - `generateVideo()` - Veo 3.1 (long-running operation, requires polling; note: DJ Shacho Mode does not modify prompts to comply with policy)
   - `pollVideoOperation()` - Checks video generation status
 
 ### Type System
@@ -102,19 +106,61 @@ Video generation is asynchronous and requires polling:
 - **Conversation History**: For chat mode, entire message history is flattened and passed to maintain context
 - **Media Handling**: Images/videos use data URLs (base64) for display; `dataUrlToBase64()` utility extracts raw base64 for API calls
 
+## DJ Shacho Mode
+
+DJ Shacho Mode is a special persona mode that transforms text responses to match the speaking style of DJ Shacho (Shunsuke Kimoto), leader of Repezen Foxx and charismatic entrepreneur.
+
+**Characteristics:**
+
+- High-energy, enthusiastic tone
+- Kyushu dialect (Japanese regional dialect)
+- Positive, motivational messaging
+- Distinctive verbal patterns and expressions
+
+**Implementation:**
+
+- Toggle enabled via ChatInput component
+- System instruction (`DJ_SHACHO_SYSTEM_PROMPT`) passed to text generation APIs
+- Temperature set to 0.9 for more creative/varied responses
+- Error messages also converted to DJ Shacho style for consistency
+- Image/video prompts NOT modified (to comply with API policies on real person names)
+- Search mode uses dual-pass: search execution then style reformatting
+
+**Files:**
+
+- `services/prompts/djShachoPrompt.ts` - System prompts and templates
+- `DJ_Shacho_400x400.jpg` - Avatar image displayed in chat messages
+
+## Styling
+
+The app uses Tailwind CSS for styling:
+
+- `tailwind.config.js` - Tailwind configuration
+- `postcss.config.js` - PostCSS configuration for Tailwind
+- `index.css` - Tailwind directives and global styles
+
 ## Project Structure
 
-```
+```text
 /
-├── App.tsx              # Main application component & orchestration
-├── types.ts             # TypeScript interfaces for messages, media, modes
-├── components/          # React components
-│   ├── ChatInput.tsx    # Input area with mode/aspect ratio controls
-│   ├── ChatMessage.tsx  # Message rendering (text/image/video/sources)
-│   ├── ApiKeyModal.tsx  # API key selection prompt
-│   └── icons.tsx        # SVG icon components
+├── App.tsx                    # Main application component & orchestration
+├── index.tsx                  # React entry point
+├── index.html                 # HTML template
+├── index.css                  # Tailwind directives & global styles
+├── types.ts                   # TypeScript interfaces for messages, media, modes
+├── vite-env.d.ts             # Vite type definitions
+├── tailwind.config.js        # Tailwind CSS configuration
+├── postcss.config.js         # PostCSS configuration
+├── DJ_Shacho_400x400.jpg     # DJ Shacho avatar image
+├── components/               # React components
+│   ├── ChatInput.tsx         # Input area with mode/aspect ratio/DJ Shacho controls
+│   ├── ChatMessage.tsx       # Message rendering (text/image/video/sources/avatar)
+│   ├── ApiKeyModal.tsx       # API key selection prompt
+│   └── icons.tsx             # SVG icon components
 ├── services/
-│   └── geminiService.ts # All Gemini API interactions
+│   ├── geminiService.ts      # All Gemini API interactions
+│   └── prompts/
+│       └── djShachoPrompt.ts # DJ Shacho system prompts & templates
 └── utils/
-    └── fileUtils.ts     # File/base64 conversion utilities
+    └── fileUtils.ts          # File/base64 conversion utilities
 ```
