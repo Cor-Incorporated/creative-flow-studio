@@ -31,6 +31,8 @@ const App: React.FC = () => {
     const [isApiKeySelected, setIsApiKeySelected] = useState<boolean>(true); // Assume true initially to avoid flicker
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const isDjShachoModeRef = useRef(isDjShachoMode);
+    // Update ref immediately during render to avoid race conditions
+    isDjShachoModeRef.current = isDjShachoMode;
 
     const checkApiKey = useCallback(async () => {
         if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
@@ -46,18 +48,16 @@ const App: React.FC = () => {
     useEffect(() => {
         chatHistoryRef.current?.scrollTo(0, chatHistoryRef.current.scrollHeight);
     }, [messages]);
-    
-    useEffect(() => {
-        isDjShachoModeRef.current = isDjShachoMode;
-    }, [isDjShachoMode]);
 
     // DJ社長モード変更時に初期メッセージを更新
     useEffect(() => {
         setMessages(prev => {
-            if (prev.length === 1 && prev[0].id === 'init') {
-                if (isDjShachoMode && prev[0].parts[0].text !== DJ_SHACHO_INITIAL_MESSAGE) {
+            // Only update if we're still showing the initial message (no conversation yet)
+            if (prev.length === 1 && prev[0]?.id === 'init' && prev[0]?.parts?.[0]?.text) {
+                const currentText = prev[0].parts[0].text;
+                if (isDjShachoMode && currentText !== DJ_SHACHO_INITIAL_MESSAGE) {
                     return [{ id: 'init', role: 'model', parts: [{ text: DJ_SHACHO_INITIAL_MESSAGE }] }];
-                } else if (!isDjShachoMode && prev[0].parts[0].text === DJ_SHACHO_INITIAL_MESSAGE) {
+                } else if (!isDjShachoMode && currentText === DJ_SHACHO_INITIAL_MESSAGE) {
                     return [{ id: 'init', role: 'model', parts: [{ text: "クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？" }] }];
                 }
             }
@@ -84,7 +84,9 @@ const App: React.FC = () => {
     };
 
     const handleApiError = async (error: any, context: string, isDjShachoModeForError?: boolean) => {
-        console.error(`Error in ${context}:`, error);
+        if (import.meta.env.DEV) {
+            console.error(`Error in ${context}:`, error);
+        }
         let errorMessage = `エラーが発生しました。もう一度お試しください。`;
         
         if (error.message && error.message.includes("Requested entity was not found")) {
@@ -121,46 +123,34 @@ const App: React.FC = () => {
     const convertToDjShachoStyle = async (errorMessage: string): Promise<string> => {
         try {
             const prompt = `以下のエラーメッセージをDJ社長（木元駿之介）のスタイルで説明してください。九州弁を使い、ハイテンションで、ポジティブに、でもエラーの内容は正確に伝えてください。\n\nエラーメッセージ: ${errorMessage}`;
-            
+
             const result = await geminiService.generateChatResponse(
                 [],
                 prompt,
                 DJ_SHACHO_SYSTEM_PROMPT,
                 0.9
             );
-            
+
             // テキストレスポンスの取得（型の違いに対応）
             const responseText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
             return responseText || errorMessage;
         } catch (error) {
             // 変換に失敗した場合は元のエラーメッセージを返す
-            console.error('Failed to convert error message to DJ Shacho style:', error);
             return errorMessage;
         }
     };
-    const ensureDjShachoTone = useCallback(async (text: string) => {
-        if (!isDjShachoModeRef.current || !text?.trim()) {
-            console.log('[ensureDjShachoTone] スキップ:', { isDjShachoMode: isDjShachoModeRef.current, hasText: !!text?.trim() });
-            return text;
-        }
 
-        try {
-            console.log('[ensureDjShachoTone] DJ社長スタイルを適用中...');
-            const prompt = `以下の回答文をDJ社長（木元駿之介）のスタイルに変換してください。九州弁を使い、常にハイテンションで、ポジティブに、でも内容の正確さは維持してください。\n\n回答文: ${text}`;
-            const result = await geminiService.generateChatResponse(
-                [],
-                prompt,
-                DJ_SHACHO_SYSTEM_PROMPT,
-                0.9
-            );
-            const styledText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            console.log('[ensureDjShachoTone] スタイル適用完了:', styledText.substring(0, 100) + '...');
-            return styledText || text;
-        } catch (error) {
-            console.error('[ensureDjShachoTone] エラー:', error);
-            return text;
+    // エラーメッセージをフォーマット（DJ社長モードが有効な場合はスタイル変換）
+    const formatErrorMessage = async (errorMessage: string): Promise<string> => {
+        if (isDjShachoModeRef.current) {
+            try {
+                return await convertToDjShachoStyle(errorMessage);
+            } catch {
+                return errorMessage;
+            }
         }
-    }, []);
+        return errorMessage;
+    };
 
     const pollVideoStatus = async (operation: any, messageId: string) => {
         let currentOperation = operation;
@@ -181,28 +171,12 @@ const App: React.FC = () => {
         
         // When operation is done, check for explicit errors from the API
         if (currentOperation.error) {
-            console.error("Video generation failed with an API error:", currentOperation.error);
             const apiErrorMessage = currentOperation.error.message || "不明なエラーによりビデオの生成に失敗しました。";
-            // DJ社長モードがONの場合、エラーメッセージをDJ社長スタイルに変換
-            if (isDjShachoModeRef.current) {
-                try {
-                    const djShachoErrorMessage = await convertToDjShachoStyle(apiErrorMessage);
-                    setMessages(prev => prev.map(m => m.id === messageId ? {
-                        ...m,
-                        parts: [{ isError: true, text: djShachoErrorMessage }]
-                    } : m));
-                } catch (styleError) {
-                    setMessages(prev => prev.map(m => m.id === messageId ? {
-                        ...m,
-                        parts: [{ isError: true, text: `ビデオ生成エラー: ${apiErrorMessage}` }]
-                    } : m));
-                }
-            } else {
-                setMessages(prev => prev.map(m => m.id === messageId ? {
-                    ...m,
-                    parts: [{ isError: true, text: `ビデオ生成エラー: ${apiErrorMessage}` }]
-                } : m));
-            }
+            const formattedError = await formatErrorMessage(`ビデオ生成エラー: ${apiErrorMessage}`);
+            setMessages(prev => prev.map(m => m.id === messageId ? {
+                ...m,
+                parts: [{ isError: true, text: formattedError }]
+            } : m));
             return;
         }
 
@@ -219,17 +193,8 @@ const App: React.FC = () => {
             } : m));
         } else {
             const errorMessage = "ビデオの生成は完了しましたが、ビデオデータが返されませんでした。プロンプトの内容に問題があるか、一時的なAPIの問題の可能性があります。";
-            // DJ社長モードがONの場合、エラーメッセージをDJ社長スタイルに変換
-            if (isDjShachoModeRef.current) {
-                try {
-                    const djShachoErrorMessage = await convertToDjShachoStyle(errorMessage);
-                    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, parts: [{ isError: true, text: djShachoErrorMessage }] } : m));
-                } catch (styleError) {
-                    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, parts: [{ isError: true, text: errorMessage }] } : m));
-                }
-            } else {
-                setMessages(prev => prev.map(m => m.id === messageId ? { ...m, parts: [{ isError: true, text: errorMessage }] } : m));
-            }
+            const formattedError = await formatErrorMessage(errorMessage);
+            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, parts: [{ isError: true, text: formattedError }] } : m));
         }
     };
 
@@ -249,7 +214,6 @@ const App: React.FC = () => {
             // DJ社長モードの設定
             const systemInstruction = isDjShachoMode ? DJ_SHACHO_SYSTEM_PROMPT : undefined;
             const temperature = isDjShachoMode ? 0.9 : undefined;
-            console.log('[handleSendMessage] DJ社長モード:', { isDjShachoMode, hasSystemInstruction: !!systemInstruction, temperature, mode });
 
             if (mode === 'image') {
                 // 画像生成ではプロンプトはそのまま使用（DJ社長モードはエラーメッセージにのみ適用）
@@ -273,8 +237,7 @@ const App: React.FC = () => {
                  const result = await geminiService.analyzeImage(prompt, uploadedMedia, systemInstruction);
                  // analyzeImageの戻り値はGenerateContentResponse型
                  const responseText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                 const styledText = await ensureDjShachoTone(responseText);
-                 setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: styledText }] } : m));
+                 setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: responseText }] } : m));
             } else {
                 let result: GenerateContentResponse;
                 if (mode === 'pro') {
@@ -294,11 +257,10 @@ const App: React.FC = () => {
                 
                 const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
                 const sources = groundingChunks?.map((c: any) => ({ uri: c.web.uri, title: c.web.title })) || [];
-                
+
                 // テキストレスポンスの取得（型の違いに対応）
                 const responseText = (result as any).text || result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                const styledText = await ensureDjShachoTone(responseText);
-                setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: styledText, sources }] } : m));
+                setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: responseText, sources }] } : m));
             }
         } catch (error) {
             // 画像・動画生成のエラーではDJ社長モードを適用

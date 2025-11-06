@@ -46,16 +46,12 @@ export const generateProResponse = async (prompt: string, systemInstruction?: st
     // systemInstructionを設定（DJ社長モードがONの場合）
     if (systemInstruction) {
         requestConfig.systemInstruction = systemInstruction;
-        console.log('[generateProResponse] systemInstruction設定:', systemInstruction.substring(0, 100) + '...');
     }
     // temperatureを設定（DJ社長モードがONの場合は0.9に設定）
     if (temperature !== undefined) {
         requestConfig.config = { ...requestConfig.config, temperature };
-        console.log('[generateProResponse] temperature設定:', temperature);
     }
-    console.log('[generateProResponse] リクエスト設定:', JSON.stringify(requestConfig, null, 2));
     const result = await ai.models.generateContent(requestConfig);
-    console.log('[generateProResponse] レスポンス受信');
     return result;
 };
 
