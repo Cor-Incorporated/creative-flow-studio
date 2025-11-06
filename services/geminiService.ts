@@ -16,15 +16,17 @@ const getAiClient = () => {
 // --- Text Generation ---
 export const generateChatResponse = async (history: any[], prompt: string, systemInstruction?: string, temperature?: number) => {
     const ai = getAiClient();
-    const chatConfig: any = { model: 'gemini-2.5-flash', history };
+    const chatConfig: any = {
+        model: 'gemini-2.5-flash',
+        history,
+        config: {}
+    };
+    // @google/genai requires systemInstruction to be in config as array
     if (systemInstruction) {
-        // Gemini API requires systemInstruction in Content format
-        chatConfig.systemInstruction = {
-            parts: [{ text: systemInstruction }]
-        };
+        chatConfig.config.systemInstruction = [systemInstruction];
     }
     if (temperature !== undefined) {
-        chatConfig.config = { temperature };
+        chatConfig.config.temperature = temperature;
     }
     const chat = ai.chats.create(chatConfig);
     const result = await chat.sendMessage({ message: prompt });
@@ -47,11 +49,9 @@ export const generateProResponse = async (prompt: string, systemInstruction?: st
         }
     };
     // systemInstructionを設定（DJ社長モードがONの場合）
+    // @google/genai requires systemInstruction to be in config as array
     if (systemInstruction) {
-        // Gemini API requires systemInstruction in Content format for some models
-        requestConfig.systemInstruction = {
-            parts: [{ text: systemInstruction }]
-        };
+        requestConfig.config.systemInstruction = [systemInstruction];
     }
     // temperatureを設定（DJ社長モードがONの場合は0.9に設定）
     if (temperature !== undefined) {
@@ -59,18 +59,18 @@ export const generateProResponse = async (prompt: string, systemInstruction?: st
     }
 
     // Debug: Check if systemInstruction is being applied
-    if (import.meta.env.DEV && systemInstruction) {
-        console.log('[DEBUG] generateProResponse - systemInstruction length:', systemInstruction.length);
+    if (import.meta.env.DEV) {
+        console.log('[DEBUG] generateProResponse - systemInstruction length:', systemInstruction?.length || 0);
         console.log('[DEBUG] generateProResponse - temperature:', temperature);
-        console.log('[DEBUG] generateProResponse - config:', JSON.stringify({
-            model: requestConfig.model,
-            hasSystemInstruction: !!requestConfig.systemInstruction,
-            temperature: requestConfig.config?.temperature,
-            hasThinkingConfig: !!requestConfig.config?.thinkingConfig
-        }, null, 2));
+        console.log('[DEBUG] generateProResponse - Full requestConfig:', JSON.stringify(requestConfig, null, 2));
     }
 
     const result = await ai.models.generateContent(requestConfig);
+
+    if (import.meta.env.DEV) {
+        console.log('[DEBUG] generateProResponse - Response received, candidates:', result.candidates?.length || 0);
+    }
+
     return result;
 };
 
@@ -115,16 +115,16 @@ ${prompt}
             contents: {
                 parts: [{ text: reformatPrompt }]
             },
+            config: {}
         };
-        
+
         // DJ社長のシステムプロンプトを設定
+        // @google/genai requires systemInstruction to be in config as array
         if (systemInstruction) {
-            reformatRequestConfig.systemInstruction = {
-                parts: [{ text: systemInstruction }]
-            };
+            reformatRequestConfig.config.systemInstruction = [systemInstruction];
         }
         if (temperature !== undefined) {
-            reformatRequestConfig.config = { temperature };
+            reformatRequestConfig.config.temperature = temperature;
         }
         
         // 検索結果をDJ社長の口調で再フォーマット
@@ -217,11 +217,11 @@ export const analyzeImage = async (prompt: string, image: Media, systemInstructi
     const requestConfig: any = {
         model: 'gemini-2.5-flash',
         contents: { parts: [imagePart, textPart] },
+        config: {}
     };
+    // @google/genai requires systemInstruction to be in config as array
     if (systemInstruction) {
-        requestConfig.systemInstruction = {
-            parts: [{ text: systemInstruction }]
-        };
+        requestConfig.config.systemInstruction = [systemInstruction];
     }
     const result = await ai.models.generateContent(requestConfig);
     return result;
