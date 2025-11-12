@@ -1,0 +1,644 @@
+# インターフェース仕様書
+
+**Version:** 1.0
+**Date:** 2025-11-12
+**Target:** Next.js Full-Stack SaaS (dev branch)
+
+このドキュメントは、Claude Code（アプリ実装）と Codex（インフラ実装）の間のインターフェース仕様を定義します。
+
+---
+
+## 1. 環境変数仕様
+
+### 1.1 Next.js アプリケーション側で必要な環境変数
+
+#### ローカル開発環境（`.env.local`）
+
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/creative_flow_studio?schema=public"
+
+# NextAuth.js
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="<generate-with-openssl-rand-base64-32>"
+
+# OAuth Providers
+GOOGLE_CLIENT_ID="<from-google-cloud-console>"
+GOOGLE_CLIENT_SECRET="<from-google-cloud-console>"
+
+# Supabase (Optional - if using Supabase Auth)
+NEXT_PUBLIC_SUPABASE_URL="<from-supabase-dashboard>"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="<from-supabase-dashboard>"
+SUPABASE_SERVICE_ROLE_KEY="<from-supabase-dashboard>"
+
+# Stripe
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
+
+# Gemini API
+GEMINI_API_KEY="<from-google-ai-studio>"
+
+# App Config
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NODE_ENV="development"
+```
+
+#### 本番環境（Cloud Run / Secret Manager）
+
+Secret Manager に格納し、Cloud Run の環境変数として注入する項目：
+
+| Secret Manager キー名 | 説明 | 例 |
+|---|---|---|
+| `DATABASE_URL` | Cloud SQL への接続文字列 | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `NEXTAUTH_SECRET` | NextAuth.js のセッション暗号化キー | `openssl rand -base64 32` |
+| `GOOGLE_CLIENT_ID` | Google OAuth クライアントID | Google Cloud Console から取得 |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット | Google Cloud Console から取得 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（使用する場合） | Supabase Dashboard から取得 |
+| `STRIPE_SECRET_KEY` | Stripe シークレットキー | Stripe Dashboard から取得 |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット | Stripe Webhook 設定から取得 |
+| `GEMINI_API_KEY` | Google Gemini API キー | Google AI Studio から取得 |
+
+環境変数として直接設定する項目（非機密）：
+
+| 環境変数名 | 説明 | 例 |
+|---|---|---|
+| `NEXTAUTH_URL` | NextAuth.js のベースURL | `https://app.example.com` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクトURL | `https://xxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 匿名キー（公開可） | `eyJhbGc...` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe 公開可能キー | `pk_live_...` |
+| `NEXT_PUBLIC_APP_URL` | アプリケーションのベースURL | `https://app.example.com` |
+| `NODE_ENV` | 環境識別子 | `production` |
+
+### 1.2 Terraform / Codex 側での対応
+
+- Secret Manager に上記の機密情報を格納
+- Cloud Run サービスに環境変数として注入する設定を Terraform で定義
+- `google_secret_manager_secret_iam_binding` で `cloud-run-runtime@` SA に `roles/secretmanager.secretAccessor` を付与
+
+---
+
+## 2. データベーススキーマ（Prisma）
+
+### 2.1 初版スキーマ
+
+```prisma
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Authentication & User Management
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  conversations Conversation[]
+  subscription  Subscription?
+  usageLogs     UsageLog[]
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  PRO
+  ENTERPRISE
+  ADMIN
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// Conversation & Messages
+// ============================================
+
+model Conversation {
+  id        String    @id @default(cuid())
+  title     String?
+  userId    String
+  mode      GenerationMode @default(CHAT)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([userId, createdAt])
+  @@map("conversations")
+}
+
+enum GenerationMode {
+  CHAT
+  PRO
+  SEARCH
+  IMAGE
+  VIDEO
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        Json     // Flexible structure for text, media, sources
+  createdAt      DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+enum MessageRole {
+  USER
+  MODEL
+  SYSTEM
+}
+
+// ============================================
+// Subscription & Billing
+// ============================================
+
+model Plan {
+  id                  String   @id @default(cuid())
+  name                String   @unique
+  stripePriceId       String?  @unique
+  monthlyPrice        Int      // in cents
+  features            Json     // Flexible JSON for feature flags
+  maxRequestsPerMonth Int?
+  maxFileSize         Int?     // in bytes
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  subscriptions       Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  planId               String
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
+  status               SubscriptionStatus @default(INACTIVE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                 Plan     @relation(fields: [planId], references: [id])
+  paymentEvents        PaymentEvent[]
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+model PaymentEvent {
+  id               String   @id @default(cuid())
+  subscriptionId   String
+  stripeEventId    String   @unique
+  type             String   // e.g., 'invoice.paid', 'payment_intent.succeeded'
+  amount           Int?     // in cents
+  status           String?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("payment_events")
+}
+
+// ============================================
+// Usage Tracking & Audit
+// ============================================
+
+model UsageLog {
+  id           String   @id @default(cuid())
+  userId       String
+  action       String   // e.g., 'chat', 'image_generation', 'video_generation'
+  resourceType String?  // e.g., 'gemini-2.5-flash', 'imagen-4.0'
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("usage_logs")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+```
+
+### 2.2 Cloud SQL 要件
+
+- **インスタンスタイプ**: `db-f1-micro`（初期）→ ユーザー増加に応じてスケール
+- **PostgreSQL バージョン**: 14 以上
+- **リージョン**: `asia-northeast1`
+- **バックアップ**: 自動バックアップ有効（7日間保持）
+- **接続方法**: Unix ソケット（`/cloudsql/project:region:instance`）
+
+---
+
+## 3. API Routes 設計
+
+### 3.1 エンドポイント一覧
+
+#### 認証関連（NextAuth.js）
+
+| Method | Path | 説明 |
+|---|---|---|
+| `GET/POST` | `/api/auth/[...nextauth]` | NextAuth.js エンドポイント（ログイン、コールバック、セッション） |
+
+#### 会話・メッセージ関連
+
+| Method | Path | 説明 | 認証 |
+|---|---|---|---|
+| `GET` | `/api/conversations` | ユーザーの会話一覧取得 | 必須 |
+| `POST` | `/api/conversations` | 新規会話作成 | 必須 |
+| `GET` | `/api/conversations/[id]` | 特定会話の詳細とメッセージ取得 | 必須 |
+| `DELETE` | `/api/conversations/[id]` | 会話削除 | 必須 |
+| `POST` | `/api/conversations/[id]/messages` | メッセージ送信（Gemini API呼び出し） | 必須 |
+
+#### Gemini API Proxy（サーバーサイド）
+
+| Method | Path | 説明 | 認証 |
+|---|---|---|---|
+| `POST` | `/api/gemini/chat` | チャット生成 | 必須 |
+| `POST` | `/api/gemini/pro` | Pro モード生成 | 必須 |
+| `POST` | `/api/gemini/search` | 検索グラウンディング生成 | 必須 |
+| `POST` | `/api/gemini/image/generate` | 画像生成 | 必須 |
+| `POST` | `/api/gemini/image/edit` | 画像編集 | 必須 |
+| `POST` | `/api/gemini/image/analyze` | 画像分析 | 必須 |
+| `POST` | `/api/gemini/video/generate` | 動画生成開始 | 必須 |
+| `GET` | `/api/gemini/video/status/[operationId]` | 動画生成ステータス確認 | 必須 |
+
+#### Stripe 決済・Webhook
+
+| Method | Path | 説明 | 認証 |
+|---|---|---|---|
+| `POST` | `/api/stripe/checkout` | Checkout セッション作成 | 必須 |
+| `POST` | `/api/stripe/portal` | Customer Portal セッション作成 | 必須 |
+| `POST` | `/api/stripe/webhook` | Stripe Webhook エンドポイント | Stripe署名検証 |
+
+#### 管理画面 API
+
+| Method | Path | 説明 | 認証 |
+|---|---|---|---|
+| `GET` | `/api/admin/users` | ユーザー一覧取得 | Admin のみ |
+| `GET` | `/api/admin/stats` | システム統計情報 | Admin のみ |
+| `PATCH` | `/api/admin/users/[id]` | ユーザー情報更新（role変更等） | Admin のみ |
+
+#### ヘルスチェック
+
+| Method | Path | 説明 | 認証 |
+|---|---|---|---|
+| `GET` | `/api/health` | アプリケーション正常性チェック | 不要 |
+| `GET` | `/api/health/db` | データベース接続チェック | 不要 |
+
+### 3.2 認証ミドルウェア
+
+すべての認証必須エンドポイントで、NextAuth.js の `getServerSession()` を使用してセッション検証を実施。
+
+---
+
+## 4. ディレクトリ構造
+
+```
+/
+├── app/                          # Next.js App Router
+│   ├── (auth)/                   # 認証関連ページグループ
+│   │   ├── login/
+│   │   └── register/
+│   ├── (dashboard)/              # ダッシュボードページグループ
+│   │   ├── layout.tsx            # 認証チェック付きレイアウト
+│   │   ├── page.tsx              # チャットメインページ
+│   │   ├── history/              # 会話履歴ページ
+│   │   └── settings/             # 設定ページ
+│   ├── (admin)/                  # 管理画面ページグループ
+│   │   ├── layout.tsx            # Admin権限チェック付きレイアウト
+│   │   └── page.tsx              # 管理ダッシュボード
+│   ├── api/                      # API Routes
+│   │   ├── auth/
+│   │   │   └── [...nextauth]/
+│   │   │       └── route.ts      # NextAuth.js設定
+│   │   ├── conversations/
+│   │   ├── gemini/
+│   │   ├── stripe/
+│   │   ├── admin/
+│   │   └── health/
+│   ├── layout.tsx                # ルートレイアウト
+│   ├── page.tsx                  # ランディングページ
+│   └── globals.css               # グローバルCSS
+│
+├── components/                   # React コンポーネント
+│   ├── chat/
+│   │   ├── ChatInput.tsx
+│   │   ├── ChatMessage.tsx
+│   │   └── ChatHistory.tsx
+│   ├── ui/                       # 汎用UIコンポーネント
+│   └── providers/
+│       └── SessionProvider.tsx   # NextAuth Session Provider
+│
+├── lib/                          # ユーティリティ・ヘルパー
+│   ├── auth.ts                   # NextAuth 設定・ヘルパー
+│   ├── prisma.ts                 # Prisma Client インスタンス
+│   ├── stripe.ts                 # Stripe Client
+│   ├── gemini.ts                 # Gemini API Client
+│   ├── validators.ts             # Zod スキーマ
+│   └── utils.ts                  # 汎用ユーティリティ
+│
+├── prisma/
+│   ├── schema.prisma             # Prisma スキーマ
+│   └── migrations/               # マイグレーションファイル
+│
+├── public/                       # 静的ファイル
+├── types/                        # TypeScript 型定義
+├── middleware.ts                 # Next.js ミドルウェア（認証チェック等）
+├── next.config.js
+├── tailwind.config.js
+├── tsconfig.json
+├── .env.local                    # ローカル環境変数（gitignore）
+├── package.json
+└── README.md
+```
+
+---
+
+## 5. NextAuth.js 設定要件
+
+### 5.1 プロバイダー
+
+- **Google OAuth 2.0**（初期実装）
+- 今後: GitHub, Email/Password 等を追加可能
+
+### 5.2 Adapter
+
+- **Prisma Adapter** を使用
+- セッション永続化先: PostgreSQL（Cloud SQL）
+
+### 5.3 セッション戦略
+
+- **Database Sessions**（JWT ではなく DB セッション）
+- セッション有効期限: 30日間
+- セッショントークンの自動延長
+
+### 5.4 コールバック URL
+
+**ローカル開発:**
+- Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
+
+**本番環境:**
+- Authorized redirect URIs: `https://<cloud-run-url>/api/auth/callback/google`
+
+---
+
+## 6. 外部サービス連携要件
+
+### 6.1 Supabase（オプション）
+
+**使用する場合:**
+- プロジェクト作成（Supabase Dashboard）
+- Authentication Providers: Google OAuth 有効化
+- Database: 今回は Cloud SQL を使用するため、Supabase Database は使用しない
+- Storage: 画像・動画ファイルのアップロード用に使用可能
+
+**設定項目:**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+### 6.2 Stripe
+
+**初期セットアップ:**
+1. Stripe アカウント作成（テストモード）
+2. Product & Price 作成:
+   - **Free Plan**: $0/month（デフォルト）
+   - **Pro Plan**: $20/month（仮）
+   - **Enterprise Plan**: $100/month（仮）
+3. Webhook エンドポイント登録:
+   - URL: `https://<cloud-run-url>/api/stripe/webhook`
+   - Events: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`
+
+**必要な情報:**
+- Secret Key: `STRIPE_SECRET_KEY`
+- Publishable Key: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- Webhook Secret: `STRIPE_WEBHOOK_SECRET`
+- Product/Price IDs（Prisma の Plan テーブルに格納）
+
+### 6.3 Google OAuth（Google Cloud Console）
+
+1. OAuth 2.0 Client ID 作成
+2. Authorized JavaScript origins: `http://localhost:3000`, `https://<cloud-run-url>`
+3. Authorized redirect URIs: `/api/auth/callback/google`
+4. Client ID/Secret を環境変数に設定
+
+---
+
+## 7. Cloud Run / GCP 連携仕様
+
+### 7.1 Cloud SQL 接続
+
+**接続方法:**
+- Unix ソケット経由: `/cloudsql/dataanalyticsclinic:asia-northeast1:<instance-name>`
+- `DATABASE_URL` 形式:
+  ```
+  postgresql://user:password@/creative_flow_studio?host=/cloudsql/dataanalyticsclinic:asia-northeast1:<instance-name>
+  ```
+
+**Terraform での設定:**
+- Cloud Run サービスに `--add-cloudsql-instances` オプションでインスタンスを指定
+- サービスアカウント `cloud-run-runtime@` に `roles/cloudsql.client` を付与
+
+### 7.2 Secret Manager
+
+**アクセス方法:**
+- Cloud Run の環境変数として注入（Terraform で設定）
+- サービスアカウント `cloud-run-runtime@` に `roles/secretmanager.secretAccessor` を付与
+
+### 7.3 コンテナイメージ
+
+**ビルド:**
+- Dockerfile を使用して Next.js アプリをコンテナ化
+- Artifact Registry にプッシュ: `asia-northeast1-docker.pkg.dev/dataanalyticsclinic/creative-flow-studio/app:latest`
+
+**起動コマンド:**
+```bash
+npm run start
+```
+
+### 7.4 ヘルスチェック
+
+**Cloud Run ヘルスチェック設定:**
+- Path: `/api/health`
+- Interval: 10 秒
+- Timeout: 3 秒
+- Unhealthy threshold: 3 回
+
+---
+
+## 8. CI/CD パイプライン
+
+### 8.1 Cloud Build トリガー
+
+**トリガー条件:**
+- ブランチ: `dev`（初期開発時）、後に `main` へマージ
+- 変更検知: dev ブランチへの push
+
+**ビルドステップ（cloudbuild.yaml）:**
+1. `npm install`
+2. `npm run build`
+3. `npx prisma migrate deploy`（本番DB マイグレーション）
+4. Docker イメージビルド
+5. Artifact Registry へプッシュ
+6. Cloud Run へデプロイ
+
+### 8.2 必要な権限
+
+Cloud Build デフォルト SA (`667780715339@cloudbuild.gserviceaccount.com`) に付与済み:
+- `roles/run.admin`
+- `roles/artifactregistry.writer`
+- `roles/cloudsql.client`
+- `roles/secretmanager.secretAccessor`
+- `roles/iam.serviceAccountUser`
+
+---
+
+## 9. 開発フロー
+
+### 9.1 ローカル開発
+
+1. `.env.local` に環境変数設定
+2. `npm install`
+3. `npx prisma generate`
+4. `npx prisma migrate dev`（ローカルPostgreSQL必要）
+5. `npm run dev`
+
+### 9.2 ステージング環境（dev ブランチ）
+
+1. dev ブランチへ push
+2. Cloud Build 自動トリガー
+3. Cloud Run へ自動デプロイ
+4. 動作確認
+
+### 9.3 本番環境（main ブランチ）
+
+1. dev → main へ PR 作成
+2. Cursor（レビューエンジニア）によるコードレビュー
+3. マージ後、Cloud Build 自動トリガー
+4. 本番 Cloud Run へデプロイ
+
+---
+
+## 10. レビューポイント
+
+### 10.1 Claude Code → Codex/Cursor へのレビュー依頼項目
+
+- [ ] Prisma スキーマが要件を満たしているか
+- [ ] API Routes の設計が適切か
+- [ ] 環境変数の命名規則が統一されているか
+- [ ] Secret Manager のキー名が合意されているか
+- [ ] Cloud SQL 接続方法が正しいか
+- [ ] Stripe Product/Price ID の格納方法が適切か
+- [ ] ヘルスチェックエンドポイントの実装が適切か
+
+### 10.2 Codex → Claude Code へのフィードバック項目
+
+- [ ] Terraform で作成した Cloud SQL インスタンス名
+- [ ] Secret Manager に格納した環境変数キー一覧
+- [ ] Supabase プロジェクト URL と API キー
+- [ ] Stripe テストモード Webhook URL
+- [ ] Google OAuth Callback URL の設定状況
+- [ ] Cloud Run サービス URL
+
+---
+
+## 11. 今後の拡張ポイント
+
+- マルチテナント対応（`tenantId` カラム追加）
+- 画像・動画ファイルの Cloud Storage / Supabase Storage 保存
+- Rate Limiting（Redis / Cloud Memorystore）
+- OpenTelemetry による分散トレーシング
+- プラン別機能制限の詳細実装
+
+---
+
+**このドキュメントは Week 1 のレビュー後に更新し、最新状態を維持してください。**
