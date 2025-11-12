@@ -29,10 +29,10 @@ export const THINKING_BUDGET = 32768; // Thinking budget for Pro mode
 export const VIDEO_POLL_INTERVAL_MS = 5000; // 5 seconds
 export const MAX_VIDEO_POLL_ATTEMPTS = 120; // 10 minutes (120 * 5s)
 
-// Gemini Model Names
+// Gemini Model Names (aligned with alpha version)
 export const GEMINI_MODELS = {
-    FLASH: 'gemini-2.0-flash-exp',
-    PRO: 'gemini-2.0-flash-thinking-exp-01-21',
+    FLASH: 'gemini-2.5-flash',
+    PRO: 'gemini-2.5-pro',
     FLASH_IMAGE: 'gemini-2.5-flash-image',
     IMAGEN: 'imagen-4.0',
     VEO: 'veo-3.1-fast',
