@@ -23,6 +23,14 @@ alpha/dist
 *.local
 .env
 .env.production
+terraform.tfvars
+infra/envs/dev/terraform.tfvars
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
 
 # Next.js
 .next/

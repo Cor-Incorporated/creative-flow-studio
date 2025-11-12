@@ -29,10 +29,11 @@ cloud_run_ingress         = "INGRESS_TRAFFIC_ALL"
 cloud_run_allow_unauthenticated = true
 
 cloud_run_env_vars = {
-  NEXTAUTH_URL          = "https://dev.creative-flow-studio.web.app"
-  NEXT_PUBLIC_APP_URL   = "https://dev.creative-flow-studio.web.app"
-  NEXT_PUBLIC_SUPABASE_URL = "https://xxx.supabase.co"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = "public-anon-key"
+  NEXTAUTH_URL                    = "http://localhost:3000"
+  NEXT_PUBLIC_APP_URL             = "http://localhost:3000"
+  NEXT_PUBLIC_SUPABASE_URL        = "https://kppniwizumnnlhndjnlg.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwcG5pd2l6dW1ubmxobmRqbmxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5MTEyMTksImV4cCI6MjA3ODQ4NzIxOX0.cCK57jIkvzapDdeSQlNbvR-ukwFfFezSLp5ThMGqZwc"
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_live_51P6WQ9Li6CKW3pRaOv6T8Fn4GfIuPVXsJq0mbvTfZM4FgB1BIGha2ttGPwBq6dTSH0N217mWkRoJ8FJcR4uRkTnI00TdFBGidG"
 }
 
 cloud_run_secret_env_vars = {
@@ -49,12 +50,12 @@ cloud_run_secret_env_vars = {
 
 secret_values = {
   # apply 前に必ず実値へ置き換えてください。ダミーのまま apply すると Secret にプレースホルダが登録されます。
-  "database-url"          = "postgresql://REPLACE:REPLACE@/creative_flow_studio?host=/cloudsql/dataanalyticsclinic:asia-northeast1:creative-flow-studio-sql"
-  "nextauth-secret"       = "REPLACE_ME_WITH_OPENSSL_VALUE"
-  "google-client-id"      = "REPLACE_ME.apps.googleusercontent.com"
-  "google-client-secret"  = "REPLACE_ME"
-  "supabase-service-role" = "REPLACE_ME"
-  "stripe-secret-key"     = "sk_test_REPLACE_ME"
-  "stripe-webhook-secret" = "whsec_REPLACE_ME"
-  "gemini-api-key"        = "REPLACE_ME"
+  "database-url"          = "postgresql://app_user:CHANGE_ME@/creative_flow_studio?host=/cloudsql/PROJECT_ID:REGION:INSTANCE_NAME"
+  "nextauth-secret"       = "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_BASE64_32"
+  "google-client-id"      = "CHANGE_ME_FROM_GOOGLE_CLOUD_CONSOLE"
+  "google-client-secret"  = "CHANGE_ME_FROM_GOOGLE_CLOUD_CONSOLE"
+  "supabase-service-role" = "CHANGE_ME_FROM_SUPABASE_DASHBOARD"
+  "stripe-secret-key"     = "sk_test_CHANGE_ME_FROM_STRIPE_DASHBOARD"
+  "stripe-webhook-secret" = "whsec_CHANGE_ME_FROM_STRIPE_WEBHOOK_SETTINGS"
+  "gemini-api-key"        = "CHANGE_ME_FROM_GOOGLE_AI_STUDIO"
 }

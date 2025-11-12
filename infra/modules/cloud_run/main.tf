@@ -96,9 +96,7 @@ resource "google_cloud_run_v2_service" "this" {
 resource "google_cloud_run_v2_service_iam_member" "unauth" {
   count = var.allow_unauthenticated ? 1 : 0
 
-  project  = var.project_id
-  location = var.region
-  service  = google_cloud_run_v2_service.this.name
-  role     = "roles/run.invoker"
-  member   = "allUsers"
+  name   = google_cloud_run_v2_service.this.name
+  role   = "roles/run.invoker"
+  member = "allUsers"
 }
