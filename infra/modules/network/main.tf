@@ -23,7 +23,7 @@ resource "google_vpc_access_connector" "serverless" {
   project      = var.project_id
   region       = var.region
   network      = google_compute_network.this.name
-  ip_cidr_range = null
+  ip_cidr_range = var.connector_cidr
 
   min_throughput = var.connector_min_throughput
   max_throughput = var.connector_max_throughput

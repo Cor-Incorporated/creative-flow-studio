@@ -4,6 +4,7 @@ environment = "dev"
 
 network_name = "creative-flow-studio-vpc"
 subnet_cidr  = "10.10.0.0/20"
+connector_cidr = "10.8.0.0/28"
 
 cloud_sql_instance_name = "creative-flow-studio-sql"
 cloud_sql_tier          = "db-f1-micro"
@@ -14,13 +15,13 @@ cloud_sql_db_name       = "creative_flow_studio"
 cloud_run_sa_email = "cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com"
 
 secret_values = {
-  # 実際の値を入力してください。未設定の場合は secret version が作成されません。
-  # "database-url"          = "postgresql://user:pass@/db?host=/cloudsql/..."
-  # "nextauth-secret"       = "<generated>"
-  # "google-client-id"      = "..."
-  # "google-client-secret"  = "..."
-  # "supabase-service-role" = "..."
-  # "stripe-secret-key"     = "..."
-  # "stripe-webhook-secret" = "..."
-  # "gemini-api-key"        = "..."
+  # apply 前に必ず実値へ置き換えてください。ダミーのまま apply すると Secret にプレースホルダが登録されます。
+  "database-url"          = "postgresql://REPLACE:REPLACE@/creative_flow_studio?host=/cloudsql/dataanalyticsclinic:asia-northeast1:creative-flow-studio-sql"
+  "nextauth-secret"       = "REPLACE_ME_WITH_OPENSSL_VALUE"
+  "google-client-id"      = "REPLACE_ME.apps.googleusercontent.com"
+  "google-client-secret"  = "REPLACE_ME"
+  "supabase-service-role" = "REPLACE_ME"
+  "stripe-secret-key"     = "sk_test_REPLACE_ME"
+  "stripe-webhook-secret" = "whsec_REPLACE_ME"
+  "gemini-api-key"        = "REPLACE_ME"
 }

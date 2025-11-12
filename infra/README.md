@@ -41,13 +41,22 @@ terraform init \
   -backend-config="prefix=terraform/dev/state"
 
 cp terraform.tfvars.example terraform.tfvars
-# 必要な値を編集
+# 必要な値を編集（特に secret_values と CIDR）
 
 terraform plan
 terraform apply
 ```
 
 state バケットと prefix はドキュメントに合わせて調整してください。
+
+### Secret Manager への値投入
+- `terraform.tfvars` の `secret_values` マップは、Secret Manager 上の `database-url` などのシークレットを自動的に作成し、同名の最新バージョンへ値を登録します。
+- 配布されている `.example` にはダミー値を入れているため、**apply 前に必ず実値へ置き換えてください**。置き換え忘れるとダミーが本番 Secret として保存されます。
+- すでに手動で作成済みの Secret がある場合は `terraform import google_secret_manager_secret.managed["<secret-id>"] <resource-name>` を実行し、`secret_values` にも同じキーを定義してください。
+
+### Private Service Connect / Serverless Connector
+- `envs/dev/main.tf` では VPC Peering (`google_compute_global_address` + `google_service_networking_connection`) を作成し、Cloud SQL Private IP の必須前提を満たしています。
+- Serverless VPC Access Connector には /28 CIDR が必要なため、`connector_cidr` 変数で重複しないレンジ（例: `10.8.0.0/28`）を指定します。VPC 内の他 CIDR と重ならないよう注意してください。
 
 ## 今後の TODO
 - Cloud Run、Artifact Registry、Secret Manager -> Cloud Run 環境変数連携のモジュール追加

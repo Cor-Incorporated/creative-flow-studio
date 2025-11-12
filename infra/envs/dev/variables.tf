@@ -28,6 +28,12 @@ variable "subnet_cidr" {
   default     = "10.10.0.0/20"
 }
 
+variable "connector_cidr" {
+  description = "Serverless VPC Access Connector 用の /28 CIDR"
+  type        = string
+  default     = "10.8.0.0/28"
+}
+
 variable "cloud_sql_instance_name" {
   description = "Cloud SQL インスタンス名"
   type        = string

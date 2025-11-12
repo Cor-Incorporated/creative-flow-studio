@@ -40,3 +40,9 @@ variable "connector_max_throughput" {
   description = "Serverless VPC Access Connector の最大スループット (Mbps)"
   default     = 300
 }
+
+variable "connector_cidr" {
+  type        = string
+  description = "Serverless VPC Access Connector 用の /28 CIDR ブロック (例: 10.8.0.0/28)"
+  default     = "10.8.0.0/28"
+}
