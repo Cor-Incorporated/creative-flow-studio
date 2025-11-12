@@ -50,7 +50,7 @@ cloud_run_secret_env_vars = {
 
 secret_values = {
   # apply 前に必ず実値へ置き換えてください。ダミーのまま apply すると Secret にプレースホルダが登録されます。
-  "database-url"          = "postgresql://app_user:CHANGE_ME@/creative_flow_studio?host=/cloudsql/PROJECT_ID:REGION:INSTANCE_NAME"
+  # database-url は自動生成されるため、ここに記入する必要はありません。
   "nextauth-secret"       = "CHANGE_ME_GENERATE_WITH_OPENSSL_RAND_BASE64_32"
   "google-client-id"      = "CHANGE_ME_FROM_GOOGLE_CLOUD_CONSOLE"
   "google-client-secret"  = "CHANGE_ME_FROM_GOOGLE_CLOUD_CONSOLE"

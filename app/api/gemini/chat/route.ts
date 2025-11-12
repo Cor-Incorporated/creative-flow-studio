@@ -28,22 +28,14 @@ export async function POST(request: NextRequest) {
         } = body;
 
         if (!prompt) {
-            return NextResponse.json(
-                { error: 'Prompt is required' },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
         }
 
         let result;
 
         // Handle image upload (multimodal input)
         if (media && media.type === 'image') {
-            result = await analyzeImage(
-                prompt,
-                media.url,
-                media.mimeType,
-                systemInstruction
-            );
+            result = await analyzeImage(prompt, media.url, media.mimeType, systemInstruction);
         }
         // Text-only generation
         else {
@@ -57,11 +49,7 @@ export async function POST(request: NextRequest) {
                     );
                     break;
                 case 'pro':
-                    result = await generateProResponse(
-                        prompt,
-                        systemInstruction,
-                        temperature
-                    );
+                    result = await generateProResponse(prompt, systemInstruction, temperature);
                     break;
                 case 'search':
                     result = await generateSearchGroundedResponse(
@@ -84,10 +72,7 @@ export async function POST(request: NextRequest) {
 
         // Handle specific error cases
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json(
-                { error: ERROR_MESSAGES.API_KEY_NOT_FOUND },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
         }
 
         return NextResponse.json(

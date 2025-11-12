@@ -155,17 +155,25 @@
 
 ## 5. 次のアクションガイド
 
-1. **Terraform コード整備**
-    - `infra/` リポジトリで state backend を `dataanalyticsclinic-terraform-state` に設定。
-    - モジュールを作成し、VPC、Cloud SQL、Cloud Run、Secrets などをコード化。
+1. **Terraform コード整備（進捗: モジュール作成済み）**
+    - `infra/envs/dev` で VPC / Cloud SQL / Secrets / Cloud Run モジュールを実装済み。`terraform plan` はダミー値で検証済み。
+    - 次の合意ステップ:
+        - `infra/envs/dev/terraform.tfvars` に実運用値を入力 (`stripe-webhook-secret` は Cloud Run URL 発行後に差し替え)。
+        - `terraform plan -out dev.plan` → 内容レビュー → `terraform apply dev.plan` を実行し、Cloud Run / Cloud SQL / Secret Manager を本番プロジェクトに作成。
+        - `terraform output` の結果（Cloud Run URI、Cloud SQL 接続名、Secret リソース名）をアプリ実装担当へ共有。
 
-2. **アプリケーション実装着手**
-    - Next.js プロジェクトをリポジトリに追加し、Prisma スキーマと NextAuth 設定を適用。
-    - `.env.local` の値を Secret Manager に移し、ローカル用と本番用の運用を分離。
+2. **アプリケーション実装（進捗: Next.js 基盤・Gemini API Routes 完了）**
+    - 完了済み: Next.js 14 プロジェクト初期化、Prisma スキーマ、NextAuth 設定、Zod スキーマ、Gemini API Routes（Chat/Image/Video）。
+    - 残タスク:
+        - `alpha/` から UI コンポーネント（`ChatMessage`, `ChatInput` 等）を移植し、App Router 用に再構成。
+        - 会話履歴 API / Prisma 永続化を追加し、フロントエンドと統合。
+        - Stripe Webhook Route を実装し、Secret Manager から署名検証キーを読み込む。
 
-3. **CI/CD パイプライン構築**
-    - Cloud Build トリガーを設定し、Docker ビルド→Artifact Registry push→Cloud Run デプロイを自動化。
-    - `cloud-build.yaml` に Prisma マイグレーション、テスト、デプロイステップを記述。
+3. **CI/CD パイプライン構築（進捗: `cloudbuild.yaml` 作成済み）**
+    - 今後のアクション:
+        - Terraform で Cloud Run を作成後、`gcloud builds triggers create` で dev ブランチ用トリガーを登録。
+        - Cloud Build SA (`667780715339@cloudbuild.gserviceaccount.com`) に `roles/run.admin`, `roles/artifactregistry.writer`, `roles/cloudsql.client`, `roles/secretmanager.secretAccessor` を付与し、必要なら Terraform 化。
+        - `cloudbuild.yaml` の substitution で Cloud Run サービス名・イメージ名を本番値に上書きして運用。
 
 4. **監視・アラート設計**
     - Cloud Monitoring ダッシュボード、アラートポリシー (HTTP 5xx, レイテンシ, Cloud SQL 接続上限, Stripe webhook 失敗など) を Terraform で管理。

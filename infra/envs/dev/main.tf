@@ -53,12 +53,27 @@ module "cloud_sql" {
   ]
 }
 
+locals {
+  secret_values_final = merge(
+    var.secret_values,
+    {
+      "database-url" = format(
+        "postgresql://%s:%s@/%s?host=/cloudsql/%s",
+        var.cloud_sql_user,
+        module.cloud_sql.database_password,
+        var.cloud_sql_db_name,
+        module.cloud_sql.instance_connection_name
+      )
+    }
+  )
+}
+
 module "secrets" {
   source = "../../modules/secrets"
 
   project_id          = var.project_id
   environment         = var.environment
-  secret_values       = var.secret_values
+  secret_values       = local.secret_values_final
   cloud_run_sa_email  = var.cloud_run_sa_email
 }
 

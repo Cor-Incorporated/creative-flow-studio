@@ -28,10 +28,7 @@ export async function POST(request: NextRequest) {
         console.error('Gemini Video API Error:', error);
 
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json(
-                { error: ERROR_MESSAGES.API_KEY_NOT_FOUND },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
         }
 
         return NextResponse.json(
