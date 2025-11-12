@@ -252,8 +252,8 @@ export default function Home() {
                     // Video is ready
                     if (operation.response?.generatedVideos?.[0]?.video?.uri) {
                         const downloadLink = operation.response.generatedVideos[0].video.uri;
-                        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
-                        const videoUrl = `${downloadLink}&key=${apiKey}`;
+                        // Use server-side proxy to download video without exposing API key
+                        const videoUrl = `/api/gemini/video/download?uri=${encodeURIComponent(downloadLink)}`;
 
                         const videoResponse = await fetch(videoUrl);
                         const videoBlob = await videoResponse.blob();

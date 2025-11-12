@@ -32,17 +32,27 @@ steps:
       entrypoint: npx
       args: ['prisma', 'generate']
 
-    - id: 'Apply database migrations'
-      name: 'gcr.io/cloud-builders/npm'
-      entrypoint: npx
-      args: ['prisma', 'migrate', 'deploy']
-      env:
-          - 'DATABASE_URL=postgresql://user:password@/creative_flow_studio?host=/cloudsql/${_CLOUD_SQL_INSTANCE}'
+    # TODO: Re-enable once we have a secure way to supply the Cloud SQL credentials during build.
+    # - id: 'Apply database migrations'
+    #   name: 'gcr.io/cloud-builders/npm'
+    #   entrypoint: npx
+    #   args: ['prisma', 'migrate', 'deploy']
+    #   env:
+    #       - 'DATABASE_URL=postgresql://user:password@/creative_flow_studio?host=/cloudsql/${_CLOUD_SQL_INSTANCE}'
 
     - id: 'Build Next.js app'
       name: 'gcr.io/cloud-builders/npm'
       entrypoint: npm
       args: ['run', 'build']
+      env:
+          - 'GOOGLE_CLIENT_ID=test-google-client-id'
+          - 'GOOGLE_CLIENT_SECRET=test-google-client-secret'
+          - 'NEXTAUTH_SECRET=test-secret-for-build-only-32-characters-long'
+          - 'GEMINI_API_KEY=AIzaSyDrGsdwBjrkG5Hw_g-RxAcJ-OhzPwURKdk'
+          - 'NEXT_PUBLIC_APP_URL=http://localhost:3000'
+          - 'NEXT_PUBLIC_SUPABASE_URL=https://kppniwizumnnlhndjnlg.supabase.co'
+          - 'NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwcG5pd2l6dW1ubmxobmRqbmxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5MTEyMTksImV4cCI6MjA3ODQ4NzIxOX0.cCK57jIkvzapDdeSQlNbvR-ukwFfFezSLp5ThMGqZwc'
+          - 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51P6WQ9Li6CKW3pRaOv6T8Fn4GfIuPVXsJq0mbvTfZM4FgB1BIGha2ttGPwBq6dTSH0N217mWkRoJ8FJcR4uRkTnI00TdFBGidG'
 
     - id: 'Build container image'
       name: 'gcr.io/cloud-builders/docker'
