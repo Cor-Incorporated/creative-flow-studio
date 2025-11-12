@@ -1,8 +1,8 @@
 # インターフェース仕様書
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2025-11-12
-**Target:** Next.js Full-Stack SaaS (dev branch)
+**Target:** Next.js Full-Stack SaaS (develop branch)
 
 このドキュメントは、Claude Code（アプリ実装）と Codex（インフラ実装）の間のインターフェース仕様を定義します。
 
@@ -41,23 +41,25 @@ GEMINI_API_KEY="<from-google-ai-studio>"
 
 # App Config
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NODE_ENV="development"
+# NOTE: NODE_ENVはNext.jsが自動で設定するため、手動設定不要
 ```
 
 #### 本番環境（Cloud Run / Secret Manager）
 
 Secret Manager に格納し、Cloud Run の環境変数として注入する項目：
 
-| Secret Manager キー名 | 説明 | 例 |
-|---|---|---|
-| `DATABASE_URL` | Cloud SQL への接続文字列 | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
-| `NEXTAUTH_SECRET` | NextAuth.js のセッション暗号化キー | `openssl rand -base64 32` |
-| `GOOGLE_CLIENT_ID` | Google OAuth クライアントID | Google Cloud Console から取得 |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット | Google Cloud Console から取得 |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（使用する場合） | Supabase Dashboard から取得 |
-| `STRIPE_SECRET_KEY` | Stripe シークレットキー | Stripe Dashboard から取得 |
-| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット | Stripe Webhook 設定から取得 |
-| `GEMINI_API_KEY` | Google Gemini API キー | Google AI Studio から取得 |
+**注意:** Secret Manager のキー名は小文字ハイフン区切りを使用（GCP推奨）
+
+| Secret Manager キー名 | 環境変数名 | 説明 | 例 |
+|---|---|---|---|
+| `database-url` | `DATABASE_URL` | Cloud SQL への接続文字列 | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `nextauth-secret` | `NEXTAUTH_SECRET` | NextAuth.js のセッション暗号化キー | `openssl rand -base64 32` |
+| `google-client-id` | `GOOGLE_CLIENT_ID` | Google OAuth クライアントID | Google Cloud Console から取得 |
+| `google-client-secret` | `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット | Google Cloud Console から取得 |
+| `supabase-service-role-key` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（ストレージ用） | Supabase Dashboard から取得 |
+| `stripe-secret-key` | `STRIPE_SECRET_KEY` | Stripe シークレットキー | Stripe Dashboard から取得 |
+| `stripe-webhook-secret` | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット | Stripe Webhook 設定から取得 |
+| `gemini-api-key` | `GEMINI_API_KEY` | Google Gemini API キー | Google AI Studio から取得 |
 
 環境変数として直接設定する項目（非機密）：
 
@@ -68,12 +70,12 @@ Secret Manager に格納し、Cloud Run の環境変数として注入する項�
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 匿名キー（公開可） | `eyJhbGc...` |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe 公開可能キー | `pk_live_...` |
 | `NEXT_PUBLIC_APP_URL` | アプリケーションのベースURL | `https://app.example.com` |
-| `NODE_ENV` | 環境識別子 | `production` |
 
 ### 1.2 Terraform / Codex 側での対応
 
-- Secret Manager に上記の機密情報を格納
+- Secret Manager に上記の機密情報を格納（キー名は小文字ハイフン区切り）
 - Cloud Run サービスに環境変数として注入する設定を Terraform で定義
+  - Secret の値を環境変数にマッピング（例: `database-url` → `DATABASE_URL`）
 - `google_secret_manager_secret_iam_binding` で `cloud-run-runtime@` SA に `roles/secretmanager.secretAccessor` を付与
 
 ---
@@ -308,7 +310,73 @@ model AuditLog {
 }
 ```
 
-### 2.2 Cloud SQL 要件
+### 2.2 JSON フィールドの構造定義（Zod スキーマ）
+
+Prisma の `Json` 型フィールド（`Plan.features`, `UsageLog.metadata` 等）の構造を Zod で定義します。
+これらは `lib/validators.ts` に配置します。
+
+**Plan.features の構造:**
+```typescript
+import { z } from 'zod';
+
+export const PlanFeaturesSchema = z.object({
+  maxRequestsPerMonth: z.number().nullable(),
+  maxFileSize: z.number().nullable(), // in bytes
+  maxConcurrentRequests: z.number().default(3),
+  allowImageGeneration: z.boolean().default(true),
+  allowVideoGeneration: z.boolean().default(false),
+  allowProMode: z.boolean().default(false),
+  allowSearchMode: z.boolean().default(true),
+  prioritySupport: z.boolean().default(false),
+  customBranding: z.boolean().default(false),
+});
+
+export type PlanFeatures = z.infer<typeof PlanFeaturesSchema>;
+```
+
+**UsageLog.metadata の構造:**
+```typescript
+export const UsageLogMetadataSchema = z.object({
+  model: z.string().optional(), // e.g., 'gemini-2.5-flash', 'imagen-4.0'
+  mode: z.enum(['chat', 'pro', 'search', 'image', 'video']).optional(),
+  tokensUsed: z.number().optional(),
+  imageSize: z.string().optional(), // e.g., '1024x1024'
+  videoLength: z.number().optional(), // in seconds
+  aspectRatio: z.string().optional(),
+  success: z.boolean().default(true),
+  errorMessage: z.string().optional(),
+});
+
+export type UsageLogMetadata = z.infer<typeof UsageLogMetadataSchema>;
+```
+
+**Message.content の構造:**
+```typescript
+export const MessageContentSchema = z.object({
+  text: z.string().optional(),
+  media: z.object({
+    type: z.enum(['image', 'video']),
+    url: z.string(),
+    mimeType: z.string(),
+  }).optional(),
+  sources: z.array(z.object({
+    uri: z.string(),
+    title: z.string(),
+  })).optional(),
+  isLoading: z.boolean().optional(),
+  status: z.string().optional(),
+  isError: z.boolean().optional(),
+  originalMedia: z.object({
+    type: z.enum(['image', 'video']),
+    url: z.string(),
+    mimeType: z.string(),
+  }).optional(),
+});
+
+export type MessageContent = z.infer<typeof MessageContentSchema>;
+```
+
+### 2.3 Cloud SQL 要件
 
 - **インスタンスタイプ**: `db-f1-micro`（初期）→ ユーザー増加に応じてスケール
 - **PostgreSQL バージョン**: 14 以上
@@ -473,18 +541,23 @@ model AuditLog {
 
 ## 6. 外部サービス連携要件
 
-### 6.1 Supabase（オプション）
+### 6.1 Supabase（ストレージのみ使用）
 
-**使用する場合:**
-- プロジェクト作成（Supabase Dashboard）
-- Authentication Providers: Google OAuth 有効化
-- Database: 今回は Cloud SQL を使用するため、Supabase Database は使用しない
-- Storage: 画像・動画ファイルのアップロード用に使用可能
+**重要:** 認証は NextAuth.js を使用し、Supabase Authentication は**使用しません**。
+Supabase は画像・動画ファイルのストレージ機能のみに使用します。
+
+**使用範囲:**
+- **Storage のみ**: 画像・動画ファイルのアップロード用
+- **Database**: 使用しない（Cloud SQL を使用）
+- **Authentication**: 使用しない（NextAuth.js を使用）
 
 **設定項目:**
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase プロジェクト URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - 匿名キー（Storage アクセス用）
+- `SUPABASE_SERVICE_ROLE_KEY` - サービスロールキー（サーバーサイドからの Storage 操作用）
+
+**Supabase 以外の選択肢:**
+- Cloud Storage を使用する場合は、Supabase の設定は不要です
 
 ### 6.2 Stripe
 
@@ -566,10 +639,64 @@ npm run start
 **ビルドステップ（cloudbuild.yaml）:**
 1. `npm install`
 2. `npm run build`
-3. `npx prisma migrate deploy`（本番DB マイグレーション）
+3. **Prisma マイグレーション（Cloud SQL Proxy 経由）**
+   - Cloud SQL Auth Proxy を起動
+   - `DATABASE_URL` を Secret Manager から取得
+   - `npx prisma migrate deploy` を実行
+   - Proxy を停止
 4. Docker イメージビルド
 5. Artifact Registry へプッシュ
 6. Cloud Run へデプロイ
+
+**Cloud SQL 接続方法:**
+- Cloud Build から Cloud SQL に接続するには、ビルドステップ内で Cloud SQL Auth Proxy を使用
+- 参考: https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run#connect_sql
+
+**cloudbuild.yaml サンプル:**
+```yaml
+steps:
+  # 1. 依存関係インストール
+  - name: 'node:20'
+    entrypoint: npm
+    args: ['install']
+
+  # 2. ビルド
+  - name: 'node:20'
+    entrypoint: npm
+    args: ['run', 'build']
+
+  # 3. Prisma マイグレーション（Cloud SQL Proxy 使用）
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        # Cloud SQL Proxy をダウンロード
+        wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+        chmod +x cloud_sql_proxy
+
+        # Proxy を起動（バックグラウンド）
+        ./cloud_sql_proxy -instances=dataanalyticsclinic:asia-northeast1:INSTANCE_NAME=tcp:5432 &
+        sleep 5
+
+        # DATABASE_URL を設定してマイグレーション実行
+        export DATABASE_URL="postgresql://USER:PASSWORD@127.0.0.1:5432/creative_flow_studio"
+        npx prisma migrate deploy
+
+        # Proxy を停止
+        killall cloud_sql_proxy
+    env:
+      - 'DATABASE_URL=${_DATABASE_URL}'
+    secretEnv: ['DATABASE_URL']
+
+  # 4-6. Docker ビルド、プッシュ、デプロイ
+  # ... (省略)
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/database-url/versions/latest
+      env: 'DATABASE_URL'
+```
 
 ### 8.2 必要な権限
 
@@ -592,19 +719,21 @@ Cloud Build デフォルト SA (`667780715339@cloudbuild.gserviceaccount.com`) �
 4. `npx prisma migrate dev`（ローカルPostgreSQL必要）
 5. `npm run dev`
 
-### 9.2 ステージング環境（dev ブランチ）
+### 9.2 ステージング環境（develop ブランチ）
 
-1. dev ブランチへ push
+1. develop ブランチへ push
 2. Cloud Build 自動トリガー
-3. Cloud Run へ自動デプロイ
+3. Cloud Run（ステージング環境）へ自動デプロイ
 4. 動作確認
 
 ### 9.3 本番環境（main ブランチ）
 
-1. dev → main へ PR 作成
+1. develop → main へ PR 作成
 2. Cursor（レビューエンジニア）によるコードレビュー
 3. マージ後、Cloud Build 自動トリガー
 4. 本番 Cloud Run へデプロイ
+
+**注意:** 現在のリポジトリでは `dev` ブランチを使用していますが、将来的に `develop` へリネームすることを推奨します。
 
 ---
 
