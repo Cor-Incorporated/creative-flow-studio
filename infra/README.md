@@ -23,7 +23,8 @@ infra/
 └── modules/
     ├── network/                # VPC/サブネット/Serverless Connector
     ├── cloud_sql/              # Cloud SQL インスタンス + DB + ユーザー
-    └── secrets/                # Secret Manager シークレットと IAM
+    ├── secrets/                # Secret Manager シークレットと IAM
+    └── cloud_run/              # Artifact Registry + Cloud Run サービス + 環境変数
 ```
 
 ## 事前準備
@@ -50,15 +51,24 @@ terraform apply
 state バケットと prefix はドキュメントに合わせて調整してください。
 
 ### Secret Manager への値投入
+
 - `terraform.tfvars` の `secret_values` マップは、Secret Manager 上の `database-url` などのシークレットを自動的に作成し、同名の最新バージョンへ値を登録します。
 - 配布されている `.example` にはダミー値を入れているため、**apply 前に必ず実値へ置き換えてください**。置き換え忘れるとダミーが本番 Secret として保存されます。
 - すでに手動で作成済みの Secret がある場合は `terraform import google_secret_manager_secret.managed["<secret-id>"] <resource-name>` を実行し、`secret_values` にも同じキーを定義してください。
 
 ### Private Service Connect / Serverless Connector
-- `envs/dev/main.tf` では VPC Peering (`google_compute_global_address` + `google_service_networking_connection`) を作成し、Cloud SQL Private IP の必須前提を満たしています。
+
+- `envs/dev/main.tf` では VPC Peering (`google_compute_global_address` + `google_service_networking_connection`) を作成し、Cloud SQL Private IP の必須前提を満たしています。`psa_address` / `psa_prefix_length` で Service Networking 用レンジを制御できるので、**/24 程度の未使用ブロック** を指定してください。/16 など大きすぎるレンジは推奨されません。
 - Serverless VPC Access Connector には /28 CIDR が必要なため、`connector_cidr` 変数で重複しないレンジ（例: `10.8.0.0/28`）を指定します。VPC 内の他 CIDR と重ならないよう注意してください。
 
+## Cloud Run / Artifact Registry モジュール
+
+- `modules/cloud_run/` では Artifact Registry の Docker リポジトリ、Cloud Run サービス本体、`roles/run.invoker` の公開設定を一括で管理します。
+- `cloud_run_env_vars` / `cloud_run_secret_env_vars` で `.env` と同じ名前の環境変数を指定でき、Secret Manager の `secret_id`（例: `database-url`）を Cloud Run の環境変数（例: `DATABASE_URL`）へマッピングします。
+- VPC 接続が必要な場合は、`network` モジュールで作成した Serverless Connector 名を自動で参照し、`cloud_sql_instances` へ `module.cloud_sql.instance_connection_name` を渡すことで `/cloudsql` マウントを構成します。
+- Cloud Build から Artifact Registry に push された `asia-northeast1-docker.pkg.dev/<project>/<repo>/app:latest` イメージを `cloud_run_image` に指定してください（初期はダミーで OK）。
+
 ## 今後の TODO
-- Cloud Run、Artifact Registry、Secret Manager -> Cloud Run 環境変数連携のモジュール追加
+
 - 監視/ログ/アラート用モジュール
 - CI/CD 用 service account/key rotation のコード化

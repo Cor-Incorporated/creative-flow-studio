@@ -2,9 +2,11 @@ project_id  = "dataanalyticsclinic"
 region      = "asia-northeast1"
 environment = "dev"
 
-network_name = "creative-flow-studio-vpc"
-subnet_cidr  = "10.10.0.0/20"
-connector_cidr = "10.8.0.0/28"
+network_name   = "creative-flow-studio-vpc"
+subnet_cidr    = "10.10.0.0/20"
+connector_cidr = "10.8.0.0/28" # Serverless Connector 専用 /28。既存サブネットと重複禁止
+psa_address    = "10.9.0.0"    # Private Service Connect 用レンジ (/24 の開始アドレス。VPC 内で未使用のブロックを選ぶ)
+psa_prefix_length = 24         # /24 程度を推奨。/16 以上は避ける
 
 cloud_sql_instance_name = "creative-flow-studio-sql"
 cloud_sql_tier          = "db-f1-micro"
@@ -13,6 +15,36 @@ cloud_sql_user          = "app_user"
 cloud_sql_db_name       = "creative_flow_studio"
 
 cloud_run_sa_email = "cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com"
+cloud_run_service_name = "creative-flow-studio-dev"
+artifact_repo_id       = "creative-flow-studio"
+cloud_run_image        = "asia-northeast1-docker.pkg.dev/dataanalyticsclinic/creative-flow-studio/app:latest"
+cloud_run_port         = 8080
+cloud_run_cpu          = "1"
+cloud_run_memory       = "1Gi"
+cloud_run_timeout_seconds = 300
+cloud_run_concurrency     = 80
+cloud_run_min_instances   = 0
+cloud_run_max_instances   = 5
+cloud_run_ingress         = "INGRESS_TRAFFIC_ALL"
+cloud_run_allow_unauthenticated = true
+
+cloud_run_env_vars = {
+  NEXTAUTH_URL          = "https://dev.creative-flow-studio.web.app"
+  NEXT_PUBLIC_APP_URL   = "https://dev.creative-flow-studio.web.app"
+  NEXT_PUBLIC_SUPABASE_URL = "https://xxx.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = "public-anon-key"
+}
+
+cloud_run_secret_env_vars = {
+  DATABASE_URL              = "database-url"
+  NEXTAUTH_SECRET           = "nextauth-secret"
+  GOOGLE_CLIENT_ID          = "google-client-id"
+  GOOGLE_CLIENT_SECRET      = "google-client-secret"
+  SUPABASE_SERVICE_ROLE_KEY = "supabase-service-role"
+  STRIPE_SECRET_KEY         = "stripe-secret-key"
+  STRIPE_WEBHOOK_SECRET     = "stripe-webhook-secret"
+  GEMINI_API_KEY            = "gemini-api-key"
+}
 
 secret_values = {
   # apply 前に必ず実値へ置き換えてください。ダミーのまま apply すると Secret にプレースホルダが登録されます。

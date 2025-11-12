@@ -3,6 +3,8 @@ locals {
     project     = var.project_id
     environment = var.environment
   }
+
+  vpc_connector = module.network.connector_name == null ? null : "projects/${var.project_id}/locations/${var.region}/connectors/${module.network.connector_name}"
 }
 
 module "network" {
@@ -21,7 +23,8 @@ resource "google_compute_global_address" "private_service_range" {
   project       = var.project_id
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
-  prefix_length = 16
+  address       = var.psa_address
+  prefix_length = var.psa_prefix_length
   network       = module.network.network_self_link
 }
 
@@ -63,4 +66,30 @@ resource "google_project_iam_member" "cloud_run_cloudsql" {
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${var.cloud_run_sa_email}"
+}
+
+module "cloud_run" {
+  source = "../../modules/cloud_run"
+
+  project_id            = var.project_id
+  region                = var.region
+  service_name          = var.cloud_run_service_name
+  service_account_email = var.cloud_run_sa_email
+  artifact_repo_id      = var.artifact_repo_id
+  container_image       = var.cloud_run_image
+  container_port        = var.cloud_run_port
+  container_cpu         = var.cloud_run_cpu
+  container_memory      = var.cloud_run_memory
+  timeout_seconds       = var.cloud_run_timeout_seconds
+  concurrency           = var.cloud_run_concurrency
+  min_instances         = var.cloud_run_min_instances
+  max_instances         = var.cloud_run_max_instances
+  ingress               = var.cloud_run_ingress
+  allow_unauthenticated = var.cloud_run_allow_unauthenticated
+  env_vars              = var.cloud_run_env_vars
+  secret_env_vars       = var.cloud_run_secret_env_vars
+  cloud_sql_instances   = [module.cloud_sql.instance_connection_name]
+  vpc_connector         = local.vpc_connector
+  vpc_egress            = "ALL_TRAFFIC"
+  labels                = local.labels
 }

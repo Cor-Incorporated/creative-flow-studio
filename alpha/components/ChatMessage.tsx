@@ -4,9 +4,9 @@ import { PencilIcon, DownloadIcon, LoadingSpinner } from './icons';
 import djShachoAvatar from '../DJ_Shacho_400x400.jpg';
 
 interface ChatMessageProps {
-  message: Message;
-  onEditImage: (prompt: string, image: Media) => void;
-  isDjShachoMode?: boolean;
+    message: Message;
+    onEditImage: (prompt: string, image: Media) => void;
+    isDjShachoMode?: boolean;
 }
 
 const handleDownload = (url: string, filename: string) => {
@@ -16,9 +16,12 @@ const handleDownload = (url: string, filename: string) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-}
+};
 
-const ImageContent: React.FC<{ part: ContentPart, onEditImage: (prompt: string, image: Media) => void }> = ({ part, onEditImage }) => {
+const ImageContent: React.FC<{
+    part: ContentPart;
+    onEditImage: (prompt: string, image: Media) => void;
+}> = ({ part, onEditImage }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isEditing, setIsEditing] = useState(part.isEditing || false);
     const [editText, setEditText] = useState('');
@@ -36,28 +39,37 @@ const ImageContent: React.FC<{ part: ContentPart, onEditImage: (prompt: string, 
     };
 
     return (
-        <div 
-            className="relative group max-w-md" 
-            onMouseEnter={() => setIsHovered(true)} 
+        <div
+            className="relative group max-w-md"
+            onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
             <img src={media.url} alt="Generated content" className="rounded-lg shadow-lg" />
             {isHovered && !isEditing && (
                 <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity">
-                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full">
+                    <button
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full"
+                    >
                         <PencilIcon /> 編集
                     </button>
-                     <button onClick={() => handleDownload(media.url, `creative-flow-${Date.now()}.png`)} className="ml-2 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full">
+                    <button
+                        onClick={() => handleDownload(media.url, `creative-flow-${Date.now()}.png`)}
+                        className="ml-2 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full"
+                    >
                         <DownloadIcon /> ダウンロード
                     </button>
                 </div>
             )}
             {isEditing && (
-                <form onSubmit={handleEditSubmit} className="absolute bottom-0 left-0 right-0 p-2 bg-black bg-opacity-70">
+                <form
+                    onSubmit={handleEditSubmit}
+                    className="absolute bottom-0 left-0 right-0 p-2 bg-black bg-opacity-70"
+                >
                     <input
                         type="text"
                         value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
+                        onChange={e => setEditText(e.target.value)}
                         placeholder="編集内容を記述してください..."
                         className="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         autoFocus
@@ -75,7 +87,10 @@ const VideoContent: React.FC<{ part: ContentPart }> = ({ part }) => {
             <video controls src={part.media.url} className="rounded-lg shadow-lg">
                 お使いのブラウザはビデオタグをサポートしていません。
             </video>
-            <button onClick={() => handleDownload(part.media.url, `creative-flow-${Date.now()}.mp4`)} className="mt-2 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full">
+            <button
+                onClick={() => handleDownload(part.media.url, `creative-flow-${Date.now()}.mp4`)}
+                className="mt-2 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full"
+            >
                 <DownloadIcon /> 動画をダウンロード
             </button>
         </div>
@@ -115,7 +130,12 @@ const SourceList: React.FC<{ sources: GroundingSource[] }> = ({ sources }) => (
         <ul className="list-none pl-0 space-y-1">
             {sources.map((source, index) => (
                 <li key={index}>
-                    <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline text-sm truncate">
+                    <a
+                        href={source.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:underline text-sm truncate"
+                    >
                         {source.title || source.uri}
                     </a>
                 </li>
@@ -124,55 +144,63 @@ const SourceList: React.FC<{ sources: GroundingSource[] }> = ({ sources }) => (
     </div>
 );
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ message, onEditImage, isDjShachoMode = false }) => {
-  const isUser = message.role === 'user';
-  const bgColor = isUser ? 'bg-gray-800' : 'bg-gray-700/50';
-  const alignment = isUser ? 'justify-end' : 'justify-start';
-  const flexDirection = isUser ? 'flex-row-reverse' : 'flex-row';
-  const avatar = isUser ? (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-semibold">
-      YOU
-    </div>
-  ) : isDjShachoMode ? (
-    <img src={djShachoAvatar} alt="DJ社長" className="w-full h-full object-cover" />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
-      AI
-    </div>
-  );
+const ChatMessage: React.FC<ChatMessageProps> = ({
+    message,
+    onEditImage,
+    isDjShachoMode = false,
+}) => {
+    const isUser = message.role === 'user';
+    const bgColor = isUser ? 'bg-gray-800' : 'bg-gray-700/50';
+    const alignment = isUser ? 'justify-end' : 'justify-start';
+    const flexDirection = isUser ? 'flex-row-reverse' : 'flex-row';
+    const avatar = isUser ? (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-semibold">
+            YOU
+        </div>
+    ) : isDjShachoMode ? (
+        <img src={djShachoAvatar} alt="DJ社長" className="w-full h-full object-cover" />
+    ) : (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
+            AI
+        </div>
+    );
 
-  return (
-    <div className={`flex ${alignment} mb-4`}>
-      <div className={`flex ${flexDirection} items-end gap-3 max-w-2xl`}>
-        <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-700 bg-gray-800 flex-shrink-0">
-          {avatar}
-        </div>
-        <div className={`px-4 py-3 rounded-2xl ${bgColor} flex flex-col gap-3`}>
-          {message.parts.map((part, index) => (
-            <div key={index}>
-              {part.isLoading && (
-                <div className="flex items-center gap-2 text-gray-400">
-                  {part.status ? (
-                      <>
-                          <LoadingSpinner />
-                          <span>{part.status}</span>
-                      </>
-                  ) : (
-                      <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
-                  )}
+    return (
+        <div className={`flex ${alignment} mb-4`}>
+            <div className={`flex ${flexDirection} items-end gap-3 max-w-2xl`}>
+                <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-700 bg-gray-800 flex-shrink-0">
+                    {avatar}
                 </div>
-              )}
-              {part.isError && <p className="text-red-400">{part.text}</p>}
-              {part.media?.type === 'image' && <ImageContent part={part} onEditImage={onEditImage} />}
-              {part.media?.type === 'video' && <VideoContent part={part} />}
-              {part.text && <TextContent part={part} />}
-              {part.sources && part.sources.length > 0 && <SourceList sources={part.sources} />}
+                <div className={`px-4 py-3 rounded-2xl ${bgColor} flex flex-col gap-3`}>
+                    {message.parts.map((part, index) => (
+                        <div key={index}>
+                            {part.isLoading && (
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    {part.status ? (
+                                        <>
+                                            <LoadingSpinner />
+                                            <span>{part.status}</span>
+                                        </>
+                                    ) : (
+                                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
+                                    )}
+                                </div>
+                            )}
+                            {part.isError && <p className="text-red-400">{part.text}</p>}
+                            {part.media?.type === 'image' && (
+                                <ImageContent part={part} onEditImage={onEditImage} />
+                            )}
+                            {part.media?.type === 'video' && <VideoContent part={part} />}
+                            {part.text && <TextContent part={part} />}
+                            {part.sources && part.sources.length > 0 && (
+                                <SourceList sources={part.sources} />
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
-          ))}
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default ChatMessage;

@@ -1,18 +1,31 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GoogleGenAI, GenerateContentResponse, ContentPart as GeminiContentPart } from '@google/genai';
-import { Message, GenerationMode, AspectRatio, Media, ContentPart as AppContentPart } from './types';
+import {
+    GoogleGenAI,
+    GenerateContentResponse,
+    ContentPart as GeminiContentPart,
+} from '@google/genai';
+import {
+    Message,
+    GenerationMode,
+    AspectRatio,
+    Media,
+    ContentPart as AppContentPart,
+} from './types';
 import ChatInput from './components/ChatInput';
 import ChatMessage from './components/ChatMessage';
 import ApiKeyModal from './components/ApiKeyModal';
 import { SparklesIcon } from './components/icons';
 import * as geminiService from './services/geminiService';
 import { fileToBase64, dataUrlToBase64 } from './utils/fileUtils';
-import { DJ_SHACHO_INITIAL_MESSAGE, DJ_SHACHO_SYSTEM_PROMPT } from './services/prompts/djShachoPrompt';
+import {
+    DJ_SHACHO_INITIAL_MESSAGE,
+    DJ_SHACHO_SYSTEM_PROMPT,
+} from './services/prompts/djShachoPrompt';
 import {
     DJ_SHACHO_TEMPERATURE,
     VIDEO_POLL_INTERVAL_MS,
     MAX_VIDEO_POLL_ATTEMPTS,
-    ERROR_MESSAGES
+    ERROR_MESSAGES,
 } from './constants';
 import type { GeminiResponse } from './types/gemini';
 import { extractTextFromResponse } from './types/gemini';
@@ -30,7 +43,15 @@ declare global {
 
 const App: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([
-        { id: 'init', role: 'model', parts: [{ text: "クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？" }] }
+        {
+            id: 'init',
+            role: 'model',
+            parts: [
+                {
+                    text: 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？',
+                },
+            ],
+        },
     ]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [mode, setMode] = useState<GenerationMode>('chat');
@@ -65,7 +86,7 @@ const App: React.FC = () => {
     useEffect(() => {
         checkApiKey();
     }, [checkApiKey]);
-    
+
     useEffect(() => {
         chatHistoryRef.current?.scrollTo(0, chatHistoryRef.current.scrollHeight);
     }, [messages]);
@@ -77,9 +98,21 @@ const App: React.FC = () => {
             if (prev.length === 1 && prev[0]?.id === 'init' && prev[0]?.parts?.[0]?.text) {
                 const currentText = prev[0].parts[0].text;
                 if (isDjShachoMode && currentText !== DJ_SHACHO_INITIAL_MESSAGE) {
-                    return [{ id: 'init', role: 'model', parts: [{ text: DJ_SHACHO_INITIAL_MESSAGE }] }];
+                    return [
+                        { id: 'init', role: 'model', parts: [{ text: DJ_SHACHO_INITIAL_MESSAGE }] },
+                    ];
                 } else if (!isDjShachoMode && currentText === DJ_SHACHO_INITIAL_MESSAGE) {
-                    return [{ id: 'init', role: 'model', parts: [{ text: "クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？" }] }];
+                    return [
+                        {
+                            id: 'init',
+                            role: 'model',
+                            parts: [
+                                {
+                                    text: 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？',
+                                },
+                            ],
+                        },
+                    ];
                 }
             }
             return prev;
@@ -89,7 +122,7 @@ const App: React.FC = () => {
     const handleApiKeySelect = async () => {
         await window.aistudio.openSelectKey();
         // Assume success and optimistically update UI to avoid race condition
-        setIsApiKeySelected(true); 
+        setIsApiKeySelected(true);
     };
 
     const addMessage = (message: Omit<Message, 'id'>) => {
@@ -105,13 +138,17 @@ const App: React.FC = () => {
         });
     };
 
-    const handleApiError = async (error: any, context: string, isDjShachoModeForError?: boolean) => {
+    const handleApiError = async (
+        error: any,
+        context: string,
+        isDjShachoModeForError?: boolean
+    ) => {
         if (import.meta.env.DEV) {
             console.error(`Error in ${context}:`, error);
         }
         let errorMessage = ERROR_MESSAGES.GENERIC_ERROR;
 
-        if (error.message && error.message.includes("Requested entity was not found")) {
+        if (error.message && error.message.includes('Requested entity was not found')) {
             errorMessage = ERROR_MESSAGES.API_KEY_NOT_FOUND;
             setIsApiKeySelected(false); // Force user to re-select key
         } else if (error.message) {
@@ -124,19 +161,19 @@ const App: React.FC = () => {
                 const djShachoErrorMessage = await convertToDjShachoStyle(errorMessage);
                 updateLastMessage(msg => ({
                     ...msg,
-                    parts: [{ isError: true, text: djShachoErrorMessage }]
+                    parts: [{ isError: true, text: djShachoErrorMessage }],
                 }));
             } catch (styleError) {
                 // スタイル変換に失敗した場合は通常のエラーメッセージを使用
                 updateLastMessage(msg => ({
                     ...msg,
-                    parts: [{ isError: true, text: `エラー: ${errorMessage}` }]
+                    parts: [{ isError: true, text: `エラー: ${errorMessage}` }],
                 }));
             }
         } else {
             updateLastMessage(msg => ({
                 ...msg,
-                parts: [{ isError: true, text: `エラー: ${errorMessage}` }]
+                parts: [{ isError: true, text: `エラー: ${errorMessage}` }],
             }));
         }
     };
@@ -182,20 +219,37 @@ const App: React.FC = () => {
             // Check for timeout
             if (pollAttempts >= MAX_VIDEO_POLL_ATTEMPTS) {
                 const timeoutError = await formatErrorMessage(ERROR_MESSAGES.VIDEO_POLL_TIMEOUT);
-                setMessages(prev => prev.map(m => m.id === messageId ? {
-                    ...m,
-                    parts: [{ isError: true, text: timeoutError }]
-                } : m));
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === messageId
+                            ? {
+                                  ...m,
+                                  parts: [{ isError: true, text: timeoutError }],
+                              }
+                            : m
+                    )
+                );
                 return;
             }
 
             // Validate and display progress
             const progress = currentOperation.metadata?.progressPercentage || 0;
             const validatedProgress = Math.max(0, Math.min(100, progress)); // Clamp to 0-100
-            setMessages(prev => prev.map(m => m.id === messageId ? {
-                ...m,
-                parts: [{ isLoading: true, status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)` }]
-            } : m));
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? {
+                              ...m,
+                              parts: [
+                                  {
+                                      isLoading: true,
+                                      status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)`,
+                                  },
+                              ],
+                          }
+                        : m
+                )
+            );
 
             await new Promise(resolve => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
 
@@ -209,15 +263,22 @@ const App: React.FC = () => {
                 return;
             }
         }
-        
+
         // When operation is done, check for explicit errors from the API
         if (currentOperation.error) {
-            const apiErrorMessage = currentOperation.error.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED;
+            const apiErrorMessage =
+                currentOperation.error.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED;
             const formattedError = await formatErrorMessage(`ビデオ生成エラー: ${apiErrorMessage}`);
-            setMessages(prev => prev.map(m => m.id === messageId ? {
-                ...m,
-                parts: [{ isError: true, text: formattedError }]
-            } : m));
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? {
+                              ...m,
+                              parts: [{ isError: true, text: formattedError }],
+                          }
+                        : m
+                )
+            );
             return;
         }
 
@@ -231,13 +292,33 @@ const App: React.FC = () => {
             // Track blob URL for cleanup
             blobUrlsRef.current.add(videoDataUrl);
 
-            setMessages(prev => prev.map(m => m.id === messageId ? {
-                ...m,
-                parts: [{ media: { type: 'video', url: videoDataUrl, mimeType: 'video/mp4' } }]
-            } : m));
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? {
+                              ...m,
+                              parts: [
+                                  {
+                                      media: {
+                                          type: 'video',
+                                          url: videoDataUrl,
+                                          mimeType: 'video/mp4',
+                                      },
+                                  },
+                              ],
+                          }
+                        : m
+                )
+            );
         } else {
             const formattedError = await formatErrorMessage(ERROR_MESSAGES.VIDEO_GENERATION_FAILED);
-            setMessages(prev => prev.map(m => m.id === messageId ? { ...m, parts: [{ isError: true, text: formattedError }] } : m));
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === messageId
+                        ? { ...m, parts: [{ isError: true, text: formattedError }] }
+                        : m
+                )
+            );
         }
     };
 
@@ -251,7 +332,10 @@ const App: React.FC = () => {
         addMessage({ role: 'user', parts: userParts });
 
         const loadingMessageId = Date.now().toString() + '-loading';
-        setMessages(prev => [...prev, { id: loadingMessageId, role: 'model', parts: [{ isLoading: true }] }]);
+        setMessages(prev => [
+            ...prev,
+            { id: loadingMessageId, role: 'model', parts: [{ isLoading: true }] },
+        ]);
 
         try {
             // DJ社長モードの設定
@@ -261,95 +345,184 @@ const App: React.FC = () => {
             if (mode === 'image') {
                 // 画像生成ではプロンプトはそのまま使用（DJ社長モードはエラーメッセージにのみ適用）
                 const imageUrl = await geminiService.generateImage(prompt, aspectRatio);
-                setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ media: { type: 'image', url: imageUrl, mimeType: 'image/png' } }] } : m));
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === loadingMessageId
+                            ? {
+                                  ...m,
+                                  parts: [
+                                      {
+                                          media: {
+                                              type: 'image',
+                                              url: imageUrl,
+                                              mimeType: 'image/png',
+                                          },
+                                      },
+                                  ],
+                              }
+                            : m
+                    )
+                );
             } else if (mode === 'video') {
                 if (!isApiKeySelected) {
                     await checkApiKey();
                     if (!(await window.aistudio.hasSelectedApiKey())) {
-                         await handleApiError({message: ERROR_MESSAGES.VIDEO_API_KEY_REQUIRED}, "video generation", true);
-                         setIsLoading(false);
-                         return;
+                        await handleApiError(
+                            { message: ERROR_MESSAGES.VIDEO_API_KEY_REQUIRED },
+                            'video generation',
+                            true
+                        );
+                        setIsLoading(false);
+                        return;
                     }
                 }
                 // 動画生成ではプロンプトはそのまま使用（DJ社長モードはエラーメッセージにのみ適用）
-                const operation = await geminiService.generateVideo(prompt, aspectRatio === '16:9' ? '16:9' : '9:16', uploadedMedia);
-                setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ isLoading: true, status: "ビデオ生成を開始しました..." }] } : m));
+                const operation = await geminiService.generateVideo(
+                    prompt,
+                    aspectRatio === '16:9' ? '16:9' : '9:16',
+                    uploadedMedia
+                );
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === loadingMessageId
+                            ? {
+                                  ...m,
+                                  parts: [
+                                      { isLoading: true, status: 'ビデオ生成を開始しました...' },
+                                  ],
+                              }
+                            : m
+                    )
+                );
                 await pollVideoStatus(operation, loadingMessageId);
-
             } else if (uploadedMedia && uploadedMedia.type === 'image') {
-                 const result = await geminiService.analyzeImage(prompt, uploadedMedia, systemInstruction);
-                 // analyzeImageの戻り値はGenerateContentResponse型
-                 const responseText = extractTextFromResponse(result as GeminiResponse);
-                 setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: responseText }] } : m));
+                const result = await geminiService.analyzeImage(
+                    prompt,
+                    uploadedMedia,
+                    systemInstruction
+                );
+                // analyzeImageの戻り値はGenerateContentResponse型
+                const responseText = extractTextFromResponse(result as GeminiResponse);
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === loadingMessageId ? { ...m, parts: [{ text: responseText }] } : m
+                    )
+                );
             } else {
                 let result: GenerateContentResponse;
                 if (mode === 'pro') {
-                    result = await geminiService.generateProResponse(prompt, systemInstruction, temperature);
+                    result = await geminiService.generateProResponse(
+                        prompt,
+                        systemInstruction,
+                        temperature
+                    );
                 } else if (mode === 'search') {
                     // リサーチモード: Google Searchを使用して検索を実行
                     // DJ社長モードがONの場合、systemInstructionにDJ_SHACHO_SYSTEM_PROMPTが設定され、
                     // 検索結果をDJ社長の口調（九州弁、ハイテンション、ポジティブ）で返す
-                    result = await geminiService.generateSearchGroundedResponse(prompt, systemInstruction, temperature);
-                } else { // chat
+                    result = await geminiService.generateSearchGroundedResponse(
+                        prompt,
+                        systemInstruction,
+                        temperature
+                    );
+                } else {
+                    // chat
                     // Build conversation history preserving multimodal content
                     const history = messages
                         .filter(m => m.role === 'user' || m.role === 'model')
                         .map(m => ({
                             role: m.role,
                             parts: m.parts
-                                .filter(p => p.text || p.media)  // Only include content parts
+                                .filter(p => p.text || p.media) // Only include content parts
                                 .map(p => {
                                     if (p.text) return { text: p.text };
                                     if (p.media && p.media.type === 'image') {
                                         return {
                                             inlineData: {
                                                 mimeType: p.media.mimeType,
-                                                data: dataUrlToBase64(p.media.url)
-                                            }
+                                                data: dataUrlToBase64(p.media.url),
+                                            },
                                         };
                                     }
                                     return null;
                                 })
-                                .filter((part): part is { text: string } | { inlineData: { mimeType: string, data: string } } => part !== null)
+                                .filter(
+                                    (
+                                        part
+                                    ): part is
+                                        | { text: string }
+                                        | { inlineData: { mimeType: string; data: string } } =>
+                                        part !== null
+                                ),
                         }))
-                        .filter(m => m.parts.length > 0);  // Exclude messages with no valid parts
+                        .filter(m => m.parts.length > 0); // Exclude messages with no valid parts
 
-                    result = await geminiService.generateChatResponse(history, prompt, systemInstruction, temperature);
+                    result = await geminiService.generateChatResponse(
+                        history,
+                        prompt,
+                        systemInstruction,
+                        temperature
+                    );
                 }
-                
+
                 const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
-                const sources = groundingChunks?.map((c: any) => ({ uri: c.web.uri, title: c.web.title })) || [];
+                const sources =
+                    groundingChunks?.map((c: any) => ({ uri: c.web.uri, title: c.web.title })) ||
+                    [];
 
                 // テキストレスポンスの取得（型の違いに対応）
                 const responseText = extractTextFromResponse(result as GeminiResponse);
-                setMessages(prev => prev.map(m => m.id === loadingMessageId ? { ...m, parts: [{ text: responseText, sources }] } : m));
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.id === loadingMessageId
+                            ? { ...m, parts: [{ text: responseText, sources }] }
+                            : m
+                    )
+                );
             }
         } catch (error) {
             // 画像・動画生成のエラーではDJ社長モードを適用
-            const shouldUseDjShachoStyle = (mode === 'image' || mode === 'video');
+            const shouldUseDjShachoStyle = mode === 'image' || mode === 'video';
             await handleApiError(error, `mode: ${mode}`, shouldUseDjShachoStyle);
         } finally {
             setIsLoading(false);
         }
     };
-    
+
     const handleEditImage = async (prompt: string, image: Media) => {
         setIsLoading(true);
         addMessage({ role: 'user', parts: [{ text: `画像編集: 「${prompt}」` }] });
 
         const loadingMessageId = Date.now().toString() + '-editing';
-        setMessages(prev => [...prev, { 
-            id: loadingMessageId, 
-            role: 'model', 
-            parts: [{ isLoading: true, isEditing: true, originalMedia: image }] 
-        }]);
+        setMessages(prev => [
+            ...prev,
+            {
+                id: loadingMessageId,
+                role: 'model',
+                parts: [{ isLoading: true, isEditing: true, originalMedia: image }],
+            },
+        ]);
 
         try {
             const editedImageUrl = await geminiService.editImage(prompt, image);
-            setMessages(prev => prev.map(m => m.id === loadingMessageId ? { 
-                ...m, 
-                parts: [{ media: { type: 'image', url: editedImageUrl, mimeType: 'image/png' } }] 
-            } : m));
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === loadingMessageId
+                        ? {
+                              ...m,
+                              parts: [
+                                  {
+                                      media: {
+                                          type: 'image',
+                                          url: editedImageUrl,
+                                          mimeType: 'image/png',
+                                      },
+                                  },
+                              ],
+                          }
+                        : m
+                )
+            );
         } catch (error) {
             await handleApiError(error, 'image editing');
         } finally {
@@ -365,16 +538,21 @@ const App: React.FC = () => {
                     <SparklesIcon className="w-6 h-6 text-blue-400" />
                     <h1 className="text-xl font-bold">クリエイティブフロースタジオ</h1>
                 </div>
-                 <div className="relative">
+                <div className="relative">
                     <div className="w-32 h-2 bg-gray-700 rounded-full">
-                        <div className="h-2 bg-green-500 rounded-full" style={{ width: '80%' }}></div>
+                        <div
+                            className="h-2 bg-green-500 rounded-full"
+                            style={{ width: '80%' }}
+                        ></div>
                     </div>
-                    <span className="absolute -top-5 right-0 text-xs text-gray-400">クォータ: 80%</span>
+                    <span className="absolute -top-5 right-0 text-xs text-gray-400">
+                        クォータ: 80%
+                    </span>
                 </div>
             </header>
 
             <main ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((msg) => (
+                {messages.map(msg => (
                     <ChatMessage
                         key={msg.id}
                         message={msg}
@@ -384,8 +562,8 @@ const App: React.FC = () => {
                 ))}
             </main>
 
-            <ChatInput 
-                onSendMessage={handleSendMessage} 
+            <ChatInput
+                onSendMessage={handleSendMessage}
                 isLoading={isLoading}
                 mode={mode}
                 setMode={setMode}

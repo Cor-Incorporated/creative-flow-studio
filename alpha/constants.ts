@@ -8,7 +8,7 @@ export const ALLOWED_IMAGE_TYPES = [
     'image/jpg',
     'image/png',
     'image/webp',
-    'image/gif'
+    'image/gif',
 ];
 
 export const ALLOWED_VIDEO_TYPES = [
@@ -16,7 +16,7 @@ export const ALLOWED_VIDEO_TYPES = [
     'video/webm',
     'video/quicktime',
     'video/x-msvideo', // .avi
-    'video/mpeg'
+    'video/mpeg',
 ];
 
 // DJ Shacho Mode Settings
@@ -36,12 +36,13 @@ export const ERROR_MESSAGES = {
     IMAGE_GENERATION_FAILED: '画像生成に失敗しました。',
     IMAGE_NO_DATA: '画像生成に失敗しました。画像データが取得できませんでした。',
     IMAGE_UNEXPECTED_FORMAT: '画像生成に失敗しました。画像データの構造が予期されない形式です。',
-    IMAGE_NO_IMAGES: '画像生成に失敗しました。生成された画像がありません。プロンプトの内容を確認してください。',
+    IMAGE_NO_IMAGES:
+        '画像生成に失敗しました。生成された画像がありません。プロンプトの内容を確認してください。',
     IMAGE_EDIT_NO_IMAGE: 'No image found in edit response',
     FILE_TOO_LARGE: `ファイルサイズが大きすぎます。${MAX_FILE_SIZE / 1024 / 1024}MB以下のファイルを選択してください。`,
     INVALID_FILE_TYPE: '対応していないファイル形式です。',
     PROMPT_TOO_LONG: `プロンプトが長すぎます。${MAX_PROMPT_LENGTH}文字以内で入力してください。`,
-    VIDEO_POLL_TIMEOUT: 'ビデオ生成がタイムアウトしました。もう一度お試しください。'
+    VIDEO_POLL_TIMEOUT: 'ビデオ生成がタイムアウトしました。もう一度お試しください。',
 };
 
 // Aspect Ratios

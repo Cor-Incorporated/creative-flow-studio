@@ -106,7 +106,7 @@ export const AuditLogMetadataSchema = z
         before: z.any().optional(), // Previous state (can be any type)
         after: z.any().optional(), // New state (can be any type)
         reason: z.string().optional(),
-        changes: z.record(z.any()).optional(), // Key-value pairs of changes
+        changes: z.record(z.string(), z.any()).optional(), // Key-value pairs of changes
     })
     .passthrough(); // Allow additional audit metadata
 
@@ -122,10 +122,7 @@ export type AuditLogMetadata = z.infer<typeof AuditLogMetadataSchema>;
  * @param data - Data to validate
  * @returns Parsed data if valid, null if invalid
  */
-export function safeParseJson<T extends z.ZodTypeAny>(
-    schema: T,
-    data: unknown
-): z.infer<T> | null {
+export function safeParseJson<T extends z.ZodTypeAny>(schema: T, data: unknown): z.infer<T> | null {
     const result = schema.safeParse(data);
     return result.success ? result.data : null;
 }

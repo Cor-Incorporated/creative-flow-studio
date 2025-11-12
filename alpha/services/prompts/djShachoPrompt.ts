@@ -92,7 +92,9 @@ Subject: {userPrompt}`;
  * 動画生成用のプロンプトテンプレート
  * DJ社長がインフルエンサー講座を行う動画用
  */
-export const DJ_SHACHO_VIDEO_PROMPT_TEMPLATE = (topic: string) => `A high-energy educational video featuring DJ Shacho as an influencer coach.
+export const DJ_SHACHO_VIDEO_PROMPT_TEMPLATE = (
+    topic: string
+) => `A high-energy educational video featuring DJ Shacho as an influencer coach.
 
 【Scene Setup】
 
@@ -128,4 +130,3 @@ export const DJ_SHACHO_INITIAL_MESSAGE = `おいっす！DJ社長やけん！�
 今日はどんなこと教えたるか？ドームでライブするための方法とか、インフルエンサーになるためのコツとか、なんでも聞いてけん！！！
 
 結果を出すことが大事やけん、一緒に頑張ろうぜ！！！！！`;
-

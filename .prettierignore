@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+alpha/node_modules
+
+# Build outputs
+.next
+out
+dist
+build
+alpha/dist
+
+# Misc
+.git
+.DS_Store
+*.log
+coverage
+.vercel

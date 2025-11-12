@@ -9,12 +9,14 @@ Creative Flow Studio is a multimodal AI application that integrates multiple Goo
 ### Current Status and Roadmap
 
 **Alpha Version (main branch):**
+
 - React + TypeScript + Vite frontend-only application
 - Deployed on Vercel
 - Currently maintained for alpha users
 - **This is the version documented in this file**
 
 **Next-Generation Full-Stack SaaS (develop branch):**
+
 - Migration to Next.js 14 (App Router) with backend API
 - Target: Full-stack SaaS architecture with authentication, payment, conversation history, and admin dashboard
 - Infrastructure: Google Cloud Platform (GCP) with Terraform IaC
@@ -56,6 +58,7 @@ npm run preview
 ### Core Application Flow
 
 **App.tsx** is the main orchestrator that:
+
 - Manages conversation state (`messages` array)
 - Handles mode switching between 5 generation modes: `chat`, `pro`, `search`, `image`, `video`
 - Manages DJ Shacho Mode toggle (`isDjShachoMode` state) which applies persona styling to text responses
@@ -67,6 +70,7 @@ npm run preview
 ### Key Components
 
 **ChatInput** (`components/ChatInput.tsx`)
+
 - Mode selector buttons for switching between generation modes
 - DJ Shacho Mode toggle button for persona switching
 - Aspect ratio controls for image/video generation
@@ -74,6 +78,7 @@ npm run preview
 - Paste support for images
 
 **ChatMessage** (`components/ChatMessage.tsx`)
+
 - Renders different content types: text, images, videos, loading states
 - Displays DJ Shacho avatar when DJ Shacho Mode is enabled
 - Supports image editing workflow (hover to trigger edit prompt)
@@ -83,21 +88,23 @@ npm run preview
 ### Service Layer
 
 **geminiService.ts** (`services/geminiService.ts`)
+
 - All Gemini API interactions go through this service
 - Creates fresh `GoogleGenAI` client on each call to ensure latest API key is used
 - Key functions:
-  - `generateChatResponse()` - Uses gemini-2.5-flash with conversation history; supports `systemInstruction` and `temperature` for DJ Shacho Mode
-  - `generateProResponse()` - Uses gemini-2.5-pro with thinking budget; supports `systemInstruction` and `temperature` for DJ Shacho Mode
-  - `generateSearchGroundedResponse()` - Uses googleSearch tool for grounded answers; supports DJ Shacho Mode with dual-pass approach (search then reformat)
-  - `generateImage()` - Imagen 4.0 with configurable aspect ratios (note: DJ Shacho Mode does not modify prompts to comply with policy)
-  - `analyzeImage()` - Vision capabilities for uploaded images; supports `systemInstruction` for DJ Shacho Mode
-  - `editImage()` - Uses gemini-2.5-flash-image with IMAGE response modality
-  - `generateVideo()` - Veo 3.1 (long-running operation, requires polling; note: DJ Shacho Mode does not modify prompts to comply with policy)
-  - `pollVideoOperation()` - Checks video generation status
+    - `generateChatResponse()` - Uses gemini-2.5-flash with conversation history; supports `systemInstruction` and `temperature` for DJ Shacho Mode
+    - `generateProResponse()` - Uses gemini-2.5-pro with thinking budget; supports `systemInstruction` and `temperature` for DJ Shacho Mode
+    - `generateSearchGroundedResponse()` - Uses googleSearch tool for grounded answers; supports DJ Shacho Mode with dual-pass approach (search then reformat)
+    - `generateImage()` - Imagen 4.0 with configurable aspect ratios (note: DJ Shacho Mode does not modify prompts to comply with policy)
+    - `analyzeImage()` - Vision capabilities for uploaded images; supports `systemInstruction` for DJ Shacho Mode
+    - `editImage()` - Uses gemini-2.5-flash-image with IMAGE response modality
+    - `generateVideo()` - Veo 3.1 (long-running operation, requires polling; note: DJ Shacho Mode does not modify prompts to comply with policy)
+    - `pollVideoOperation()` - Checks video generation status
 
 ### Type System
 
 **types.ts** defines the core data structures:
+
 - `Message` - Chat message with `role` ('user' | 'model') and `parts` array
 - `ContentPart` - Can contain text, media, grounding sources, loading/error states
 - `Media` - Represents image/video with data URL and MIME type
@@ -105,6 +112,7 @@ npm run preview
 - `AspectRatio` - Supported ratios: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
 
 **types/gemini.ts** extends @google/genai types:
+
 - Custom type definitions for Gemini API responses (handles both documented and undocumented shortcuts)
 - `extractTextFromResponse()` - Safely extracts text from responses (handles both `.text` shorthand and full candidate structure)
 - Type guards: `isTextPart()` and `isInlineDataPart()` for discriminating between Gemini part types
@@ -120,6 +128,7 @@ npm run preview
 ### Video Generation Pattern
 
 Video generation is asynchronous and requires polling:
+
 1. Call `generateVideo()` to start operation
 2. Poll with `pollVideoOperation()` every 5 seconds
 3. Check `operation.done` and `operation.metadata.progressPercentage`

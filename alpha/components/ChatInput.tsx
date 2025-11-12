@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import { GenerationMode, AspectRatio, Media } from '../types';
 import { SendIcon, AttachmentIcon, SparklesIcon } from './icons';
@@ -8,18 +7,18 @@ import {
     MAX_PROMPT_LENGTH,
     ALLOWED_IMAGE_TYPES,
     ALLOWED_VIDEO_TYPES,
-    ERROR_MESSAGES
+    ERROR_MESSAGES,
 } from '../constants';
 
 interface ChatInputProps {
-  onSendMessage: (prompt: string, uploadedMedia?: Media) => void;
-  isLoading: boolean;
-  mode: GenerationMode;
-  setMode: (mode: GenerationMode) => void;
-  aspectRatio: AspectRatio;
-  setAspectRatio: (ratio: AspectRatio) => void;
-  isDjShachoMode: boolean;
-  setIsDjShachoMode: (isDjShachoMode: boolean) => void;
+    onSendMessage: (prompt: string, uploadedMedia?: Media) => void;
+    isLoading: boolean;
+    mode: GenerationMode;
+    setMode: (mode: GenerationMode) => void;
+    aspectRatio: AspectRatio;
+    setAspectRatio: (ratio: AspectRatio) => void;
+    isDjShachoMode: boolean;
+    setIsDjShachoMode: (isDjShachoMode: boolean) => void;
 }
 
 const ModeButton: React.FC<{
@@ -58,7 +57,16 @@ const AspectRatioButton: React.FC<{
     </button>
 );
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, setMode, aspectRatio, setAspectRatio, isDjShachoMode, setIsDjShachoMode }) => {
+const ChatInput: React.FC<ChatInputProps> = ({
+    onSendMessage,
+    isLoading,
+    mode,
+    setMode,
+    aspectRatio,
+    setAspectRatio,
+    isDjShachoMode,
+    setIsDjShachoMode,
+}) => {
     const [prompt, setPrompt] = useState('');
     const [uploadedMedia, setUploadedMedia] = useState<Media | null>(null);
     const [validationError, setValidationError] = useState<string | null>(null);
@@ -152,11 +160,25 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, s
         <div className="p-4 bg-gray-900 border-t border-gray-700">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="text-sm font-semibold text-gray-400 mr-2">モード:</span>
-                <ModeButton currentMode={mode} buttonMode="chat" onClick={() => setMode('chat')}>チャット</ModeButton>
-                <ModeButton currentMode={mode} buttonMode="pro" onClick={() => setMode('pro')}>プロ</ModeButton>
-                <ModeButton currentMode={mode} buttonMode="search" onClick={() => setMode('search')}>検索</ModeButton>
-                <ModeButton currentMode={mode} buttonMode="image" onClick={() => setMode('image')}>画像</ModeButton>
-                <ModeButton currentMode={mode} buttonMode="video" onClick={() => setMode('video')}>動画</ModeButton>
+                <ModeButton currentMode={mode} buttonMode="chat" onClick={() => setMode('chat')}>
+                    チャット
+                </ModeButton>
+                <ModeButton currentMode={mode} buttonMode="pro" onClick={() => setMode('pro')}>
+                    プロ
+                </ModeButton>
+                <ModeButton
+                    currentMode={mode}
+                    buttonMode="search"
+                    onClick={() => setMode('search')}
+                >
+                    検索
+                </ModeButton>
+                <ModeButton currentMode={mode} buttonMode="image" onClick={() => setMode('image')}>
+                    画像
+                </ModeButton>
+                <ModeButton currentMode={mode} buttonMode="video" onClick={() => setMode('video')}>
+                    動画
+                </ModeButton>
             </div>
             <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-semibold text-gray-400 mr-2">DJ社長モード:</span>
@@ -187,37 +209,96 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, mode, s
             {(mode === 'image' || mode === 'video') && (
                 <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold text-gray-400 mr-2">アスペクト比:</span>
-                    <AspectRatioButton currentRatio={aspectRatio} buttonRatio="1:1" onClick={() => setAspectRatio('1:1')}>1:1</AspectRatioButton>
-                    <AspectRatioButton currentRatio={aspectRatio} buttonRatio="16:9" onClick={() => setAspectRatio('16:9')}>16:9</AspectRatioButton>
-                    <AspectRatioButton currentRatio={aspectRatio} buttonRatio="9:16" onClick={() => setAspectRatio('9:16')}>9:16</AspectRatioButton>
-                    <AspectRatioButton currentRatio={aspectRatio} buttonRatio="4:3" onClick={() => setAspectRatio('4:3')}>4:3</AspectRatioButton>
-                    <AspectRatioButton currentRatio={aspectRatio} buttonRatio="3:4" onClick={() => setAspectRatio('3:4')}>3:4</AspectRatioButton>
+                    <AspectRatioButton
+                        currentRatio={aspectRatio}
+                        buttonRatio="1:1"
+                        onClick={() => setAspectRatio('1:1')}
+                    >
+                        1:1
+                    </AspectRatioButton>
+                    <AspectRatioButton
+                        currentRatio={aspectRatio}
+                        buttonRatio="16:9"
+                        onClick={() => setAspectRatio('16:9')}
+                    >
+                        16:9
+                    </AspectRatioButton>
+                    <AspectRatioButton
+                        currentRatio={aspectRatio}
+                        buttonRatio="9:16"
+                        onClick={() => setAspectRatio('9:16')}
+                    >
+                        9:16
+                    </AspectRatioButton>
+                    <AspectRatioButton
+                        currentRatio={aspectRatio}
+                        buttonRatio="4:3"
+                        onClick={() => setAspectRatio('4:3')}
+                    >
+                        4:3
+                    </AspectRatioButton>
+                    <AspectRatioButton
+                        currentRatio={aspectRatio}
+                        buttonRatio="3:4"
+                        onClick={() => setAspectRatio('3:4')}
+                    >
+                        3:4
+                    </AspectRatioButton>
                 </div>
             )}
             <div className="bg-gray-800 rounded-xl p-2 flex flex-col">
                 {uploadedMedia && (
                     <div className="relative p-2">
-                        <img src={uploadedMedia.url} alt="upload preview" className="max-h-24 rounded-md" />
-                        <button onClick={() => setUploadedMedia(null)} className="absolute top-0 right-0 m-1 bg-gray-900 rounded-full p-1 text-white">&times;</button>
+                        <img
+                            src={uploadedMedia.url}
+                            alt="upload preview"
+                            className="max-h-24 rounded-md"
+                        />
+                        <button
+                            onClick={() => setUploadedMedia(null)}
+                            className="absolute top-0 right-0 m-1 bg-gray-900 rounded-full p-1 text-white"
+                        >
+                            &times;
+                        </button>
                     </div>
                 )}
                 <form onSubmit={handleSubmit} className="flex items-center w-full">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-white">
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 text-gray-400 hover:text-white"
+                    >
                         <AttachmentIcon />
                     </button>
-                    <input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e.target.files)} className="hidden" accept="image/*,video/*" />
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={e => handleFileChange(e.target.files)}
+                        className="hidden"
+                        accept="image/*,video/*"
+                    />
                     <textarea
                         value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
+                        onChange={e => setPrompt(e.target.value)}
                         onPaste={handlePaste}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && e.shiftKey) handleSubmit(e); }}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter' && e.shiftKey) handleSubmit(e);
+                        }}
                         placeholder="何でも質問したり、画像や動画の説明を入力してください... (Shift+Enterで送信)"
                         className="flex-grow bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none resize-none"
                         rows={1}
                         disabled={isLoading}
                     />
-                    <button type="submit" disabled={isLoading || (!prompt.trim() && !uploadedMedia)} className="p-2 text-white bg-blue-600 rounded-full disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors">
-                        {isLoading ? <div className="w-6 h-6 animate-spin rounded-full border-2 border-white border-t-transparent"></div> : <SendIcon />}
+                    <button
+                        type="submit"
+                        disabled={isLoading || (!prompt.trim() && !uploadedMedia)}
+                        className="p-2 text-white bg-blue-600 rounded-full disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                    >
+                        {isLoading ? (
+                            <div className="w-6 h-6 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        ) : (
+                            <SendIcon />
+                        )}
                     </button>
                 </form>
             </div>

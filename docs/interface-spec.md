@@ -50,32 +50,32 @@ Secret Manager に格納し、Cloud Run の環境変数として注入する項�
 
 **注意:** Secret Manager のキー名は小文字ハイフン区切りを使用（GCP推奨）
 
-| Secret Manager キー名 | 環境変数名 | 説明 | 例 |
-|---|---|---|---|
-| `database-url` | `DATABASE_URL` | Cloud SQL への接続文字列 | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
-| `nextauth-secret` | `NEXTAUTH_SECRET` | NextAuth.js のセッション暗号化キー | `openssl rand -base64 32` |
-| `google-client-id` | `GOOGLE_CLIENT_ID` | Google OAuth クライアントID | Google Cloud Console から取得 |
-| `google-client-secret` | `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット | Google Cloud Console から取得 |
-| `supabase-service-role-key` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（ストレージ用） | Supabase Dashboard から取得 |
-| `stripe-secret-key` | `STRIPE_SECRET_KEY` | Stripe シークレットキー | Stripe Dashboard から取得 |
-| `stripe-webhook-secret` | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット | Stripe Webhook 設定から取得 |
-| `gemini-api-key` | `GEMINI_API_KEY` | Google Gemini API キー | Google AI Studio から取得 |
+| Secret Manager キー名       | 環境変数名                  | 説明                                        | 例                                                                  |
+| --------------------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| `database-url`              | `DATABASE_URL`              | Cloud SQL への接続文字列                    | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `nextauth-secret`           | `NEXTAUTH_SECRET`           | NextAuth.js のセッション暗号化キー          | `openssl rand -base64 32`                                           |
+| `google-client-id`          | `GOOGLE_CLIENT_ID`          | Google OAuth クライアントID                 | Google Cloud Console から取得                                       |
+| `google-client-secret`      | `GOOGLE_CLIENT_SECRET`      | Google OAuth クライアントシークレット       | Google Cloud Console から取得                                       |
+| `supabase-service-role-key` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（ストレージ用） | Supabase Dashboard から取得                                         |
+| `stripe-secret-key`         | `STRIPE_SECRET_KEY`         | Stripe シークレットキー                     | Stripe Dashboard から取得                                           |
+| `stripe-webhook-secret`     | `STRIPE_WEBHOOK_SECRET`     | Stripe Webhook 署名検証シークレット         | Stripe Webhook 設定から取得                                         |
+| `gemini-api-key`            | `GEMINI_API_KEY`            | Google Gemini API キー                      | Google AI Studio から取得                                           |
 
 環境変数として直接設定する項目（非機密）：
 
-| 環境変数名 | 説明 | 例 |
-|---|---|---|
-| `NEXTAUTH_URL` | NextAuth.js のベースURL | `https://app.example.com` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクトURL | `https://xxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 匿名キー（公開可） | `eyJhbGc...` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe 公開可能キー | `pk_live_...` |
-| `NEXT_PUBLIC_APP_URL` | アプリケーションのベースURL | `https://app.example.com` |
+| 環境変数名                           | 説明                        | 例                        |
+| ------------------------------------ | --------------------------- | ------------------------- |
+| `NEXTAUTH_URL`                       | NextAuth.js のベースURL     | `https://app.example.com` |
+| `NEXT_PUBLIC_SUPABASE_URL`           | Supabase プロジェクトURL    | `https://xxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Supabase 匿名キー（公開可） | `eyJhbGc...`              |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe 公開可能キー         | `pk_live_...`             |
+| `NEXT_PUBLIC_APP_URL`                | アプリケーションのベースURL | `https://app.example.com` |
 
 ### 1.2 Terraform / Codex 側での対応
 
 - Secret Manager に上記の機密情報を格納（キー名は小文字ハイフン区切り）
 - Cloud Run サービスに環境変数として注入する設定を Terraform で定義
-  - Secret の値を環境変数にマッピング（例: `database-url` → `DATABASE_URL`）
+    - Secret の値を環境変数にマッピング（例: `database-url` → `DATABASE_URL`）
 - `google_secret_manager_secret_iam_binding` で `cloud-run-runtime@` SA に `roles/secretmanager.secretAccessor` を付与
 
 ---
@@ -316,61 +316,72 @@ Prisma の `Json` 型フィールド（`Plan.features`, `UsageLog.metadata` 等�
 これらは `lib/validators.ts` に配置します。
 
 **Plan.features の構造:**
+
 ```typescript
 import { z } from 'zod';
 
 export const PlanFeaturesSchema = z.object({
-  maxRequestsPerMonth: z.number().nullable(),
-  maxFileSize: z.number().nullable(), // in bytes
-  maxConcurrentRequests: z.number().default(3),
-  allowImageGeneration: z.boolean().default(true),
-  allowVideoGeneration: z.boolean().default(false),
-  allowProMode: z.boolean().default(false),
-  allowSearchMode: z.boolean().default(true),
-  prioritySupport: z.boolean().default(false),
-  customBranding: z.boolean().default(false),
+    maxRequestsPerMonth: z.number().nullable(),
+    maxFileSize: z.number().nullable(), // in bytes
+    maxConcurrentRequests: z.number().default(3),
+    allowImageGeneration: z.boolean().default(true),
+    allowVideoGeneration: z.boolean().default(false),
+    allowProMode: z.boolean().default(false),
+    allowSearchMode: z.boolean().default(true),
+    prioritySupport: z.boolean().default(false),
+    customBranding: z.boolean().default(false),
 });
 
 export type PlanFeatures = z.infer<typeof PlanFeaturesSchema>;
 ```
 
 **UsageLog.metadata の構造:**
+
 ```typescript
 export const UsageLogMetadataSchema = z.object({
-  model: z.string().optional(), // e.g., 'gemini-2.5-flash', 'imagen-4.0'
-  mode: z.enum(['chat', 'pro', 'search', 'image', 'video']).optional(),
-  tokensUsed: z.number().optional(),
-  imageSize: z.string().optional(), // e.g., '1024x1024'
-  videoLength: z.number().optional(), // in seconds
-  aspectRatio: z.string().optional(),
-  success: z.boolean().default(true),
-  errorMessage: z.string().optional(),
+    model: z.string().optional(), // e.g., 'gemini-2.5-flash', 'imagen-4.0'
+    mode: z.enum(['chat', 'pro', 'search', 'image', 'video']).optional(),
+    tokensUsed: z.number().optional(),
+    imageSize: z.string().optional(), // e.g., '1024x1024'
+    videoLength: z.number().optional(), // in seconds
+    aspectRatio: z.string().optional(),
+    success: z.boolean().default(true),
+    errorMessage: z.string().optional(),
 });
 
 export type UsageLogMetadata = z.infer<typeof UsageLogMetadataSchema>;
 ```
 
 **Message.content の構造:**
+
 ```typescript
 export const MessageContentSchema = z.object({
-  text: z.string().optional(),
-  media: z.object({
-    type: z.enum(['image', 'video']),
-    url: z.string(),
-    mimeType: z.string(),
-  }).optional(),
-  sources: z.array(z.object({
-    uri: z.string(),
-    title: z.string(),
-  })).optional(),
-  isLoading: z.boolean().optional(),
-  status: z.string().optional(),
-  isError: z.boolean().optional(),
-  originalMedia: z.object({
-    type: z.enum(['image', 'video']),
-    url: z.string(),
-    mimeType: z.string(),
-  }).optional(),
+    text: z.string().optional(),
+    media: z
+        .object({
+            type: z.enum(['image', 'video']),
+            url: z.string(),
+            mimeType: z.string(),
+        })
+        .optional(),
+    sources: z
+        .array(
+            z.object({
+                uri: z.string(),
+                title: z.string(),
+            })
+        )
+        .optional(),
+    isLoading: z.boolean().optional(),
+    status: z.string().optional(),
+    isError: z.boolean().optional(),
+    originalMedia: z
+        .object({
+            type: z.enum(['image', 'video']),
+            url: z.string(),
+            mimeType: z.string(),
+        })
+        .optional(),
 });
 
 export type MessageContent = z.infer<typeof MessageContentSchema>;
@@ -392,55 +403,55 @@ export type MessageContent = z.infer<typeof MessageContentSchema>;
 
 #### 認証関連（NextAuth.js）
 
-| Method | Path | 説明 |
-|---|---|---|
+| Method     | Path                      | 説明                                                             |
+| ---------- | ------------------------- | ---------------------------------------------------------------- |
 | `GET/POST` | `/api/auth/[...nextauth]` | NextAuth.js エンドポイント（ログイン、コールバック、セッション） |
 
 #### 会話・メッセージ関連
 
-| Method | Path | 説明 | 認証 |
-|---|---|---|---|
-| `GET` | `/api/conversations` | ユーザーの会話一覧取得 | 必須 |
-| `POST` | `/api/conversations` | 新規会話作成 | 必須 |
-| `GET` | `/api/conversations/[id]` | 特定会話の詳細とメッセージ取得 | 必須 |
-| `DELETE` | `/api/conversations/[id]` | 会話削除 | 必須 |
-| `POST` | `/api/conversations/[id]/messages` | メッセージ送信（Gemini API呼び出し） | 必須 |
+| Method   | Path                               | 説明                                 | 認証 |
+| -------- | ---------------------------------- | ------------------------------------ | ---- |
+| `GET`    | `/api/conversations`               | ユーザーの会話一覧取得               | 必須 |
+| `POST`   | `/api/conversations`               | 新規会話作成                         | 必須 |
+| `GET`    | `/api/conversations/[id]`          | 特定会話の詳細とメッセージ取得       | 必須 |
+| `DELETE` | `/api/conversations/[id]`          | 会話削除                             | 必須 |
+| `POST`   | `/api/conversations/[id]/messages` | メッセージ送信（Gemini API呼び出し） | 必須 |
 
 #### Gemini API Proxy（サーバーサイド）
 
-| Method | Path | 説明 | 認証 |
-|---|---|---|---|
-| `POST` | `/api/gemini/chat` | チャット生成 | 必須 |
-| `POST` | `/api/gemini/pro` | Pro モード生成 | 必須 |
-| `POST` | `/api/gemini/search` | 検索グラウンディング生成 | 必須 |
-| `POST` | `/api/gemini/image/generate` | 画像生成 | 必須 |
-| `POST` | `/api/gemini/image/edit` | 画像編集 | 必須 |
-| `POST` | `/api/gemini/image/analyze` | 画像分析 | 必須 |
-| `POST` | `/api/gemini/video/generate` | 動画生成開始 | 必須 |
-| `GET` | `/api/gemini/video/status/[operationId]` | 動画生成ステータス確認 | 必須 |
+| Method | Path                                     | 説明                     | 認証 |
+| ------ | ---------------------------------------- | ------------------------ | ---- |
+| `POST` | `/api/gemini/chat`                       | チャット生成             | 必須 |
+| `POST` | `/api/gemini/pro`                        | Pro モード生成           | 必須 |
+| `POST` | `/api/gemini/search`                     | 検索グラウンディング生成 | 必須 |
+| `POST` | `/api/gemini/image/generate`             | 画像生成                 | 必須 |
+| `POST` | `/api/gemini/image/edit`                 | 画像編集                 | 必須 |
+| `POST` | `/api/gemini/image/analyze`              | 画像分析                 | 必須 |
+| `POST` | `/api/gemini/video/generate`             | 動画生成開始             | 必須 |
+| `GET`  | `/api/gemini/video/status/[operationId]` | 動画生成ステータス確認   | 必須 |
 
 #### Stripe 決済・Webhook
 
-| Method | Path | 説明 | 認証 |
-|---|---|---|---|
-| `POST` | `/api/stripe/checkout` | Checkout セッション作成 | 必須 |
-| `POST` | `/api/stripe/portal` | Customer Portal セッション作成 | 必須 |
-| `POST` | `/api/stripe/webhook` | Stripe Webhook エンドポイント | Stripe署名検証 |
+| Method | Path                   | 説明                           | 認証           |
+| ------ | ---------------------- | ------------------------------ | -------------- |
+| `POST` | `/api/stripe/checkout` | Checkout セッション作成        | 必須           |
+| `POST` | `/api/stripe/portal`   | Customer Portal セッション作成 | 必須           |
+| `POST` | `/api/stripe/webhook`  | Stripe Webhook エンドポイント  | Stripe署名検証 |
 
 #### 管理画面 API
 
-| Method | Path | 説明 | 認証 |
-|---|---|---|---|
-| `GET` | `/api/admin/users` | ユーザー一覧取得 | Admin のみ |
-| `GET` | `/api/admin/stats` | システム統計情報 | Admin のみ |
+| Method  | Path                    | 説明                           | 認証       |
+| ------- | ----------------------- | ------------------------------ | ---------- |
+| `GET`   | `/api/admin/users`      | ユーザー一覧取得               | Admin のみ |
+| `GET`   | `/api/admin/stats`      | システム統計情報               | Admin のみ |
 | `PATCH` | `/api/admin/users/[id]` | ユーザー情報更新（role変更等） | Admin のみ |
 
 #### ヘルスチェック
 
-| Method | Path | 説明 | 認証 |
-|---|---|---|---|
-| `GET` | `/api/health` | アプリケーション正常性チェック | 不要 |
-| `GET` | `/api/health/db` | データベース接続チェック | 不要 |
+| Method | Path             | 説明                           | 認証 |
+| ------ | ---------------- | ------------------------------ | ---- |
+| `GET`  | `/api/health`    | アプリケーション正常性チェック | 不要 |
+| `GET`  | `/api/health/db` | データベース接続チェック       | 不要 |
 
 ### 3.2 認証ミドルウェア
 
@@ -532,9 +543,11 @@ export type MessageContent = z.infer<typeof MessageContentSchema>;
 ### 5.4 コールバック URL
 
 **ローカル開発:**
+
 - Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
 
 **本番環境:**
+
 - Authorized redirect URIs: `https://<cloud-run-url>/api/auth/callback/google`
 
 ---
@@ -547,31 +560,36 @@ export type MessageContent = z.infer<typeof MessageContentSchema>;
 Supabase は画像・動画ファイルのストレージ機能のみに使用します。
 
 **使用範囲:**
+
 - **Storage のみ**: 画像・動画ファイルのアップロード用
 - **Database**: 使用しない（Cloud SQL を使用）
 - **Authentication**: 使用しない（NextAuth.js を使用）
 
 **設定項目:**
+
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase プロジェクト URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - 匿名キー（Storage アクセス用）
 - `SUPABASE_SERVICE_ROLE_KEY` - サービスロールキー（サーバーサイドからの Storage 操作用）
 
 **Supabase 以外の選択肢:**
+
 - Cloud Storage を使用する場合は、Supabase の設定は不要です
 
 ### 6.2 Stripe
 
 **初期セットアップ:**
+
 1. Stripe アカウント作成（テストモード）
 2. Product & Price 作成:
-   - **Free Plan**: $0/month（デフォルト）
-   - **Pro Plan**: $20/month（仮）
-   - **Enterprise Plan**: $100/month（仮）
+    - **Free Plan**: $0/month（デフォルト）
+    - **Pro Plan**: $20/month（仮）
+    - **Enterprise Plan**: $100/month（仮）
 3. Webhook エンドポイント登録:
-   - URL: `https://<cloud-run-url>/api/stripe/webhook`
-   - Events: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`
+    - URL: `https://<cloud-run-url>/api/stripe/webhook`
+    - Events: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`
 
 **必要な情報:**
+
 - Secret Key: `STRIPE_SECRET_KEY`
 - Publishable Key: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - Webhook Secret: `STRIPE_WEBHOOK_SECRET`
@@ -591,29 +609,34 @@ Supabase は画像・動画ファイルのストレージ機能のみに使用�
 ### 7.1 Cloud SQL 接続
 
 **接続方法:**
+
 - Unix ソケット経由: `/cloudsql/dataanalyticsclinic:asia-northeast1:<instance-name>`
 - `DATABASE_URL` 形式:
-  ```
-  postgresql://user:password@/creative_flow_studio?host=/cloudsql/dataanalyticsclinic:asia-northeast1:<instance-name>
-  ```
+    ```
+    postgresql://user:password@/creative_flow_studio?host=/cloudsql/dataanalyticsclinic:asia-northeast1:<instance-name>
+    ```
 
 **Terraform での設定:**
+
 - Cloud Run サービスに `--add-cloudsql-instances` オプションでインスタンスを指定
 - サービスアカウント `cloud-run-runtime@` に `roles/cloudsql.client` を付与
 
 ### 7.2 Secret Manager
 
 **アクセス方法:**
+
 - Cloud Run の環境変数として注入（Terraform で設定）
 - サービスアカウント `cloud-run-runtime@` に `roles/secretmanager.secretAccessor` を付与
 
 ### 7.3 コンテナイメージ
 
 **ビルド:**
+
 - Dockerfile を使用して Next.js アプリをコンテナ化
 - Artifact Registry にプッシュ: `asia-northeast1-docker.pkg.dev/dataanalyticsclinic/creative-flow-studio/app:latest`
 
 **起動コマンド:**
+
 ```bash
 npm run start
 ```
@@ -621,6 +644,7 @@ npm run start
 ### 7.4 ヘルスチェック
 
 **Cloud Run ヘルスチェック設定:**
+
 - Path: `/api/health`
 - Interval: 10 秒
 - Timeout: 3 秒
@@ -633,74 +657,79 @@ npm run start
 ### 8.1 Cloud Build トリガー
 
 **トリガー条件:**
+
 - ブランチ: `dev`（初期開発時）、後に `main` へマージ
 - 変更検知: dev ブランチへの push
 
 **ビルドステップ（cloudbuild.yaml）:**
+
 1. `npm install`
 2. `npm run build`
 3. **Prisma マイグレーション（Cloud SQL Proxy 経由）**
-   - Cloud SQL Auth Proxy を起動
-   - `DATABASE_URL` を Secret Manager から取得
-   - `npx prisma migrate deploy` を実行
-   - Proxy を停止
+    - Cloud SQL Auth Proxy を起動
+    - `DATABASE_URL` を Secret Manager から取得
+    - `npx prisma migrate deploy` を実行
+    - Proxy を停止
 4. Docker イメージビルド
 5. Artifact Registry へプッシュ
 6. Cloud Run へデプロイ
 
 **Cloud SQL 接続方法:**
+
 - Cloud Build から Cloud SQL に接続するには、ビルドステップ内で Cloud SQL Auth Proxy を使用
 - 参考: https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run#connect_sql
 
 **cloudbuild.yaml サンプル:**
+
 ```yaml
 steps:
-  # 1. 依存関係インストール
-  - name: 'node:20'
-    entrypoint: npm
-    args: ['install']
+    # 1. 依存関係インストール
+    - name: 'node:20'
+      entrypoint: npm
+      args: ['install']
 
-  # 2. ビルド
-  - name: 'node:20'
-    entrypoint: npm
-    args: ['run', 'build']
+    # 2. ビルド
+    - name: 'node:20'
+      entrypoint: npm
+      args: ['run', 'build']
 
-  # 3. Prisma マイグレーション（Cloud SQL Proxy 使用）
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: bash
-    args:
-      - '-c'
-      - |
-        # Cloud SQL Proxy をダウンロード
-        wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
-        chmod +x cloud_sql_proxy
+    # 3. Prisma マイグレーション（Cloud SQL Proxy 使用）
+    - name: 'gcr.io/cloud-builders/gcloud'
+      entrypoint: bash
+      args:
+          - '-c'
+          - |
+              # Cloud SQL Proxy をダウンロード
+              wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+              chmod +x cloud_sql_proxy
 
-        # Proxy を起動（バックグラウンド）
-        ./cloud_sql_proxy -instances=dataanalyticsclinic:asia-northeast1:INSTANCE_NAME=tcp:5432 &
-        sleep 5
+              # Proxy を起動（バックグラウンド）
+              ./cloud_sql_proxy -instances=dataanalyticsclinic:asia-northeast1:INSTANCE_NAME=tcp:5432 &
+              sleep 5
 
-        # DATABASE_URL を設定してマイグレーション実行
-        export DATABASE_URL="postgresql://USER:PASSWORD@127.0.0.1:5432/creative_flow_studio"
-        npx prisma migrate deploy
+              # DATABASE_URL を設定してマイグレーション実行
+              export DATABASE_URL="postgresql://USER:PASSWORD@127.0.0.1:5432/creative_flow_studio"
+              npx prisma migrate deploy
 
-        # Proxy を停止
-        killall cloud_sql_proxy
-    env:
-      - 'DATABASE_URL=${_DATABASE_URL}'
-    secretEnv: ['DATABASE_URL']
+              # Proxy を停止
+              killall cloud_sql_proxy
+      env:
+          - 'DATABASE_URL=${_DATABASE_URL}'
+      secretEnv: ['DATABASE_URL']
 
-  # 4-6. Docker ビルド、プッシュ、デプロイ
-  # ... (省略)
+    # 4-6. Docker ビルド、プッシュ、デプロイ
+    # ... (省略)
 
 availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/database-url/versions/latest
-      env: 'DATABASE_URL'
+    secretManager:
+        - versionName: projects/$PROJECT_ID/secrets/database-url/versions/latest
+          env: 'DATABASE_URL'
 ```
 
 ### 8.2 必要な権限
 
 Cloud Build デフォルト SA (`667780715339@cloudbuild.gserviceaccount.com`) に付与済み:
+
 - `roles/run.admin`
 - `roles/artifactregistry.writer`
 - `roles/cloudsql.client`

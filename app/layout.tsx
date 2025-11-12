@@ -6,11 +6,7 @@ export const metadata: Metadata = {
     description: 'Multimodal AI application powered by Google Gemini',
 };
 
-export default function RootLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="ja">
             <body>{children}</body>
