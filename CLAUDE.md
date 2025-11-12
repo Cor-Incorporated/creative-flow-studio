@@ -4,9 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Creative Flow Studio is a React + TypeScript application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features a DJ Shacho Mode that applies a unique persona (high-energy, Kyushu dialect speaking entrepreneur) to text responses.
+Creative Flow Studio is a multimodal AI application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features a DJ Shacho Mode that applies a unique persona (high-energy, Kyushu dialect speaking entrepreneur) to text responses.
 
-## Development Commands
+### Current Status and Roadmap
+
+**Alpha Version (main branch):**
+- React + TypeScript + Vite frontend-only application
+- Deployed on Vercel
+- Currently maintained for alpha users
+- **This is the version documented in this file**
+
+**Next-Generation Full-Stack SaaS (develop branch):**
+- Migration to Next.js 14 (App Router) with backend API
+- Target: Full-stack SaaS architecture with authentication, payment, conversation history, and admin dashboard
+- Infrastructure: Google Cloud Platform (GCP) with Terraform IaC
+- See `docs/implementation-plan.md` for detailed migration plan and GCP configuration
+
+## Branch Strategy
+
+- **main**: Alpha version (Vite + React frontend-only app), deployed to Vercel
+- **develop**: Next-generation full-stack SaaS (Next.js 14 + backend), under active development
+
+**IMPORTANT:** Always check which branch you're working on. The architecture, commands, and implementation patterns differ significantly between branches.
+
+## Development Commands (main branch - Alpha Version)
 
 ```bash
 # Install dependencies
@@ -22,7 +43,15 @@ npm run build
 npm run preview
 ```
 
-## Architecture
+## Deployment (main branch)
+
+- **Platform**: Vercel
+- **Trigger**: Automatic deployment on push to main branch
+- **Environment Variables**: `GEMINI_API_KEY` must be set in Vercel project settings
+
+## Architecture (main branch - Alpha Version)
+
+**Note:** This section describes the current alpha version on the main branch. For the next-generation architecture on develop branch, see `docs/implementation-plan.md`.
 
 ### Core Application Flow
 
@@ -75,11 +104,18 @@ npm run preview
 - `GenerationMode` - Five modes: 'chat' | 'pro' | 'search' | 'image' | 'video'
 - `AspectRatio` - Supported ratios: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
 
+**types/gemini.ts** extends @google/genai types:
+- Custom type definitions for Gemini API responses (handles both documented and undocumented shortcuts)
+- `extractTextFromResponse()` - Safely extracts text from responses (handles both `.text` shorthand and full candidate structure)
+- Type guards: `isTextPart()` and `isInlineDataPart()` for discriminating between Gemini part types
+- Provides structured types for chat config and generate content config
+
 ### Environment Configuration
 
 - API key is set in `.env.local` as `GEMINI_API_KEY`
-- Vite config maps this to `process.env.API_KEY` at build time
+- Vite config maps this to both `process.env.API_KEY` and `process.env.GEMINI_API_KEY` at build time
 - The app also integrates with AI Studio's key selection dialog via `window.aistudio` API
+- Path aliasing: `@/` is configured to resolve to project root (e.g., `import { foo } from '@/utils/bar'`)
 
 ### Video Generation Pattern
 
@@ -105,6 +141,8 @@ Video generation is asynchronous and requires polling:
 - **Error Handling**: `handleApiError()` detects specific error patterns (e.g., invalid API key) and updates UI state
 - **Conversation History**: For chat mode, entire message history is flattened and passed to maintain context
 - **Media Handling**: Images/videos use data URLs (base64) for display; `dataUrlToBase64()` utility extracts raw base64 for API calls
+- **Memory Management**: Blob URLs are tracked in `blobUrlsRef` and cleaned up on component unmount to prevent memory leaks
+- **DJ Shacho Mode Ref Pattern**: `isDjShachoModeRef` is used alongside state to avoid race conditions in async operations (updated immediately during render, not in useEffect)
 
 ## Input Validation and Constants
 
@@ -179,6 +217,8 @@ The app uses Tailwind CSS for styling:
 ├── index.html                 # HTML template
 ├── index.css                  # Tailwind directives & global styles
 ├── types.ts                   # TypeScript interfaces for messages, media, modes
+├── types/
+│   └── gemini.ts             # Extended Gemini API types & helper functions
 ├── constants.ts               # Centralized constants & validation limits
 ├── vite-env.d.ts             # Vite type definitions
 ├── tailwind.config.js        # Tailwind CSS configuration
@@ -196,3 +236,40 @@ The app uses Tailwind CSS for styling:
 └── utils/
     └── fileUtils.ts          # File/base64 conversion utilities
 ```
+
+## Future Architecture (develop branch)
+
+The next-generation version is being developed on the `develop` branch with a completely different architecture:
+
+### Planned Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Runtime**: Node.js on Cloud Run
+- **Database**: Prisma ORM + Cloud SQL for PostgreSQL
+- **Authentication**: NextAuth.js + Supabase Auth / OAuth
+- **Payment**: Stripe Billing + Checkout + Webhook
+- **Storage**: Cloud Storage (or Supabase Storage)
+- **IaC**: Terraform
+- **CI/CD**: Cloud Build + Artifact Registry + Cloud Run
+- **Monitoring**: Cloud Logging / Cloud Monitoring / OpenTelemetry
+
+### Implementation Phases
+
+1. **Phase 0**: Requirements analysis
+2. **Phase 1**: Foundation design (data models, RBAC, multi-tenancy)
+3. **Phase 2**: Environment setup (Next.js + Prisma + dev tools)
+4. **Phase 3**: Authentication & user management (NextAuth.js)
+5. **Phase 4**: Conversation history persistence (API Routes + DB)
+6. **Phase 5**: Plan management & Stripe integration
+7. **Phase 6**: Admin dashboard & monitoring
+8. **Phase 7**: QA & operations
+
+### Google Cloud Configuration
+
+- **Project ID**: `dataanalyticsclinic`
+- **Primary Region**: `asia-northeast1`
+- **Artifact Registry**: `creative-flow-studio` (Docker images)
+- **Terraform State**: `gs://dataanalyticsclinic-terraform-state`
+- **Service Accounts**: Configured for Cloud Run, Cloud Build, and Terraform
+
+For detailed GCP setup, service account roles, and API configurations, see `docs/implementation-plan.md`.
