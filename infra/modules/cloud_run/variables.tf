@@ -96,7 +96,7 @@ variable "env_vars" {
 
 variable "secret_env_vars" {
   type        = map(string)
-  description = "Secret Manager の secret_id を参照する環境変数 (ENV_NAME => secret_id)"
+  description = "Secret Manager のフルリソース名 (projects/.../secrets/...) を参照する環境変数 (ENV_NAME => secret_name)"
   default     = {}
 }
 

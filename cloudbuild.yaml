@@ -1,0 +1,82 @@
+# Cloud Build pipeline for Creative Flow Studio (Next.js)
+# References:
+# - https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run
+# - https://cloud.google.com/sql/docs/postgres/connect-run#terraform (Cloud SQL deploy flags)
+
+options:
+    logging: CLOUD_LOGGING_ONLY
+    machineType: E2_HIGHCPU_8
+
+tags:
+    - creative-flow-studio
+    - nextjs
+
+substitutions:
+    _REGION: asia-northeast1
+    _PROJECT_ID: dataanalyticsclinic
+    _REPO: creative-flow-studio
+    _IMAGE_NAME: app
+    _SERVICE_NAME: creative-flow-studio-dev
+    _CLOUD_SQL_INSTANCE: dataanalyticsclinic:asia-northeast1:creative-flow-studio-sql
+    _VPC_CONNECTOR: projects/dataanalyticsclinic/locations/asia-northeast1/connectors/dev-serverless-connector
+    _SERVICE_ACCOUNT: cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com
+
+steps:
+    - id: 'Install dependencies'
+      name: 'gcr.io/cloud-builders/npm'
+      entrypoint: npm
+      args: ['ci']
+
+    - id: 'Generate Prisma client'
+      name: 'gcr.io/cloud-builders/npm'
+      entrypoint: npx
+      args: ['prisma', 'generate']
+
+    - id: 'Apply database migrations'
+      name: 'gcr.io/cloud-builders/npm'
+      entrypoint: npx
+      args: ['prisma', 'migrate', 'deploy']
+      env:
+          - 'DATABASE_URL=postgresql://user:password@/creative_flow_studio?host=/cloudsql/${_CLOUD_SQL_INSTANCE}'
+
+    - id: 'Build Next.js app'
+      name: 'gcr.io/cloud-builders/npm'
+      entrypoint: npm
+      args: ['run', 'build']
+
+    - id: 'Build container image'
+      name: 'gcr.io/cloud-builders/docker'
+      args:
+          - 'build'
+          - '-t'
+          - 'asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA}'
+          - '-f'
+          - 'Dockerfile'
+          - '.'
+
+    - id: 'Push container image'
+      name: 'gcr.io/cloud-builders/docker'
+      args:
+          - 'push'
+          - 'asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA}'
+
+    - id: 'Deploy to Cloud Run'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: gcloud
+      args:
+          - 'run'
+          - 'deploy'
+          - '${_SERVICE_NAME}'
+          - '--project=${_PROJECT_ID}'
+          - '--region=${_REGION}'
+          - '--image=asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA}'
+          - '--service-account=${_SERVICE_ACCOUNT}'
+          - '--platform=managed'
+          - '--vpc-connector=${_VPC_CONNECTOR}'
+          - '--add-cloudsql-instances=${_CLOUD_SQL_INSTANCE}'
+          - '--ingress=all'
+          - '--allow-unauthenticated'
+          - '--quiet'
+
+images:
+    - 'asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA}'

@@ -36,6 +36,7 @@ cloud_run_env_vars = {
 }
 
 cloud_run_secret_env_vars = {
+  # ENV 名 -> secrets モジュールで作成した secret_id。Terraform 側で自動的にフルリソース名へ変換されます。
   DATABASE_URL              = "database-url"
   NEXTAUTH_SECRET           = "nextauth-secret"
   GOOGLE_CLIENT_ID          = "google-client-id"

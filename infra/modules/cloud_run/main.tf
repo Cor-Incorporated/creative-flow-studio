@@ -1,7 +1,3 @@
-locals {
-  secret_ref = "projects/${var.project_id}/secrets"
-}
-
 resource "google_artifact_registry_repository" "this" {
   project       = var.project_id
   location      = var.region
@@ -73,7 +69,7 @@ resource "google_cloud_run_v2_service" "this" {
           name = env.key
           value_source {
             secret_key_ref {
-              secret  = "${local.secret_ref}/${env.value}"
+              secret  = env.value
               version = "latest"
             }
           }

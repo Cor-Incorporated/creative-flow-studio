@@ -240,6 +240,25 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 - **インターフェース仕様**: [`docs/interface-spec.md`](docs/interface-spec.md)
 - **実装計画**: [`docs/implementation-plan.md`](docs/implementation-plan.md)
 
+## Cloud Build パイプライン
+
+`cloudbuild.yaml` は Google 公式ドキュメント（[Cloud Run へのデプロイ手順](https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run)）に沿っており、以下のステップを実行します。
+
+1. `npm ci / npx prisma generate / npx prisma migrate deploy / npm run build`
+2. `docker build/push` → `asia-northeast1-docker.pkg.dev/<project>/<repo>/<image>:<sha>`
+3. `gcloud run deploy` で Terraform が作成した Cloud Run サービスを更新（`--vpc-connector` と `--add-cloudsql-instances` 付き）
+
+利用手順:
+
+```bash
+gcloud builds submit \
+  --config cloudbuild.yaml \
+  --substitutions _SERVICE_NAME=creative-flow-studio-dev
+```
+
+- `_PROJECT_ID`, `_REPO`, `_IMAGE_NAME`, `_VPC_CONNECTOR`, `_CLOUD_SQL_INSTANCE` などは `cloudbuild.yaml` の `substitutions` で上書き可能です。
+- Prisma マイグレーションで使用する `DATABASE_URL` は Service Networking（Cloud SQL Private IP）経由の接続文字列に置き換えてください。詳細は [Cloud SQL × Cloud Run](https://cloud.google.com/sql/docs/postgres/connect-run) を参照。
+
 ## ライセンス
 
 ISC

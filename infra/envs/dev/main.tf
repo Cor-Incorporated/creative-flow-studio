@@ -62,6 +62,13 @@ module "secrets" {
   cloud_run_sa_email  = var.cloud_run_sa_email
 }
 
+locals {
+  cloud_run_secret_env = {
+    for env_name, secret_id in var.cloud_run_secret_env_vars :
+    env_name => module.secrets.secret_names[secret_id]
+  }
+}
+
 resource "google_project_iam_member" "cloud_run_cloudsql" {
   project = var.project_id
   role    = "roles/cloudsql.client"
@@ -87,9 +94,11 @@ module "cloud_run" {
   ingress               = var.cloud_run_ingress
   allow_unauthenticated = var.cloud_run_allow_unauthenticated
   env_vars              = var.cloud_run_env_vars
-  secret_env_vars       = var.cloud_run_secret_env_vars
+  secret_env_vars       = local.cloud_run_secret_env
   cloud_sql_instances   = [module.cloud_sql.instance_connection_name]
   vpc_connector         = local.vpc_connector
   vpc_egress            = "ALL_TRAFFIC"
   labels                = local.labels
+
+  depends_on = [module.secrets]
 }

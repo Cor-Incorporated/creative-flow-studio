@@ -50,16 +50,16 @@ Secret Manager に格納し、Cloud Run の環境変数として注入する項�
 
 **注意:** Secret Manager のキー名は小文字ハイフン区切りを使用（GCP推奨）
 
-| Secret Manager キー名       | 環境変数名                  | 説明                                        | 例                                                                  |
-| --------------------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
-| `database-url`              | `DATABASE_URL`              | Cloud SQL への接続文字列                    | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
-| `nextauth-secret`           | `NEXTAUTH_SECRET`           | NextAuth.js のセッション暗号化キー          | `openssl rand -base64 32`                                           |
-| `google-client-id`          | `GOOGLE_CLIENT_ID`          | Google OAuth クライアントID                 | Google Cloud Console から取得                                       |
-| `google-client-secret`      | `GOOGLE_CLIENT_SECRET`      | Google OAuth クライアントシークレット       | Google Cloud Console から取得                                       |
-| `supabase-service-role-key` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（ストレージ用） | Supabase Dashboard から取得                                         |
-| `stripe-secret-key`         | `STRIPE_SECRET_KEY`         | Stripe シークレットキー                     | Stripe Dashboard から取得                                           |
-| `stripe-webhook-secret`     | `STRIPE_WEBHOOK_SECRET`     | Stripe Webhook 署名検証シークレット         | Stripe Webhook 設定から取得                                         |
-| `gemini-api-key`            | `GEMINI_API_KEY`            | Google Gemini API キー                      | Google AI Studio から取得                                           |
+| Secret Manager キー名   | 環境変数名                  | 説明                                        | 例                                                                  |
+| ----------------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列                    | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `nextauth-secret`       | `NEXTAUTH_SECRET`           | NextAuth.js のセッション暗号化キー          | `openssl rand -base64 32`                                           |
+| `google-client-id`      | `GOOGLE_CLIENT_ID`          | Google OAuth クライアントID                 | Google Cloud Console から取得                                       |
+| `google-client-secret`  | `GOOGLE_CLIENT_SECRET`      | Google OAuth クライアントシークレット       | Google Cloud Console から取得                                       |
+| `supabase-service-role` | `SUPABASE_SERVICE_ROLE_KEY` | Supabase サービスロールキー（ストレージ用） | Supabase Dashboard から取得                                         |
+| `stripe-secret-key`     | `STRIPE_SECRET_KEY`         | Stripe シークレットキー                     | Stripe Dashboard から取得                                           |
+| `stripe-webhook-secret` | `STRIPE_WEBHOOK_SECRET`     | Stripe Webhook 署名検証シークレット         | Stripe Webhook 設定から取得                                         |
+| `gemini-api-key`        | `GEMINI_API_KEY`            | Google Gemini API キー                      | Google AI Studio から取得                                           |
 
 環境変数として直接設定する項目（非機密）：
 

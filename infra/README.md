@@ -68,6 +68,16 @@ state バケットと prefix はドキュメントに合わせて調整してく
 - VPC 接続が必要な場合は、`network` モジュールで作成した Serverless Connector 名を自動で参照し、`cloud_sql_instances` へ `module.cloud_sql.instance_connection_name` を渡すことで `/cloudsql` マウントを構成します。
 - Cloud Build から Artifact Registry に push された `asia-northeast1-docker.pkg.dev/<project>/<repo>/app:latest` イメージを `cloud_run_image` に指定してください（初期はダミーで OK）。
 
+### 既存 Artifact Registry との統合
+
+- すでに `asia-northeast1` に同名リポジトリがある場合は、apply 前に import してください。
+    ```bash
+    terraform import \
+      module.cloud_run.google_artifact_registry_repository.this \
+      projects/<project>/locations/asia-northeast1/repositories/<repo>
+    ```
+- もしくは `artifact_repo_id` を既存名に合わせた上で import 完了までは `terraform plan/apply` を実行しないでください。現状 create フラグは無いため、import していないと 409 エラーになります。
+
 ## 今後の TODO
 
 - 監視/ログ/アラート用モジュール
