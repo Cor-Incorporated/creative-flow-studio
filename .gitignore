@@ -1,3 +1,7 @@
+# Dependencies
+node_modules
+alpha/node_modules
+
 # Logs
 logs
 *.log
@@ -7,10 +11,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+# Build outputs
 dist
 dist-ssr
+.next
+out
+build
+alpha/dist
+
+# Environment variables
 *.local
+.env
+.env.production
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma
+prisma/migrations/*_migration/
+
+# Testing
+coverage
+.nyc_output
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +47,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vercel
+.vercel
+
+# Typescript
+*.tsbuildinfo

@@ -1,0 +1,26 @@
+project_id  = "dataanalyticsclinic"
+region      = "asia-northeast1"
+environment = "dev"
+
+network_name = "creative-flow-studio-vpc"
+subnet_cidr  = "10.10.0.0/20"
+
+cloud_sql_instance_name = "creative-flow-studio-sql"
+cloud_sql_tier          = "db-f1-micro"
+cloud_sql_disk_size_gb  = 20
+cloud_sql_user          = "app_user"
+cloud_sql_db_name       = "creative_flow_studio"
+
+cloud_run_sa_email = "cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com"
+
+secret_values = {
+  # 実際の値を入力してください。未設定の場合は secret version が作成されません。
+  # "database-url"          = "postgresql://user:pass@/db?host=/cloudsql/..."
+  # "nextauth-secret"       = "<generated>"
+  # "google-client-id"      = "..."
+  # "google-client-secret"  = "..."
+  # "supabase-service-role" = "..."
+  # "stripe-secret-key"     = "..."
+  # "stripe-webhook-secret" = "..."
+  # "gemini-api-key"        = "..."
+}
