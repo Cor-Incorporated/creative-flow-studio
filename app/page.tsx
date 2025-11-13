@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { Message, GenerationMode, AspectRatio, Media, ContentPart } from '@/types/app';
 import ChatInput from '@/components/ChatInput';
 import ChatMessage from '@/components/ChatMessage';
@@ -15,6 +16,7 @@ import {
 } from '@/lib/constants';
 
 export default function Home() {
+    const { data: session } = useSession();
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 'init',
@@ -30,6 +32,18 @@ export default function Home() {
     const [mode, setMode] = useState<GenerationMode>('chat');
     const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
     const [isDjShachoMode, setIsDjShachoMode] = useState<boolean>(false);
+    const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+    const [conversations, setConversations] = useState<
+        Array<{
+            id: string;
+            title: string | null;
+            mode: string;
+            createdAt: string;
+            updatedAt: string;
+            messageCount: number;
+        }>
+    >([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const isDjShachoModeRef = useRef(isDjShachoMode);
 
@@ -53,6 +67,25 @@ export default function Home() {
     useEffect(() => {
         chatHistoryRef.current?.scrollTo(0, chatHistoryRef.current.scrollHeight);
     }, [messages]);
+
+    // Load conversations on mount (if authenticated)
+    useEffect(() => {
+        const loadConversations = async () => {
+            if (!session?.user) return;
+
+            try {
+                const response = await fetch('/api/conversations?limit=50');
+                if (response.ok) {
+                    const data = await response.json();
+                    setConversations(data.conversations || []);
+                }
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        };
+
+        loadConversations();
+    }, [session]);
 
     // DJ社長モード変更時に初期メッセージを更新
     useEffect(() => {
@@ -168,7 +201,153 @@ export default function Home() {
         return errorMessage;
     };
 
-    const pollVideoStatus = async (operationName: string, messageId: string) => {
+    /**
+     * Create a new conversation or return existing one
+     * Only saves if user is authenticated
+     */
+    const createOrGetConversation = async (): Promise<string | null> => {
+        // Skip if not authenticated
+        if (!session?.user) {
+            return null;
+        }
+
+        // Return existing conversation ID if already created
+        if (currentConversationId) {
+            return currentConversationId;
+        }
+
+        try {
+            const response = await fetch('/api/conversations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: mode.toUpperCase(),
+                }),
+            });
+
+            if (!response.ok) {
+                console.error('Failed to create conversation');
+                return null;
+            }
+
+            const data = await response.json();
+            const conversationId = data.conversation.id;
+            setCurrentConversationId(conversationId);
+            return conversationId;
+        } catch (error) {
+            console.error('Error creating conversation:', error);
+            return null;
+        }
+    };
+
+    /**
+     * Save a message to the current conversation
+     * Best-effort: doesn't throw errors to avoid disrupting UX
+     */
+    const saveMessage = async (role: 'USER' | 'MODEL', parts: ContentPart[]) => {
+        // Skip if not authenticated or no conversation
+        if (!session?.user || !currentConversationId) {
+            return;
+        }
+
+        try {
+            await fetch(`/api/conversations/${currentConversationId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role,
+                    content: parts,
+                }),
+            });
+        } catch (error) {
+            // Silent fail - don't disrupt user experience
+            console.error('Error saving message:', error);
+        }
+    };
+
+    /**
+     * Load a conversation and display its messages
+     */
+    const loadConversation = async (conversationId: string) => {
+        if (!session?.user) return;
+
+        try {
+            const response = await fetch(`/api/conversations/${conversationId}`);
+            if (response.ok) {
+                const data = await response.json();
+                const conversation = data.conversation;
+
+                // Set current conversation ID
+                setCurrentConversationId(conversation.id);
+
+                // Convert database messages to UI messages
+                const loadedMessages: Message[] = conversation.messages.map((msg: any) => ({
+                    id: msg.id,
+                    role: msg.role.toLowerCase(),
+                    parts: msg.content,
+                }));
+
+                setMessages(loadedMessages);
+                setIsSidebarOpen(false); // Close sidebar on mobile
+            }
+        } catch (error) {
+            console.error('Error loading conversation:', error);
+        }
+    };
+
+    /**
+     * Start a new conversation
+     */
+    const startNewConversation = () => {
+        // Reset to initial state
+        setCurrentConversationId(null);
+        setMessages([
+            {
+                id: 'init',
+                role: 'model',
+                parts: [
+                    {
+                        text: isDjShachoMode
+                            ? DJ_SHACHO_INITIAL_MESSAGE
+                            : 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？',
+                    },
+                ],
+            },
+        ]);
+        setIsSidebarOpen(false);
+    };
+
+    /**
+     * Delete a conversation
+     */
+    const deleteConversation = async (conversationId: string) => {
+        if (!session?.user) return;
+        if (!confirm('この会話を削除してもよろしいですか？')) return;
+
+        try {
+            const response = await fetch(`/api/conversations/${conversationId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                // Remove from list
+                setConversations(prev => prev.filter(c => c.id !== conversationId));
+
+                // If deleting current conversation, start new one
+                if (conversationId === currentConversationId) {
+                    startNewConversation();
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting conversation:', error);
+            alert('会話の削除に失敗しました');
+        }
+    };
+
+    const pollVideoStatus = async (
+        operationName: string,
+        messageId: string
+    ): Promise<ContentPart[] | null> => {
         let pollAttempts = 0;
         let done = false;
 
@@ -186,7 +365,7 @@ export default function Home() {
                             : m
                     )
                 );
-                return;
+                return null;
             }
 
             await new Promise(resolve => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
@@ -246,7 +425,7 @@ export default function Home() {
                                     : m
                             )
                         );
-                        return;
+                        return null;
                     }
 
                     // Video is ready
@@ -262,24 +441,29 @@ export default function Home() {
                         // Track blob URL for cleanup
                         blobUrlsRef.current.add(videoDataUrl);
 
+                        const videoParts: ContentPart[] = [
+                            {
+                                media: {
+                                    type: 'video',
+                                    url: videoDataUrl,
+                                    mimeType: 'video/mp4',
+                                },
+                            },
+                        ];
+
                         setMessages(prev =>
                             prev.map(m =>
                                 m.id === messageId
                                     ? {
                                           ...m,
-                                          parts: [
-                                              {
-                                                  media: {
-                                                      type: 'video',
-                                                      url: videoDataUrl,
-                                                      mimeType: 'video/mp4',
-                                                  },
-                                              },
-                                          ],
+                                          parts: videoParts,
                                       }
                                     : m
                             )
                         );
+
+                        // Return video parts for saving
+                        return videoParts;
                     } else {
                         const formattedError = await formatErrorMessage(
                             ERROR_MESSAGES.VIDEO_GENERATION_FAILED
@@ -291,13 +475,15 @@ export default function Home() {
                                     : m
                             )
                         );
+                        return null;
                     }
                 }
             } catch (error: any) {
                 await handleApiError(error, 'video polling', true);
-                return;
+                return null;
             }
         }
+        return null;
     };
 
     const handleSendMessage = async (prompt: string, uploadedMedia?: Media) => {
@@ -308,6 +494,12 @@ export default function Home() {
         if (prompt) userParts.push({ text: prompt });
         if (uploadedMedia) userParts.push({ media: uploadedMedia });
         addMessage({ role: 'user', parts: userParts });
+
+        // Create or get conversation for authenticated users
+        await createOrGetConversation();
+
+        // Save user message
+        await saveMessage('USER', userParts);
 
         const loadingMessageId = Date.now().toString() + '-loading';
         setMessages(prev => [
@@ -333,24 +525,28 @@ export default function Home() {
                 }
 
                 const data = await response.json();
+                const imageParts: ContentPart[] = [
+                    {
+                        media: {
+                            type: 'image',
+                            url: data.imageUrl,
+                            mimeType: 'image/png',
+                        },
+                    },
+                ];
                 setMessages(prev =>
                     prev.map(m =>
                         m.id === loadingMessageId
                             ? {
                                   ...m,
-                                  parts: [
-                                      {
-                                          media: {
-                                              type: 'image',
-                                              url: data.imageUrl,
-                                              mimeType: 'image/png',
-                                          },
-                                      },
-                                  ],
+                                  parts: imageParts,
                               }
                             : m
                     )
                 );
+
+                // Save model response (image)
+                await saveMessage('MODEL', imageParts);
             } else if (mode === 'video') {
                 // Call video generation API
                 const response = await fetch('/api/gemini/video', {
@@ -383,7 +579,12 @@ export default function Home() {
                 );
 
                 // Start polling for video status
-                await pollVideoStatus(data.operationName, loadingMessageId);
+                const videoParts = await pollVideoStatus(data.operationName, loadingMessageId);
+
+                // Save model response (video) if successfully generated
+                if (videoParts) {
+                    await saveMessage('MODEL', videoParts);
+                }
             } else {
                 // Chat, Pro, or Search mode - call chat API
                 const history = messages
@@ -441,13 +642,15 @@ export default function Home() {
                 // Extract text response
                 const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
+                const textParts: ContentPart[] = [{ text: responseText, sources }];
                 setMessages(prev =>
                     prev.map(m =>
-                        m.id === loadingMessageId
-                            ? { ...m, parts: [{ text: responseText, sources }] }
-                            : m
+                        m.id === loadingMessageId ? { ...m, parts: textParts } : m
                     )
                 );
+
+                // Save model response (text)
+                await saveMessage('MODEL', textParts);
             }
         } catch (error: any) {
             const shouldUseDjShachoStyle = mode === 'image' || mode === 'video';
@@ -510,46 +713,141 @@ export default function Home() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-gray-900 text-white">
-            <header className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
-                <div className="flex items-center gap-2">
-                    <SparklesIcon className="w-6 h-6 text-blue-400" />
-                    <h1 className="text-xl font-bold">クリエイティブフロースタジオ</h1>
+        <div className="flex h-screen bg-gray-900 text-white">
+            {/* Sidebar */}
+            <div
+                className={`${
+                    isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                } fixed md:relative md:translate-x-0 w-64 h-full bg-gray-800 border-r border-gray-700 transition-transform duration-300 z-50 flex flex-col`}
+            >
+                {/* Sidebar Header */}
+                <div className="p-4 border-b border-gray-700">
+                    <button
+                        onClick={startNewConversation}
+                        className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
+                    >
+                        + 新しい会話
+                    </button>
                 </div>
-                <div className="relative">
-                    <div className="w-32 h-2 bg-gray-700 rounded-full">
-                        <div
-                            className="h-2 bg-green-500 rounded-full"
-                            style={{ width: '80%' }}
-                        ></div>
+
+                {/* Conversation List */}
+                <div className="flex-1 overflow-y-auto p-2">
+                    {session?.user ? (
+                        conversations.length > 0 ? (
+                            conversations.map(conv => (
+                                <div
+                                    key={conv.id}
+                                    className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors ${
+                                        conv.id === currentConversationId
+                                            ? 'bg-gray-700'
+                                            : 'hover:bg-gray-700/50'
+                                    }`}
+                                >
+                                    <div
+                                        onClick={() => loadConversation(conv.id)}
+                                        className="flex-1"
+                                    >
+                                        <div className="font-medium truncate">
+                                            {conv.title ||
+                                                `${conv.mode} - ${new Date(conv.createdAt).toLocaleDateString('ja-JP')}`}
+                                        </div>
+                                        <div className="text-xs text-gray-400 mt-1">
+                                            {conv.messageCount}件のメッセージ
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            deleteConversation(conv.id);
+                                        }}
+                                        className="text-red-400 hover:text-red-300 text-sm mt-2"
+                                    >
+                                        削除
+                                    </button>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center text-gray-400 mt-4">
+                                会話がありません
+                            </div>
+                        )
+                    ) : (
+                        <div className="text-center text-gray-400 mt-4 px-2">
+                            ログインして会話を保存
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col">
+                <header className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                        {/* Hamburger Menu Button (Mobile) */}
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="md:hidden p-2 hover:bg-gray-700 rounded-lg"
+                        >
+                            <svg
+                                className="w-6 h-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 6h16M4 12h16M4 18h16"
+                                />
+                            </svg>
+                        </button>
+                        <SparklesIcon className="w-6 h-6 text-blue-400" />
+                        <h1 className="text-xl font-bold">クリエイティブフロースタジオ</h1>
                     </div>
-                    <span className="absolute -top-5 right-0 text-xs text-gray-400">
-                        クォータ: 80%
-                    </span>
-                </div>
-            </header>
+                    <div className="relative">
+                        <div className="w-32 h-2 bg-gray-700 rounded-full">
+                            <div
+                                className="h-2 bg-green-500 rounded-full"
+                                style={{ width: '80%' }}
+                            ></div>
+                        </div>
+                        <span className="absolute -top-5 right-0 text-xs text-gray-400">
+                            クォータ: 80%
+                        </span>
+                    </div>
+                </header>
 
-            <main ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map(msg => (
-                    <ChatMessage
-                        key={msg.id}
-                        message={msg}
-                        onEditImage={handleEditImage}
-                        isDjShachoMode={isDjShachoMode}
-                    />
-                ))}
-            </main>
+                <main ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {messages.map(msg => (
+                        <ChatMessage
+                            key={msg.id}
+                            message={msg}
+                            onEditImage={handleEditImage}
+                            isDjShachoMode={isDjShachoMode}
+                        />
+                    ))}
+                </main>
 
-            <ChatInput
-                onSendMessage={handleSendMessage}
-                isLoading={isLoading}
-                mode={mode}
-                setMode={setMode}
-                aspectRatio={aspectRatio}
-                setAspectRatio={setAspectRatio}
-                isDjShachoMode={isDjShachoMode}
-                setIsDjShachoMode={setIsDjShachoMode}
-            />
+                <ChatInput
+                    onSendMessage={handleSendMessage}
+                    isLoading={isLoading}
+                    mode={mode}
+                    setMode={setMode}
+                    aspectRatio={aspectRatio}
+                    setAspectRatio={setAspectRatio}
+                    isDjShachoMode={isDjShachoMode}
+                    setIsDjShachoMode={setIsDjShachoMode}
+                />
+            </div>
+
+            {/* Overlay for mobile */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
         </div>
     );
 }

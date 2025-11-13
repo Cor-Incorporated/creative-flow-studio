@@ -137,3 +137,130 @@ export function safeParseJson<T extends z.ZodTypeAny>(schema: T, data: unknown):
 export function parseJson<T extends z.ZodTypeAny>(schema: T, data: unknown): z.infer<T> {
     return schema.parse(data);
 }
+
+// ============================================
+// Conversation API Request Schemas
+// ============================================
+
+/**
+ * Schema for creating a new conversation
+ * POST /api/conversations
+ */
+export const createConversationSchema = z.object({
+    title: z.string().max(200).optional(),
+    mode: z.enum(['CHAT', 'PRO', 'SEARCH', 'IMAGE', 'VIDEO']).optional(),
+});
+
+export type CreateConversationRequest = z.infer<typeof createConversationSchema>;
+
+/**
+ * Schema for updating a conversation
+ * PATCH /api/conversations/[id]
+ */
+export const updateConversationSchema = z.object({
+    title: z.string().max(200),
+});
+
+export type UpdateConversationRequest = z.infer<typeof updateConversationSchema>;
+
+/**
+ * Schema for creating a new message in a conversation
+ * POST /api/conversations/[id]/messages
+ */
+export const createMessageSchema = z.object({
+    role: z.enum(['USER', 'MODEL', 'SYSTEM']),
+    content: z
+        .array(
+            z.object({
+                text: z.string().optional(),
+                media: z
+                    .object({
+                        type: z.enum(['image', 'video']),
+                        url: z.string(),
+                        mimeType: z.string(),
+                    })
+                    .optional(),
+                sources: z
+                    .array(
+                        z.object({
+                            uri: z.string(),
+                            title: z.string().optional(),
+                        })
+                    )
+                    .optional(),
+                isLoading: z.boolean().optional(),
+                status: z.string().optional(),
+                isError: z.boolean().optional(),
+                isEditing: z.boolean().optional(),
+                originalMedia: z
+                    .object({
+                        type: z.enum(['image', 'video']),
+                        url: z.string(),
+                        mimeType: z.string(),
+                    })
+                    .optional(),
+            })
+        )
+        .min(1, 'Content array must have at least one item'),
+});
+
+export type CreateMessageRequest = z.infer<typeof createMessageSchema>;
+
+// ============================================
+// Admin API Request Schemas (Phase 6)
+// ============================================
+
+/**
+ * Schema for updating user role
+ * PATCH /api/admin/users/[id]
+ */
+export const updateUserRoleSchema = z.object({
+    role: z.enum(['USER', 'PRO', 'ENTERPRISE', 'ADMIN']),
+});
+
+export type UpdateUserRoleRequest = z.infer<typeof updateUserRoleSchema>;
+
+/**
+ * Schema for admin users list query parameters
+ * GET /api/admin/users
+ */
+export const adminUsersQuerySchema = z.object({
+    limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .transform(val => Math.min(val, 100))
+        .nullish()
+        .default(20),
+    offset: z.coerce.number().int().min(0).nullish().default(0),
+    search: z.string().max(100).nullish(),
+    role: z.enum(['USER', 'PRO', 'ENTERPRISE', 'ADMIN']).nullish(),
+    plan: z.string().max(50).nullish(),
+    status: z
+        .enum(['ACTIVE', 'INACTIVE', 'TRIALING', 'PAST_DUE', 'CANCELED', 'UNPAID'])
+        .nullish(),
+});
+
+export type AdminUsersQueryParams = z.infer<typeof adminUsersQuerySchema>;
+
+/**
+ * Schema for admin usage logs query parameters
+ * GET /api/admin/usage
+ */
+export const adminUsageQuerySchema = z.object({
+    limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .transform(val => Math.min(val, 100))
+        .nullish()
+        .default(50),
+    offset: z.coerce.number().int().min(0).nullish().default(0),
+    userId: z.string().cuid().nullish(),
+    action: z.string().max(50).nullish(),
+    resourceType: z.string().max(50).nullish(),
+    startDate: z.string().datetime().nullish(),
+    endDate: z.string().datetime().nullish(),
+});
+
+export type AdminUsageQueryParams = z.infer<typeof adminUsageQuerySchema>;

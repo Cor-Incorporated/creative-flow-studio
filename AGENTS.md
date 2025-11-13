@@ -75,3 +75,23 @@
 - `API_KEY` などのシークレットは `.env.local` や Secret Manager に置き、Git には含めない。生成メディアもリポジトリ外で扱う。
 - Next.js 版でも `window.aistudio` の依存を把握し、スタジオ外動作時はスタブする。
 - Cloud Run では Secret Manager を介して環境変数を注入し、Cloud SQL への接続は `cloud-run-runtime@...` の `roles/cloudsql.client` を利用。
+
+## Codex / Cursor ロールメモ（2025-11-13 更新）
+- **配置転換**: 本チャット以降は Cursor がバックエンド/クラウド開発（実装・`gcloud`/Terraform 操作）を担当し、Codex はレビュー専任ロール（外部ネットワークへ接続不可だが要件矛盾の精査や設計レビューに集中）へ移行。
+- **Codex の現状タスク**:
+  1. Cursor が実装した Cloud Build / Stripe / Gemini まわりの成果物をレビューし、公式ドキュメントとの整合性や要件ギャップを指摘。
+  2. CI/CD・インフラの要件や仕様に矛盾がないかを深く検証し、必要に応じて AGENTS.md / handoff ドキュメントを更新。
+  3. 次フェーズで必要となる Terraform 取込みや Secret 運用の方針について、Cursor へフィードバックを渡す。
+- **Cursor の現状タスク**:
+  - Stripe Phase 5 継続（Checkout/Webhook/Usage 管理）、Cloud Build トリガー運用、GCP 実作業などエンジニアリング全般。
+- **インフラ進捗サマリ**:
+  - `infra/` 配下のモジュール化完了、Cloud Run 〜 Secret Manager 連携済み。
+  - Cloud Build はユーザー管理 SA + Secret Manager 連携 + GitHub トリガー整備済み（Node 20 イメージ化も完了）。デフォルト substitutions の更新は `gcloud builds triggers update ... --update-substitutions` で対応する。
+- **次の検討ポイント**:
+  1. 手動デプロイ済み Cloud Run を Terraform state へ `terraform import` で取り込む（権限端末必須）。
+  2. `infra/envs/dev/terraform.tfvars` 本番値反映と `terraform plan/apply` 再実行。
+  3. Stripe Webhook シークレット更新フローの運用品質向上（Secret Manager v 管理）。
+  4. 監視/アラート、SA キーローテーション、Cloud Build Node 版管理など長期運用タスク。
+- **留意事項**:
+  - Codex は外部ネットワークへアクセスできないため、ドキュメント参照はリポジトリ内の資料に限定。必要な CLI 実行は Cursor に依頼する。
+  - Terraform / Stripe / gcloud など外部操作は必ず Cursor 側（権限端末）で行い、Codex は手順レビューと整合性確認に徹する。

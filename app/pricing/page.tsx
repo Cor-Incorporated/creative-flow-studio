@@ -1,0 +1,272 @@
+'use client';
+
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+
+/**
+ * Pricing Page
+ *
+ * Displays subscription plans and handles Stripe Checkout flow.
+ *
+ * Features:
+ * - 3 pricing tiers: FREE, PRO, ENTERPRISE
+ * - Current plan indication for authenticated users
+ * - Stripe Checkout integration
+ * - Feature comparison table
+ *
+ * References:
+ * - docs/stripe-integration-plan.md Phase 1.2
+ * - Stripe Checkout: https://docs.stripe.com/checkout
+ */
+
+interface PricingPlan {
+    name: string;
+    price: string;
+    priceId?: string;
+    features: string[];
+    maxRequests?: string;
+    popular?: boolean;
+}
+
+const PRICING_PLANS: PricingPlan[] = [
+    {
+        name: 'FREE',
+        price: '¥0',
+        features: [
+            'チャットモード',
+            '検索モード',
+            '月100リクエスト',
+            '最大5MBファイル',
+            'コミュニティサポート',
+        ],
+        maxRequests: '100/月',
+    },
+    {
+        name: 'PRO',
+        price: '¥1,980',
+        priceId: 'price_pro_monthly', // TODO: Replace with actual Stripe Price ID
+        features: [
+            'すべてFREE機能',
+            'PROモード（思考プロセス表示）',
+            '画像生成（Imagen 4.0）',
+            '月1,000リクエスト',
+            '最大50MBファイル',
+            '優先サポート',
+        ],
+        maxRequests: '1,000/月',
+        popular: true,
+    },
+    {
+        name: 'ENTERPRISE',
+        price: '¥9,800',
+        priceId: 'price_enterprise_monthly', // TODO: Replace with actual Stripe Price ID
+        features: [
+            'すべてPRO機能',
+            '動画生成（Veo 3.1）',
+            '無制限リクエスト',
+            '最大500MBファイル',
+            'カスタムブランディング',
+            '専任サポート',
+            'SLA保証',
+        ],
+        maxRequests: '無制限',
+    },
+];
+
+export default function PricingPage() {
+    const { data: session, status } = useSession();
+    const router = useRouter();
+    const [isLoading, setIsLoading] = useState<string | null>(null);
+
+    const handleSubscribe = async (priceId: string | undefined, planName: string) => {
+        if (!priceId) {
+            alert('このプランは準備中です');
+            return;
+        }
+
+        if (!session) {
+            router.push('/api/auth/signin?callbackUrl=/pricing');
+            return;
+        }
+
+        setIsLoading(planName);
+
+        try {
+            const response = await fetch('/api/stripe/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priceId }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to create checkout session');
+            }
+
+            const { url } = await response.json();
+
+            // Redirect to Stripe Checkout
+            window.location.href = url;
+        } catch (error: any) {
+            console.error('Error creating checkout session:', error);
+            alert(`エラーが発生しました: ${error.message}`);
+            setIsLoading(null);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+                {/* Header */}
+                <div className="text-center mb-16">
+                    <h1 className="text-5xl font-bold mb-4">料金プラン</h1>
+                    <p className="text-xl text-gray-300">
+                        あなたのニーズに合ったプランを選択してください
+                    </p>
+                </div>
+
+                {/* Pricing Cards */}
+                <div className="grid md:grid-cols-3 gap-8 mb-16">
+                    {PRICING_PLANS.map(plan => (
+                        <div
+                            key={plan.name}
+                            className={`relative rounded-2xl p-8 ${
+                                plan.popular
+                                    ? 'bg-gradient-to-br from-blue-600 to-purple-600 shadow-2xl scale-105'
+                                    : 'bg-gray-800 border border-gray-700'
+                            }`}
+                        >
+                            {/* Popular Badge */}
+                            {plan.popular && (
+                                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                                    <span className="bg-yellow-500 text-black text-sm font-bold px-4 py-1 rounded-full">
+                                        人気
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Plan Name */}
+                            <h2 className="text-2xl font-bold mb-4">{plan.name}</h2>
+
+                            {/* Price */}
+                            <div className="mb-6">
+                                <span className="text-4xl font-bold">{plan.price}</span>
+                                <span className="text-gray-300 ml-2">/月</span>
+                            </div>
+
+                            {/* Max Requests */}
+                            <p className="text-sm text-gray-300 mb-6">{plan.maxRequests}</p>
+
+                            {/* Subscribe Button */}
+                            <button
+                                onClick={() => handleSubscribe(plan.priceId, plan.name)}
+                                disabled={isLoading === plan.name || plan.name === 'FREE'}
+                                className={`w-full py-3 rounded-lg font-semibold mb-6 transition-all ${
+                                    plan.name === 'FREE'
+                                        ? 'bg-gray-600 cursor-not-allowed'
+                                        : plan.popular
+                                          ? 'bg-white text-blue-600 hover:bg-gray-100'
+                                          : 'bg-blue-600 hover:bg-blue-700'
+                                } ${isLoading === plan.name ? 'opacity-50 cursor-wait' : ''}`}
+                            >
+                                {isLoading === plan.name
+                                    ? '処理中...'
+                                    : plan.name === 'FREE'
+                                      ? '現在のプラン'
+                                      : '購読する'}
+                            </button>
+
+                            {/* Features */}
+                            <ul className="space-y-3">
+                                {plan.features.map((feature, index) => (
+                                    <li key={index} className="flex items-start">
+                                        <svg
+                                            className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0"
+                                            fill="currentColor"
+                                            viewBox="0 0 20 20"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                        <span className="text-sm">{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Feature Comparison Table */}
+                <div className="mt-16 bg-gray-800 rounded-2xl p-8">
+                    <h2 className="text-3xl font-bold mb-8 text-center">機能比較表</h2>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-gray-700">
+                                    <th className="py-4 px-6">機能</th>
+                                    <th className="py-4 px-6 text-center">FREE</th>
+                                    <th className="py-4 px-6 text-center">PRO</th>
+                                    <th className="py-4 px-6 text-center">ENTERPRISE</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700">
+                                <tr>
+                                    <td className="py-4 px-6">月間リクエスト数</td>
+                                    <td className="py-4 px-6 text-center">100</td>
+                                    <td className="py-4 px-6 text-center">1,000</td>
+                                    <td className="py-4 px-6 text-center">無制限</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-4 px-6">最大ファイルサイズ</td>
+                                    <td className="py-4 px-6 text-center">5MB</td>
+                                    <td className="py-4 px-6 text-center">50MB</td>
+                                    <td className="py-4 px-6 text-center">500MB</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-4 px-6">PROモード</td>
+                                    <td className="py-4 px-6 text-center">-</td>
+                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-4 px-6 text-center">✓</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-4 px-6">画像生成</td>
+                                    <td className="py-4 px-6 text-center">-</td>
+                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-4 px-6 text-center">✓</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-4 px-6">動画生成</td>
+                                    <td className="py-4 px-6 text-center">-</td>
+                                    <td className="py-4 px-6 text-center">-</td>
+                                    <td className="py-4 px-6 text-center">✓</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-4 px-6">サポート</td>
+                                    <td className="py-4 px-6 text-center">コミュニティ</td>
+                                    <td className="py-4 px-6 text-center">優先</td>
+                                    <td className="py-4 px-6 text-center">専任</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* FAQ Section */}
+                <div className="mt-16 text-center">
+                    <h2 className="text-3xl font-bold mb-4">よくある質問</h2>
+                    <p className="text-gray-300 mb-8">
+                        ご不明な点がございましたら、お気軽にお問い合わせください。
+                    </p>
+                    <button className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg font-semibold">
+                        お問い合わせ
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

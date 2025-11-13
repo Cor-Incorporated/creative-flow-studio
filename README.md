@@ -175,6 +175,18 @@ npm run type-check
 
 # ESLint
 npm run lint
+npm run lint:fix          # 自動修正
+
+# コードフォーマット
+npm run format            # Prettier で自動フォーマット
+npm run format:check      # フォーマットチェックのみ
+
+# テスト
+npm test                  # Vitest 単体テスト実行
+npm run test:ui           # Vitest UI モード
+npm run test:coverage     # カバレッジレポート生成
+npm run test:e2e          # Playwright E2E テスト
+npm run test:e2e:ui       # Playwright UI モード
 
 # Prisma コマンド
 npm run prisma:generate  # Prisma Client 生成
@@ -182,6 +194,51 @@ npm run prisma:migrate   # マイグレーション実行
 npm run prisma:studio    # Prisma Studio 起動
 npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 ```
+
+### テスト実行
+
+プロジェクトには包括的なテストスイートが含まれています：
+
+**単体テスト (Vitest)**
+- 全 Conversation API エンドポイント（33 tests）
+- Next.js 14 App Router パターン対応
+- Mock Prisma 戦略で高速実行
+
+```bash
+# 全テスト実行
+npm test
+
+# ウォッチモード
+npm test -- --watch
+
+# カバレッジレポート
+npm run test:coverage
+
+# UI モード（推奨）
+npm run test:ui
+```
+
+**E2E テスト (Playwright)**
+```bash
+# 全 E2E テスト実行
+npm run test:e2e
+
+# UI モード
+npm run test:e2e:ui
+
+# 特定のブラウザで実行
+npm run test:e2e -- --project=chromium
+```
+
+**テストファイル:**
+- `__tests__/api/conversations/list.test.ts` - GET/POST /api/conversations
+- `__tests__/api/conversations/conversation-id.test.ts` - GET/PATCH/DELETE
+- `__tests__/api/conversations/messages.test.ts` - POST messages
+
+**参考資料:**
+- 詳細なテスト計画: [`docs/testing-plan.md`](docs/testing-plan.md)
+- Vitest 公式: <https://vitest.dev/>
+- Playwright 公式: <https://playwright.dev/>
 
 ## 技術スタック（次世代版）
 

@@ -25,3 +25,15 @@ variable "cloud_run_sa_email" {
   description = "Secret へアクセスする Cloud Run サービスアカウント"
   default     = ""
 }
+
+variable "cloud_build_sa_email" {
+  type        = string
+  description = "Secret へアクセスする Cloud Build サービスアカウント"
+  default     = ""
+}
+
+variable "cloud_build_service_agent_email" {
+  type        = string
+  description = "Secret へアクセスする Cloud Build サービスエージェント"
+  default     = ""
+}

@@ -20,49 +20,107 @@ substitutions:
     _CLOUD_SQL_INSTANCE: dataanalyticsclinic:asia-northeast1:creative-flow-studio-sql
     _VPC_CONNECTOR: projects/dataanalyticsclinic/locations/asia-northeast1/connectors/dev-serverless-connector
     _SERVICE_ACCOUNT: cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com
+    _NEXT_PUBLIC_APP_URL: 'SET_IN_TRIGGER'
+    _NEXT_PUBLIC_SUPABASE_URL: 'SET_IN_TRIGGER'
+
+serviceAccount: projects/${_PROJECT_ID}/serviceAccounts/cloud-build-runner@dataanalyticsclinic.iam.gserviceaccount.com
+
+availableSecrets:
+    secretManager:
+        - versionName: projects/${_PROJECT_ID}/secrets/database-url/versions/latest
+          env: DATABASE_URL
+        - versionName: projects/${_PROJECT_ID}/secrets/nextauth-secret/versions/latest
+          env: NEXTAUTH_SECRET
+        - versionName: projects/${_PROJECT_ID}/secrets/google-client-id/versions/latest
+          env: GOOGLE_CLIENT_ID
+        - versionName: projects/${_PROJECT_ID}/secrets/google-client-secret/versions/latest
+          env: GOOGLE_CLIENT_SECRET
+        - versionName: projects/${_PROJECT_ID}/secrets/supabase-service-role/versions/latest
+          env: SUPABASE_SERVICE_ROLE_KEY
+        - versionName: projects/${_PROJECT_ID}/secrets/stripe-secret-key/versions/latest
+          env: STRIPE_SECRET_KEY
+        - versionName: projects/${_PROJECT_ID}/secrets/stripe-webhook-secret/versions/latest
+          env: STRIPE_WEBHOOK_SECRET
+        - versionName: projects/${_PROJECT_ID}/secrets/gemini-api-key/versions/latest
+          env: GEMINI_API_KEY
+        - versionName: projects/${_PROJECT_ID}/secrets/supabase-anon-key/versions/latest
+          env: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        - versionName: projects/${_PROJECT_ID}/secrets/stripe-publishable-key/versions/latest
+          env: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 
 steps:
     - id: 'Install dependencies'
-      name: 'gcr.io/cloud-builders/npm'
-      entrypoint: npm
-      args: ['ci']
+      name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
+      entrypoint: bash
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+              echo "Cloud Build Node version: $(node --version)"
+              npm ci
 
     - id: 'Generate Prisma client'
-      name: 'gcr.io/cloud-builders/npm'
+      name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
       entrypoint: npx
       args: ['prisma', 'generate']
 
     # TODO: Re-enable once we have a secure way to supply the Cloud SQL credentials during build.
     # - id: 'Apply database migrations'
-    #   name: 'gcr.io/cloud-builders/npm'
+    #   name: 'node:20'
     #   entrypoint: npx
     #   args: ['prisma', 'migrate', 'deploy']
     #   env:
     #       - 'DATABASE_URL=postgresql://user:password@/creative_flow_studio?host=/cloudsql/${_CLOUD_SQL_INSTANCE}'
+    #   secretEnv:
+    #       - DATABASE_URL
 
     - id: 'Build Next.js app'
-      name: 'gcr.io/cloud-builders/npm'
+      name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
       entrypoint: npm
       args: ['run', 'build']
       env:
-          - 'GOOGLE_CLIENT_ID=test-google-client-id'
-          - 'GOOGLE_CLIENT_SECRET=test-google-client-secret'
-          - 'NEXTAUTH_SECRET=test-secret-for-build-only-32-characters-long'
-          - 'GEMINI_API_KEY=AIzaSyDrGsdwBjrkG5Hw_g-RxAcJ-OhzPwURKdk'
-          - 'NEXT_PUBLIC_APP_URL=http://localhost:3000'
-          - 'NEXT_PUBLIC_SUPABASE_URL=https://kppniwizumnnlhndjnlg.supabase.co'
-          - 'NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwcG5pd2l6dW1ubmxobmRqbmxnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5MTEyMTksImV4cCI6MjA3ODQ4NzIxOX0.cCK57jIkvzapDdeSQlNbvR-ukwFfFezSLp5ThMGqZwc'
-          - 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_51P6WQ9Li6CKW3pRaOv6T8Fn4GfIuPVXsJq0mbvTfZM4FgB1BIGha2ttGPwBq6dTSH0N217mWkRoJ8FJcR4uRkTnI00TdFBGidG'
+          - 'NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}'
+          - 'NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
+      secretEnv:
+          - DATABASE_URL
+          - NEXTAUTH_SECRET
+          - GOOGLE_CLIENT_ID
+          - GOOGLE_CLIENT_SECRET
+          - SUPABASE_SERVICE_ROLE_KEY
+          - STRIPE_SECRET_KEY
+          - STRIPE_WEBHOOK_SECRET
+          - GEMINI_API_KEY
+          - NEXT_PUBLIC_SUPABASE_ANON_KEY
+          - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 
     - id: 'Build container image'
       name: 'gcr.io/cloud-builders/docker'
+      entrypoint: 'bash'
+      env:
+          - 'NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}'
+          - 'NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
+      secretEnv:
+          - NEXTAUTH_SECRET
+          - GOOGLE_CLIENT_ID
+          - GOOGLE_CLIENT_SECRET
+          - GEMINI_API_KEY
+          - NEXT_PUBLIC_SUPABASE_ANON_KEY
+          - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
       args:
-          - 'build'
-          - '-t'
-          - 'asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA}'
-          - '-f'
-          - 'Dockerfile'
-          - '.'
+          - '-c'
+          - |
+              docker build \
+                --build-arg NEXT_PUBLIC_APP_URL="${_NEXT_PUBLIC_APP_URL}" \
+                --build-arg NEXT_PUBLIC_SUPABASE_URL="${_NEXT_PUBLIC_SUPABASE_URL}" \
+                --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+                --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="$$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY" \
+                --build-arg GOOGLE_CLIENT_ID=$$GOOGLE_CLIENT_ID \
+                --build-arg GOOGLE_CLIENT_SECRET=$$GOOGLE_CLIENT_SECRET \
+                --build-arg NEXTAUTH_SECRET=$$NEXTAUTH_SECRET \
+                --build-arg GEMINI_API_KEY=$$GEMINI_API_KEY \
+                -t asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA} \
+                -f Dockerfile \
+                .
 
     - id: 'Push container image'
       name: 'gcr.io/cloud-builders/docker'

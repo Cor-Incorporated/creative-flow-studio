@@ -15,6 +15,8 @@ cloud_sql_user          = "app_user"
 cloud_sql_db_name       = "creative_flow_studio"
 
 cloud_run_sa_email = "cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com"
+cloud_build_sa_email = "667780715339@cloudbuild.gserviceaccount.com"
+cloud_build_service_agent_email = "service-<project-number>@gcp-sa-cloudbuild.iam.gserviceaccount.com"
 cloud_run_service_name = "creative-flow-studio-dev"
 artifact_repo_id       = "creative-flow-studio"
 cloud_run_image        = "asia-northeast1-docker.pkg.dev/dataanalyticsclinic/creative-flow-studio/app:latest"

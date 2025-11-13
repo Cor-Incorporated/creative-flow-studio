@@ -75,6 +75,8 @@ module "secrets" {
   environment         = var.environment
   secret_values       = local.secret_values_final
   cloud_run_sa_email  = var.cloud_run_sa_email
+  cloud_build_sa_email = var.cloud_build_sa_email
+  cloud_build_service_agent_email = var.cloud_build_service_agent_email
 }
 
 locals {

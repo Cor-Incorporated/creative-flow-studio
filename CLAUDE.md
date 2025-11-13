@@ -15,7 +15,7 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 
 ---
 
-## Current Status (dev branch - 2025-11-12)
+## Current Status (dev branch - 2025-11-13)
 
 ### What's Been Completed
 
@@ -89,56 +89,326 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 - Authentication/authorization requirements documented
 - 3-phase implementation plan outlined
 
-### What's Next (Priority Order)
+#### ✅ Phase 4: Conversation Persistence - Phase 1 (COMPLETED - 2025-11-13)
 
-#### 🔄 Phase 4: Conversation Persistence (CURRENT PHASE)
+**Step 1: Validation Schemas** ✅
 
-**Step 1: Validation Schemas**
-
-- [ ] Create `lib/validators.ts` with Zod schemas:
+- ✅ Created Zod schemas in `lib/validators.ts`:
     - `createConversationSchema`
-    - `updateConversationSchema`
+    - `updateConversationSchema` (for Phase 2)
     - `createMessageSchema`
 
-**Step 2: Phase 1 API Implementation (Minimum Viable)**
+**Step 2: Phase 1 API Implementation (Minimum Viable)** ✅
 
-- [ ] `POST /api/conversations` - Create new conversation
-- [ ] `POST /api/conversations/[id]/messages` - Add message to conversation
-- [ ] `GET /api/conversations/[id]` - Get conversation with messages
-- [ ] All endpoints require NextAuth session authentication
-- [ ] Verify user owns conversation (userId check)
+- ✅ `POST /api/conversations` - Create new conversation
+- ✅ `GET /api/conversations/[id]` - Get conversation with messages
+- ✅ `POST /api/conversations/[id]/messages` - Add message to conversation
+- ✅ All endpoints require NextAuth session authentication
+- ✅ User ownership verification (userId check)
+- ✅ Proper error handling with Zod validation
 
-**Step 3: Frontend Integration**
+**Step 3: Frontend Integration** ✅
 
-- [ ] Modify `app/page.tsx` to auto-save conversations
-- [ ] Load existing conversations on mount (if user authenticated)
-- [ ] Create new conversation on first message
+- ✅ Added SessionProvider to `app/layout.tsx`
+- ✅ Modified `app/page.tsx` to auto-save conversations
+- ✅ Create new conversation on first message
+- ✅ Save user and model messages for all modes (chat/pro/search/image/video)
+- ✅ Best-effort approach: doesn't disrupt UX if save fails
 
-**Step 4: Phase 2 API (Management)**
+**Files Modified:**
+- `lib/validators.ts` - Added conversation API schemas
+- `app/api/conversations/route.ts` - POST endpoint
+- `app/api/conversations/[id]/route.ts` - GET endpoint
+- `app/api/conversations/[id]/messages/route.ts` - POST endpoint
+- `app/providers.tsx` - SessionProvider wrapper (new)
+- `app/layout.tsx` - Wrapped with Providers
+- `app/page.tsx` - Integrated conversation persistence
 
-- [ ] `GET /api/conversations` - List user's conversations
-- [ ] `PATCH /api/conversations/[id]` - Update title
-- [ ] `DELETE /api/conversations/[id]` - Delete conversation
+#### ✅ Phase 4: Conversation Persistence - Phase 2 (COMPLETED - 2025-11-13)
 
-**Step 5: UI Enhancements**
+**Step 4: Phase 2 API (Management)** ✅
 
-- [ ] Add sidebar with conversation history
-- [ ] Implement conversation switching
-- [ ] Add "New Conversation" button
+- ✅ `GET /api/conversations` - List user's conversations with pagination
+- ✅ `PATCH /api/conversations/[id]` - Update conversation title
+- ✅ `DELETE /api/conversations/[id]` - Delete conversation (Cascade delete messages)
+- ✅ All endpoints include proper authentication and authorization
+- ✅ Query parameters support (limit, offset, mode filtering)
 
-#### ⏳ Phase 5: Stripe Integration (FUTURE)
+**Step 5: UI Enhancements** ✅
 
-- [ ] Stripe Product/Price sync
-- [ ] Checkout session implementation
-- [ ] Customer Portal
-- [ ] Webhook handlers (`/api/stripe/webhook`)
-- [ ] Plan-based usage limits
+- ✅ Added sidebar with conversation history
+- ✅ Implemented conversation switching (load previous conversations)
+- ✅ Added "New Conversation" button
+- ✅ Load existing conversations on mount (if authenticated)
+- ✅ Delete conversation button with confirmation
+- ✅ Mobile-responsive sidebar (hamburger menu)
+- ✅ Visual indication of current conversation
 
-#### ⏳ Phase 6: Admin Dashboard (FUTURE)
+**Files Modified:**
+- `app/api/conversations/route.ts` - Added GET endpoint for list
+- `app/api/conversations/[id]/route.ts` - Added PATCH and DELETE endpoints
+- `app/page.tsx` - Integrated sidebar UI and conversation management logic
 
-- [ ] `/admin` route with role-based access
-- [ ] User management UI
-- [ ] Usage monitoring dashboard
+#### ✅ Phase 4: API Testing (COMPLETED - 2025-11-13)
+
+**Unit Tests for Conversation APIs** ✅
+
+- ✅ Created comprehensive Vitest tests for all Conversation APIs
+- ✅ Test coverage: 33 tests passing (100% endpoint coverage)
+- ✅ Enhanced `vitest.setup.ts` with environment variable mocks
+- ✅ Next.js 14 App Router testing pattern (direct Route Handler imports)
+- ✅ Mock Prisma strategy for fast, isolated tests
+
+**Files Created:**
+- `__tests__/api/conversations/list.test.ts` - GET/POST /api/conversations (9 tests)
+- `__tests__/api/conversations/conversation-id.test.ts` - GET/PATCH/DELETE /api/conversations/[id] (13 tests)
+- `__tests__/api/conversations/messages.test.ts` - POST /api/conversations/[id]/messages (8 tests)
+- Enhanced `vitest.setup.ts` with environment mocks
+- Fixed `lib/validators.ts` - Added `.min(1)` to message content array
+
+### What's Next (Priority Order)
+
+#### 🔄 Phase 5: Stripe Integration (IN PROGRESS - 2025-11-13)
+
+**Step 1: Checkout Session (COMPLETED)** ✅
+
+- ✅ Installed `stripe` SDK (v18.0.0+)
+- ✅ Created `lib/stripe.ts` - Stripe client singleton with helper functions
+- ✅ Implemented `POST /api/stripe/checkout` - Checkout Session creation
+- ✅ Created `POST /api/stripe/webhook` skeleton with signature verification
+- ✅ Created `app/pricing/page.tsx` - Pricing UI with 3 tiers (FREE/PRO/ENTERPRISE)
+- ✅ Type-checked successfully
+
+**Files Created:**
+- `lib/stripe.ts` - Stripe service utility with getOrCreateStripeCustomer()
+- `app/api/stripe/checkout/route.ts` - Checkout Session API
+- `app/api/stripe/webhook/route.ts` - Webhook skeleton (signature verification only)
+- `app/pricing/page.tsx` - Pricing page with Stripe Checkout integration
+
+**Step 2: Webhook Event Handlers (COMPLETED)** ✅
+
+- ✅ Implemented 5 webhook event handlers with full DB integration:
+  - `checkout.session.completed` - Create Subscription + PaymentEvent
+  - `invoice.paid` - Update subscription status & billing period
+  - `invoice.payment_failed` - Mark subscription as PAST_DUE
+  - `customer.subscription.updated` - Sync subscription status changes
+  - `customer.subscription.deleted` - Mark subscription as CANCELED
+- ✅ Added helper functions to `lib/stripe.ts`:
+  - `getPlanIdFromStripeSubscription()` - Extract Plan ID from Stripe subscription
+  - `isEventProcessed()` - Idempotency check via stripeEventId
+- ✅ Idempotency implemented for all event handlers
+- ✅ Type-checked successfully (0 errors)
+- ✅ All existing tests pass (33/33)
+
+**Files Updated:**
+- `app/api/stripe/webhook/route.ts` - Full webhook implementation (~450 lines)
+- `lib/stripe.ts` - Added webhook helper functions
+
+**Step 3: Dashboard UI (COMPLETED)** ✅
+
+- ✅ Fixed `apiVersion` in `lib/stripe.ts` to stable version `2024-11-20.acacia` with `@ts-ignore`
+- ✅ Removed unnecessary `config.api.bodyParser` export from webhook route
+- ✅ Created `lib/subscription.ts` - Subscription management utilities:
+  - `getUserSubscription()` - Get user's subscription with plan details
+  - `hasActiveSubscription()` - Check active subscription status
+  - `getMonthlyUsageCount()` - Get current month's API usage
+  - `checkSubscriptionLimits()` - Validate action against plan limits
+  - `formatBillingPeriod()` - Format dates for display
+  - `getDaysUntilBilling()` - Calculate days until next billing
+  - `calculateUsagePercentage()` - Calculate usage percentage
+- ✅ Created `GET /api/stripe/subscription` - Get subscription data with usage
+- ✅ Created `POST /api/stripe/portal` - Customer Portal session creation
+- ✅ Created `app/dashboard/page.tsx` - Full dashboard UI:
+  - Current plan display with status badge
+  - Billing period and next billing date
+  - Usage meter with visual progress bar
+  - "サブスクリプション管理" button (opens Customer Portal)
+  - Plan features list
+- ✅ Added comprehensive Vitest tests (37 new tests):
+  - 23 tests for `lib/subscription.ts` utilities
+  - 6 tests for `GET /api/stripe/subscription`
+  - 8 tests for `POST /api/stripe/portal`
+- ✅ All 70 tests passing (33 conversation + 37 stripe)
+- ✅ Type-check passes
+
+**Files Created:**
+- `lib/subscription.ts` - Subscription utilities (~200 lines)
+- `app/api/stripe/subscription/route.ts` - Get subscription API
+- `app/api/stripe/portal/route.ts` - Customer Portal API
+- `app/dashboard/page.tsx` - Dashboard UI (~450 lines)
+- `__tests__/lib/subscription.test.ts` - Utility tests (23 tests)
+- `__tests__/api/stripe/subscription.test.ts` - API tests (6 tests)
+- `__tests__/api/stripe/portal.test.ts` - API tests (8 tests)
+
+**Files Updated:**
+- `lib/stripe.ts` - Fixed apiVersion to `2024-11-20.acacia`
+- `app/api/stripe/webhook/route.ts` - Removed unused config export
+
+**Step 4: Usage Limits Integration (COMPLETED)** ✅
+
+- ✅ Integrated `checkSubscriptionLimits()` with all Gemini API routes:
+  - `app/api/gemini/chat/route.ts` - Chat/Pro/Search modes
+  - `app/api/gemini/image/route.ts` - Image generation/editing
+  - `app/api/gemini/video/route.ts` - Video generation
+- ✅ Added `logUsage()` calls after successful API responses
+- ✅ Implemented proper HTTP status codes:
+  - 401 Unauthorized - No session
+  - 403 Forbidden - Feature not in plan
+  - 429 Too Many Requests - Monthly limit exceeded (with `Retry-After` header)
+- ✅ Added NextAuth session authentication to all Gemini endpoints
+- ✅ Resource type tracking (gemini-2.5-flash, imagen-4.0, veo-3.1-fast, etc.)
+- ✅ Added comprehensive Vitest tests (18 new tests):
+  - 6 tests for Chat API (auth, limits, logging)
+  - 6 tests for Image API (auth, limits, editing vs generation)
+  - 6 tests for Video API (auth, ENTERPRISE-only restriction)
+- ✅ All 88 tests passing (70 previous + 18 new)
+- ✅ Type-check passes
+
+**Files Updated:**
+- `app/api/gemini/chat/route.ts` - Added auth + limits + logging
+- `app/api/gemini/image/route.ts` - Added auth + limits + logging
+- `app/api/gemini/video/route.ts` - Added auth + limits + logging
+
+**Files Created:**
+- `__tests__/api/gemini/chat.test.ts` - Chat API tests (6 tests)
+- `__tests__/api/gemini/image.test.ts` - Image API tests (6 tests)
+- `__tests__/api/gemini/video.test.ts` - Video API tests (6 tests)
+
+**Plan Restrictions Enforced:**
+- FREE Plan: Chat/Search only, 100 req/month
+- PRO Plan: Chat/Pro/Search/Image, 1000 req/month
+- ENTERPRISE Plan: All features + Video, unlimited requests
+
+#### 🔄 Phase 6: Admin Dashboard (IN PROGRESS - 2025-11-13)
+
+**Step 1: RBAC Infrastructure (COMPLETED)** ✅
+
+- ✅ Created `middleware.ts` - Role-Based Access Control for `/admin` routes:
+  - Uses `getToken()` from next-auth/jwt to inspect session
+  - Redirects to login if no session
+  - Returns 403 JSON if role !== 'ADMIN'
+  - Protects all `/admin/*` routes before rendering
+- ✅ Created `app/admin/layout.tsx` - Shared admin layout:
+  - Admin header with navigation (Overview, Users, Usage, Subscriptions)
+  - "Back to App" link
+  - Footer with "ADMIN ACCESS ONLY" notice
+- ✅ Created `app/admin/page.tsx` - Overview dashboard (Server Component):
+  - Fetches stats via Prisma (total users, conversations, messages, subscriptions)
+  - Displays 6 key metrics in card grid
+  - Shows active subscriptions by plan (groupBy)
+  - Quick action buttons to other admin pages
+
+**Files Created:**
+- `middleware.ts` - RBAC middleware (~70 lines)
+- `app/admin/layout.tsx` - Admin layout (~90 lines)
+- `app/admin/page.tsx` - Overview dashboard (~340 lines)
+
+**Step 2: Admin API Routes (PENDING)**
+
+- [ ] `GET /api/admin/users` - List all users with subscription status
+- [ ] `GET /api/admin/usage` - Usage logs with filtering
+- [ ] `PATCH /api/admin/users/[id]` - Update user role (promote to ADMIN)
+- [ ] `GET /api/admin/stats` - Detailed system statistics
+
+**Step 3: Admin Pages (PENDING)**
+
+- [ ] `/admin/users` - User management UI
+- [ ] `/admin/usage` - Usage monitoring dashboard
+- [ ] `/admin/subscriptions` - Subscription management UI
+
+#### ✅ Testing Documentation (COMPLETED - 2025-11-13)
+
+**Updated `docs/testing-plan.md`:**
+
+- ✅ Added **Phase 4: Stripe Webhook Manual Validation**:
+  - Stripe CLI setup instructions
+  - Manual test scenarios (subscription created, payment failed, subscription canceled)
+- ✅ Added **Phase 5: Usage Limit Manual Validation**:
+  - Test environment setup (test users, auth tokens)
+  - Comprehensive test scenarios with curl commands:
+    - 401 Authentication Required
+    - 403 FREE Plan Restrictions (Pro Mode, Image, Video)
+    - 403 PRO Plan Restrictions (Video ENTERPRISE-only)
+    - 429 Monthly Limit Exceeded (with Retry-After header)
+    - 200 Successful Usage Logging
+  - Dashboard usage display validation
+  - 30+ validation checklist items
+- ✅ All test scenarios include expected HTTP status codes, response bodies, and database verification queries
+
+---
+
+## Development Tools and Roles
+
+このプロジェクトでは、複数のAI開発ツールが役割分担して開発を進めています。
+
+### Claude Code (フルスタック実装)
+
+**担当領域:**
+- Next.js アプリケーションのフロントエンド・バックエンド実装
+- API Routes の開発とテスト
+- React コンポーネントの作成
+- データベーススキーマの設計と Prisma Client の利用
+- Vitest / Playwright テストの作成
+- ドキュメント更新
+
+**特徴:**
+- 外部接続可能（Web検索、API呼び出し可）
+- コード生成・編集に最適化
+- MCP (Model Context Protocol) サーバー統合により高度なコード解析が可能
+
+**制約:**
+- ローカル開発環境での作業のみ
+- GCP / Terraform は Codex が管理
+
+### Cursor (バックエンド・クラウド開発)
+
+**担当領域:**
+- バックエンドAPI の実装
+- クラウドインフラ関連のコード
+- 複雑なサーバーサイドロジック
+- パフォーマンス最適化
+
+**特徴:**
+- IDE統合により高速なコード編集
+- コンテキスト保持が優れている
+- 大規模なコードベースでの作業が得意
+
+**利用シーン:**
+- Phase 6 以降のバックエンド重視の実装
+- 既存コードの大幅なリファクタリング
+
+### Codex (レビュー係・要件定義)
+
+**担当領域:**
+- 要件定義の矛盾チェック
+- アーキテクチャレビュー
+- セキュリティ監査
+- コード品質レビュー
+- Terraform / GCP インフラ管理
+
+**特徴:**
+- **外部接続不可**（Web検索、API呼び出しできない）
+- 深い思考と論理的分析に特化
+- 既存のドキュメントとコードから矛盾を検出
+
+**制約:**
+- 最新の外部情報（公式ドキュメント、ライブラリバージョン）にアクセスできない
+- 実装よりもレビュー・検証に専念
+
+**利用シーン:**
+- 実装完了後のレビュー
+- Phase 間の移行時の整合性チェック
+- セキュリティ要件の検証
+
+### 推奨される開発フロー
+
+1. **設計フェーズ**: Claude Code または Cursor が初期実装を提案
+2. **実装フェーズ**:
+   - フロントエンド・API: Claude Code
+   - バックエンド・インフラ: Cursor または Codex
+3. **レビューフェーズ**: Codex が要件整合性とセキュリティをチェック
+4. **テストフェーズ**: Claude Code がテストを作成・実行
+5. **デプロイフェーズ**: Codex が Terraform でインフラ管理
 
 ---
 
@@ -590,41 +860,81 @@ npm run test:e2e:ui
 
 ## Conversation Summary for Next Session
 
-**Last Updated**: 2025-11-12
+**Last Updated**: 2025-11-13 (Session 3)
 **Current Branch**: dev
-**Latest Commit**: 40eb622 (fix: Resolve security and compatibility issues)
+**Latest Commit**: Pending (Phase 6 Step 1 - Admin Dashboard RBAC Infrastructure)
 
-**What We Just Completed**:
+**What We Just Completed (This Session)**:
 
-1. ✅ Migrated ChatMessage and ChatInput components to Next.js
-2. ✅ Implemented app/page.tsx with full conversation state management
-3. ✅ Fixed security issue: Removed NEXT_PUBLIC_GEMINI_API_KEY exposure
-4. ✅ Created /api/gemini/video/download proxy endpoint
-5. ✅ Fixed ESLint 9 compatibility with Next.js 14
-6. ✅ Documented conversation persistence API design
+1. ✅ **Phase 6 Step 1: Admin Dashboard RBAC Infrastructure**
+   - Created `middleware.ts` with role-based access control for `/admin` routes
+   - Created `app/admin/layout.tsx` with navigation and shared layout
+   - Created `app/admin/page.tsx` with overview dashboard (Server Component)
+   - Fetches and displays key metrics: users, subscriptions, conversations, messages, API usage
+   - Quick action buttons to admin subpages
 
-**Next Steps (Start Here Tomorrow)**:
+2. ✅ **Testing Documentation Enhancement**
+   - Updated `docs/testing-plan.md` with comprehensive manual validation steps
+   - Added **Phase 4: Stripe Webhook Manual Validation** (Stripe CLI setup, test scenarios)
+   - Added **Phase 5: Usage Limit Manual Validation** (curl commands, expected responses)
+   - Includes 30+ validation checklist items for QA
+   - All scenarios documented with HTTP status codes and database verification
 
-1. **Create `lib/validators.ts`** with Zod schemas for conversation APIs
-2. **Implement Phase 1 Conversation APIs**:
-    - POST /api/conversations
-    - POST /api/conversations/[id]/messages
-    - GET /api/conversations/[id]
-3. **Integrate with app/page.tsx** for auto-save
-4. **Test locally with `npm run dev`**
+**Previously Completed (Earlier Sessions)**:
 
-**Key Files to Work With**:
+1. ✅ Phase 4: Conversation Persistence (All steps) - 33 tests
+2. ✅ Phase 5: Stripe Integration Steps 1-4 (COMPLETE) - 88 tests total
+   - Checkout Session, Webhooks, Dashboard UI, Usage Limits Integration
+3. ✅ All Gemini APIs secured with NextAuth + subscription limits
 
-- `lib/validators.ts` (create next)
-- `app/api/conversations/route.ts` (create next)
-- `app/api/conversations/[id]/route.ts` (create next)
-- `app/api/conversations/[id]/messages/route.ts` (create next)
-- `app/page.tsx` (modify for auto-save)
+**Next Steps (Prioritized)**:
 
-**Remember**:
+1. **Phase 6 Step 2: Admin API Routes** (Claude Code または Cursor)
+   - `GET /api/admin/users` - List all users with subscription/usage stats
+   - `GET /api/admin/usage` - Usage logs with filtering and pagination
+   - `PATCH /api/admin/users/[id]` - Update user role (promote to ADMIN)
+   - Add Vitest tests for admin APIs
 
-- All API routes require NextAuth session authentication
-- Verify userId matches session.user.id for authorization
-- Use Zod schemas to validate request bodies
-- Message content is stored as JSON (ContentPart[] structure)
-- Follow the API design in `docs/api-design-conversation.md`
+2. **Phase 6 Step 3: Admin Pages** (Claude Code または Cursor)
+   - `/admin/users` - User management UI (list, search, filter by plan)
+   - `/admin/usage` - Usage monitoring dashboard (charts, filters)
+   - `/admin/subscriptions` - Subscription overview
+
+3. **Manual Testing & Validation** (推奨)
+   - Follow `docs/testing-plan.md` Phase 4 (Stripe webhooks with Stripe CLI)
+   - Follow `docs/testing-plan.md` Phase 5 (Usage limits with curl)
+   - Test admin dashboard access with ADMIN role user
+
+4. **Code Review** (Codex)
+   - Phase 5 & 6 実装のセキュリティレビュー
+   - RBAC実装の妥当性検証
+   - Prisma クエリのパフォーマンス確認
+
+**Key Files Modified This Session**:
+
+- `middleware.ts` (NEW) - RBAC middleware
+- `app/admin/layout.tsx` (NEW) - Admin layout
+- `app/admin/page.tsx` (NEW) - Overview dashboard
+- `docs/testing-plan.md` (UPDATED) - Added Phases 4 & 5 manual validation
+- `CLAUDE.md` (UPDATED) - This file
+
+**Development Tool Transition**:
+
+- **Claude Code** ✅ Phase 5 & Phase 6 Step 1 完了
+- **次のセッション**: Cursor (バックエンド実装) または Codex (レビュー) に交代
+- **Codex の役割**: 外部接続不可だが、要件定義の矛盾チェックやセキュリティ監査が得意
+
+**Test Status**:
+
+- ✅ **88 tests passing** (Vitest)
+  - 33 Conversation API tests
+  - 37 Stripe integration tests (subscription utilities, APIs)
+  - 18 Gemini API tests (usage limits, auth)
+- ✅ **Type-check passing** (0 errors)
+
+**Important Reminders**:
+
+- All Gemini APIs require NextAuth session (401 if missing)
+- Usage limits enforced: 403 (feature restricted), 429 (rate limited with Retry-After)
+- Admin routes protected by middleware (ADMIN role required)
+- Stripe `apiVersion` uses `2024-11-20.acacia` (stable version)

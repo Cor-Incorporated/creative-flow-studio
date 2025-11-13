@@ -82,6 +82,18 @@ variable "cloud_run_sa_email" {
   default     = "cloud-run-runtime@dataanalyticsclinic.iam.gserviceaccount.com"
 }
 
+variable "cloud_build_sa_email" {
+  description = "Cloud Build 実行用サービスアカウント"
+  type        = string
+  default     = "667780715339@cloudbuild.gserviceaccount.com"
+}
+
+variable "cloud_build_service_agent_email" {
+  description = "Cloud Build サービスエージェント"
+  type        = string
+  default     = "service-667780715339@gcp-sa-cloudbuild.iam.gserviceaccount.com"
+}
+
 variable "cloud_run_service_name" {
   description = "Cloud Run サービス名"
   type        = string
