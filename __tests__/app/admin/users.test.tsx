@@ -47,8 +47,17 @@ describe('Admin Users Page', () => {
     let mockFetch: any;
 
     beforeEach(() => {
-        // Reset fetch mock before each test
-        mockFetch = vi.fn();
+        // Reset fetch mock before each test with default successful response
+        mockFetch = vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: vi.fn().mockResolvedValue({
+                users: [],
+                total: 0,
+                limit: 20,
+                offset: 0,
+            }),
+        });
         global.fetch = mockFetch;
 
         // Reset session mock to authenticated ADMIN by default
