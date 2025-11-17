@@ -6,6 +6,7 @@ import { Message, GenerationMode, AspectRatio, Media, ContentPart } from '@/type
 import ChatInput from '@/components/ChatInput';
 import ChatMessage from '@/components/ChatMessage';
 import { SparklesIcon } from '@/components/icons';
+import { useToast } from '@/components/Toast';
 import {
     DJ_SHACHO_INITIAL_MESSAGE,
     DJ_SHACHO_SYSTEM_PROMPT,
@@ -46,6 +47,7 @@ export default function Home() {
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const isDjShachoModeRef = useRef(isDjShachoMode);
+    const { showToast, ToastContainer } = useToast();
 
     // Update ref immediately during render to avoid race conditions
     isDjShachoModeRef.current = isDjShachoMode;
@@ -488,13 +490,18 @@ export default function Home() {
 
     const handleSendMessage = async (prompt: string, uploadedMedia?: Media) => {
         if (isLoading) return;
-        
+
         // Check authentication before sending message
         if (!session?.user) {
-            const shouldLogin = confirm('この機能を使用するにはログインが必要です。ログインページに移動しますか？');
-            if (shouldLogin) {
-                await signIn('google', { callbackUrl: window.location.href });
-            }
+            showToast({
+                message: 'この機能を使用するにはログインが必要です',
+                type: 'warning',
+                duration: 6000,
+                action: {
+                    label: 'ログインする',
+                    onClick: () => signIn('google', { callbackUrl: window.location.href }),
+                },
+            });
             return;
         }
         
@@ -903,6 +910,9 @@ export default function Home() {
                     onClick={() => setIsSidebarOpen(false)}
                 />
             )}
+
+            {/* Toast Notifications */}
+            <ToastContainer />
         </div>
     );
 }
