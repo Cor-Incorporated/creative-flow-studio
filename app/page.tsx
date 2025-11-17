@@ -680,10 +680,15 @@ export default function Home() {
     const handleEditImage = async (prompt: string, image: Media) => {
         // Check authentication before editing image
         if (!session?.user) {
-            const shouldLogin = confirm('画像編集機能を使用するにはログインが必要です。ログインページに移動しますか？');
-            if (shouldLogin) {
-                await signIn('google', { callbackUrl: window.location.href });
-            }
+            showToast({
+                message: '画像編集機能を使用するにはログインが必要です',
+                type: 'warning',
+                duration: 6000,
+                action: {
+                    label: 'ログインする',
+                    onClick: () => signIn('google', { callbackUrl: window.location.href }),
+                },
+            });
             return;
         }
         
