@@ -5,6 +5,7 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { Message, GenerationMode, AspectRatio, Media, ContentPart } from '@/types/app';
 import ChatInput from '@/components/ChatInput';
 import ChatMessage from '@/components/ChatMessage';
+import LandingPage from '@/components/LandingPage';
 import { SparklesIcon } from '@/components/icons';
 import { useToast } from '@/components/Toast';
 import {
@@ -742,6 +743,22 @@ export default function Home() {
             setIsLoading(false);
         }
     };
+
+    // Show landing page for unauthenticated users
+    if (status === 'loading') {
+        return (
+            <div className="flex h-screen bg-gray-900 text-white items-center justify-center">
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-400">読み込み中...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (status === 'unauthenticated' || !session?.user) {
+        return <LandingPage />;
+    }
 
     return (
         <div className="flex h-screen bg-gray-900 text-white">
