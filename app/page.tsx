@@ -855,39 +855,21 @@ export default function Home() {
                     </div>
                     <div className="flex items-center gap-4">
                         {/* Login/Logout Button */}
-                        {status === 'loading' ? (
-                            <div className="w-20 h-8 bg-gray-700 rounded-lg animate-pulse"></div>
-                        ) : session?.user ? (
-                            <div className="flex items-center gap-3">
-                                <a
-                                    href="/pricing"
-                                    className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
-                                >
-                                    料金プラン
-                                </a>
-                                <button
-                                    onClick={() => signOut({ callbackUrl: window.location.href })}
-                                    className="px-4 py-1.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-                                >
-                                    ログアウト
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-3">
-                                <a
-                                    href="/pricing"
-                                    className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
-                                >
-                                    料金プラン
-                                </a>
-                                <button
-                                    onClick={() => signIn('google', { callbackUrl: window.location.href })}
-                                    className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                                >
-                                    ログイン
-                                </button>
-                            </div>
-                        )}
+                        {/* Note: At this point, user is authenticated (landing page check passed) */}
+                        <div className="flex items-center gap-3">
+                            <a
+                                href="/pricing"
+                                className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                            >
+                                料金プラン
+                            </a>
+                            <button
+                                onClick={() => signOut({ callbackUrl: window.location.href })}
+                                className="px-4 py-1.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                            >
+                                ログアウト
+                            </button>
+                        </div>
                         <div className="relative">
                             <div className="w-32 h-2 bg-gray-700 rounded-full">
                                 <div
