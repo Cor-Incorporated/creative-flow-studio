@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { Message, GenerationMode, AspectRatio, Media, ContentPart } from '@/types/app';
 import ChatInput from '@/components/ChatInput';
 import ChatMessage from '@/components/ChatMessage';
@@ -16,7 +16,7 @@ import {
 } from '@/lib/constants';
 
 export default function Home() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const [messages, setMessages] = useState<Message[]>([
         {
             id: 'init',
@@ -488,6 +488,16 @@ export default function Home() {
 
     const handleSendMessage = async (prompt: string, uploadedMedia?: Media) => {
         if (isLoading) return;
+        
+        // Check authentication before sending message
+        if (!session?.user) {
+            const shouldLogin = confirm('この機能を使用するにはログインが必要です。ログインページに移動しますか？');
+            if (shouldLogin) {
+                await signIn('google', { callbackUrl: window.location.href });
+            }
+            return;
+        }
+        
         setIsLoading(true);
 
         const userParts: ContentPart[] = [];
@@ -661,6 +671,15 @@ export default function Home() {
     };
 
     const handleEditImage = async (prompt: string, image: Media) => {
+        // Check authentication before editing image
+        if (!session?.user) {
+            const shouldLogin = confirm('画像編集機能を使用するにはログインが必要です。ログインページに移動しますか？');
+            if (shouldLogin) {
+                await signIn('google', { callbackUrl: window.location.href });
+            }
+            return;
+        }
+        
         setIsLoading(true);
         addMessage({ role: 'user', parts: [{ text: `画像編集: 「${prompt}」` }] });
 
@@ -805,16 +824,52 @@ export default function Home() {
                         <SparklesIcon className="w-6 h-6 text-blue-400" />
                         <h1 className="text-xl font-bold">クリエイティブフロースタジオ</h1>
                     </div>
-                    <div className="relative">
-                        <div className="w-32 h-2 bg-gray-700 rounded-full">
-                            <div
-                                className="h-2 bg-green-500 rounded-full"
-                                style={{ width: '80%' }}
-                            ></div>
+                    <div className="flex items-center gap-4">
+                        {/* Login/Logout Button */}
+                        {status === 'loading' ? (
+                            <div className="w-20 h-8 bg-gray-700 rounded-lg animate-pulse"></div>
+                        ) : session?.user ? (
+                            <div className="flex items-center gap-3">
+                                <a
+                                    href="/pricing"
+                                    className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                                >
+                                    料金プラン
+                                </a>
+                                <button
+                                    onClick={() => signOut({ callbackUrl: window.location.href })}
+                                    className="px-4 py-1.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                                >
+                                    ログアウト
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3">
+                                <a
+                                    href="/pricing"
+                                    className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                                >
+                                    料金プラン
+                                </a>
+                                <button
+                                    onClick={() => signIn('google', { callbackUrl: window.location.href })}
+                                    className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                                >
+                                    ログイン
+                                </button>
+                            </div>
+                        )}
+                        <div className="relative">
+                            <div className="w-32 h-2 bg-gray-700 rounded-full">
+                                <div
+                                    className="h-2 bg-green-500 rounded-full"
+                                    style={{ width: '80%' }}
+                                ></div>
+                            </div>
+                            <span className="absolute -top-5 right-0 text-xs text-gray-400">
+                                クォータ: 80%
+                            </span>
                         </div>
-                        <span className="absolute -top-5 right-0 text-xs text-gray-400">
-                            クォータ: 80%
-                        </span>
                     </div>
                 </header>
 
