@@ -5,12 +5,14 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 // Debug: Log DATABASE_URL (masked) to verify it's being read correctly
-// Only log in runtime, not during build
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+// Log in runtime (both development and production)
+if (typeof window === 'undefined') {
     const dbUrl = process.env.DATABASE_URL;
+    console.log('[Prisma] Initializing Prisma Client...');
+    console.log('[Prisma] NODE_ENV:', process.env.NODE_ENV);
     if (dbUrl) {
         const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
-        console.log('[Prisma] DATABASE_URL is set:', maskedUrl.substring(0, 80) + '...');
+        console.log('[Prisma] DATABASE_URL is set:', maskedUrl.substring(0, 100) + '...');
         // Check if it's pointing to localhost (which would be wrong in Cloud Run)
         if (dbUrl.includes('localhost:5432')) {
             console.error('[Prisma] ERROR: DATABASE_URL is pointing to localhost:5432! This is wrong for Cloud Run.');
@@ -19,6 +21,7 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
     } else {
         console.error('[Prisma] ERROR: DATABASE_URL is not set!');
         console.error('[Prisma] Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('DB')).join(', '));
+        console.error('[Prisma] All env vars starting with DATABASE:', Object.keys(process.env).filter(k => k.toUpperCase().includes('DATABASE')).join(', '));
     }
 }
 
