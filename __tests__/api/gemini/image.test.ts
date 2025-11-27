@@ -21,8 +21,30 @@ vi.mock('@/lib/subscription', () => ({
 
 // Mock Gemini functions
 vi.mock('@/lib/gemini', () => ({
-    generateImage: vi.fn().mockResolvedValue({ imageUrl: 'https://example.com/image.jpg' }),
-    editImage: vi.fn().mockResolvedValue({ imageUrl: 'https://example.com/edited.jpg' }),
+    generateImage: vi.fn().mockResolvedValue({
+        generatedImages: [
+            {
+                image: {
+                    imageBytes: 'base64ImageData',
+                },
+            },
+        ],
+    }),
+    editImage: vi.fn().mockResolvedValue({
+        candidates: [
+            {
+                content: {
+                    parts: [
+                        {
+                            inlineData: {
+                                data: 'base64EditedImageData',
+                            },
+                        },
+                    ],
+                },
+            },
+        ],
+    }),
 }));
 
 describe('POST /api/gemini/image', () => {
@@ -111,7 +133,9 @@ describe('POST /api/gemini/image', () => {
 
         expect(response.status).toBe(200);
         const data = await response.json();
-        expect(data.result).toHaveProperty('imageUrl');
+        expect(data).toHaveProperty('imageUrl');
+        expect(data.imageUrl).toContain('data:image/png;base64,');
+        expect(data).not.toHaveProperty('result');
 
         // Verify checkSubscriptionLimits was called
         expect(checkSubscriptionLimits).toHaveBeenCalledWith('user-pro', 'image_generation');

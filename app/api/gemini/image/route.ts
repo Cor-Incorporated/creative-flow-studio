@@ -83,15 +83,47 @@ export async function POST(request: NextRequest) {
 
         // 3. Generate or edit image
         let result;
+        let imageUrl: string | undefined;
         const isEditing = !!originalImage;
 
         // Image editing mode
         if (originalImage) {
             result = await editImage(prompt, originalImage);
+            // Extract image from edit response
+            const candidates = (result as any).candidates;
+            if (candidates && candidates[0]?.content?.parts) {
+                for (const part of candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+                        break;
+                    }
+                }
+            }
+            if (!imageUrl) {
+                throw new Error('No image found in edit response');
+            }
         }
         // Image generation mode
         else {
             result = await generateImage(prompt, aspectRatio);
+            // Extract image URL from generation response
+            const generatedImages = (result as any).generatedImages;
+            if (!generatedImages || generatedImages.length === 0) {
+                throw new Error('No images generated');
+            }
+            const firstImage = generatedImages[0];
+            let base64ImageBytes: string | undefined;
+            if (firstImage?.image?.imageBytes) {
+                base64ImageBytes = firstImage.image.imageBytes;
+            } else if (firstImage?.imageBytes) {
+                base64ImageBytes = firstImage.imageBytes;
+            } else if (firstImage?.data) {
+                base64ImageBytes = firstImage.data;
+            }
+            if (!base64ImageBytes) {
+                throw new Error('Image data not found in response');
+            }
+            imageUrl = `data:image/png;base64,${base64ImageBytes}`;
         }
 
         // 4. Log usage after successful generation
@@ -102,7 +134,7 @@ export async function POST(request: NextRequest) {
             promptLength: prompt.length,
         });
 
-        return NextResponse.json({ result });
+        return NextResponse.json({ imageUrl });
     } catch (error: any) {
         console.error('Gemini Image API Error:', error);
 

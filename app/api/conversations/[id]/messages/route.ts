@@ -82,7 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
         const { role, content } = validationResult.data;
 
-        // 5. Create message in database
+        // 5. Create message in database and update conversation updatedAt
         const message = await prisma.message.create({
             data: {
                 conversationId: params.id,
@@ -91,7 +91,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             },
         });
 
-        // 6. Return created message
+        // 6. Update conversation updatedAt timestamp
+        await prisma.conversation.update({
+            where: { id: params.id },
+            data: { updatedAt: new Date() },
+        });
+
+        // 7. Return created message
         return NextResponse.json({ message }, { status: 201 });
     } catch (error: any) {
         console.error(`Error in POST /api/conversations/${params.id}/messages:`, error);

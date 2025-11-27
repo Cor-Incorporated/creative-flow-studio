@@ -1,10 +1,22 @@
 # インターフェース仕様書
 
-**Version:** 1.1
-**Date:** 2025-11-12
+**Version:** 1.2  
+**Date:** 2025-11-13  
 **Target:** Next.js Full-Stack SaaS (develop branch)
 
-このドキュメントは、Claude Code（アプリ実装）と Codex（インフラ実装）の間のインターフェース仕様を定義します。
+このドキュメントは、Claude Code（フロントエンド）と Cursor（バックエンド/インフラ）が参照し、実装漏れなく「動く」ことを最優先にするための仕様を定義します。
+
+## 0. Reality Check（現在の実装状況と欠落）
+
+- Prisma スキーマは仕様通り存在。NextAuth + Google OAuth、Stripe ルート、Gemini ルート（chat/image/video）は部分実装済み。  
+- 欠落/不整合:
+  - `/api/conversations/[id]/messages` が未実装。UI から保存リクエストが落ちるため会話履歴が永続化されない。
+  - `/api/gemini/image` は `{ result }` を返すのみ。UI は `imageUrl` を期待し画像が表示されない。→ API で `imageUrl` を返すか UI 側を `result` 構造に合わせて変換すること。
+  - `/api/gemini/video/status` と `/api/gemini/video/download` が未実装。`/api/gemini/video` も `operationName` をトップレベルで返さないため、ポーリング契約が破綻している。
+  - Stripe Webhook は実装済みだが Secret 連携と Plan 解決ロジックの最終確認、Idempotency（PaymentEvent.stripeEventId）が必要。
+  - テスト: video/image の契約変更に伴う Vitest 更新と E2E の不足。
+
+上記を解消する実装が Done で初めて本仕様の完了と見なす。
 
 ---
 
@@ -456,6 +468,24 @@ export type MessageContent = z.infer<typeof MessageContentSchema>;
 ### 3.2 認証ミドルウェア
 
 すべての認証必須エンドポイントで、NextAuth.js の `getServerSession()` を使用してセッション検証を実施。
+
+### 3.3 レスポンス契約（実装時に必ず合わせること）
+
+- `/api/conversations/[id]/messages`  
+  - **POST** Body: `{ role: 'USER' | 'MODEL' | 'SYSTEM', content: ContentPart[] }`  
+  - **Behavior**: Conversation に紐づく Message を作成し、`201 { message }` を返す。作成と同時に `updatedAt` を更新。  
+  - **AuthZ**: 会話所有者のみ。存在しない会話は 404。
+
+- `/api/gemini/image`  
+  - **Response (成功)**: `{ imageUrl: string }` を返す（result は返さない）。UI は `imageUrl` を表示に使用。  
+  - **Image Edit**: `originalImage` を受け取り、編集後の画像も `imageUrl` で返す。
+
+- `/api/gemini/video`  
+  - **Response (成功)**: `{ operationName: string }` を返す（result は返さない）。  
+  - **Status** `/api/gemini/video/status`（POST 推奨）: Body `{ operationName }` → `{ operation }`。  
+  - **Download** `/api/gemini/video/download`: Query `uri` を受け取り、API キーを露出せずにバイナリを返却（Content-Type: video/mp4）。
+
+- 429/403/401 ケースでは `{ error, details? }` を JSON で返し、UI は `error` を表示に利用する。
 
 ---
 

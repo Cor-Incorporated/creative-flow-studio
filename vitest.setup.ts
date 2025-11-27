@@ -1,6 +1,21 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import createFetchMock from 'vitest-fetch-mock';
+
+// Initialize vitest-fetch-mock for Happy-DOM
+const fetchMocker = createFetchMock(vi);
+
+// Enable mocks globally
+fetchMocker.enableMocks();
+
+// CRITICAL: Doable mock - replaces Happy-DOM's fetch implementation
+fetchMocker.doMock();
+
+// Reset fetch mocks before each test
+beforeEach(() => {
+    fetchMocker.resetMocks();
+});
 
 // Mock environment variables
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';

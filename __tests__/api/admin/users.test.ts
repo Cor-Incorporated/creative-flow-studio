@@ -139,6 +139,71 @@ describe('GET /api/admin/users', () => {
         });
     });
 
+    it('should aggregate monthly usage with a single groupBy call', async () => {
+        // Arrange
+        const mockSession = {
+            user: { id: 'admin_123', email: 'admin@example.com' },
+            expires: '2025-12-31',
+        };
+        const mockUsers = [
+            {
+                id: 'user_1',
+                email: 'user1@example.com',
+                name: 'User One',
+                role: 'USER',
+                createdAt: new Date('2025-11-01'),
+                subscription: null,
+                _count: { usageLogs: 15 },
+                usageLogs: [{ id: 'log_1', createdAt: new Date('2025-11-10') }],
+            },
+            {
+                id: 'user_2',
+                email: 'user2@example.com',
+                name: 'User Two',
+                role: 'PRO',
+                createdAt: new Date('2025-11-05'),
+                subscription: null,
+                _count: { usageLogs: 30 },
+                usageLogs: [{ id: 'log_2', createdAt: new Date('2025-11-11') }],
+            },
+        ];
+
+        vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
+        vi.mocked(prisma.user.findUnique).mockResolvedValue({
+            id: 'admin_123',
+            role: 'ADMIN',
+        } as any);
+        vi.mocked(prisma.user.findMany).mockResolvedValue(mockUsers as any);
+        vi.mocked(prisma.user.count).mockResolvedValue(2);
+        vi.mocked(prisma.usageLog.groupBy).mockResolvedValue([
+            { userId: 'user_1', _count: { _all: 5 } },
+            { userId: 'user_2', _count: { _all: 8 } },
+        ] as any);
+        vi.mocked(prisma.auditLog.create).mockResolvedValue({} as any);
+
+        // Act
+        const request = new NextRequest('http://localhost:3000/api/admin/users');
+        const response = await GET(request);
+        const data = await response.json();
+
+        // Assert
+        expect(response.status).toBe(200);
+        expect(data.users).toHaveLength(2);
+        expect(prisma.usageLog.groupBy).toHaveBeenCalledTimes(1);
+        expect(prisma.usageLog.groupBy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                by: ['userId'],
+                where: expect.objectContaining({
+                    userId: {
+                        in: ['user_1', 'user_2'],
+                    },
+                }),
+            })
+        );
+        expect(data.users[0].usageStats.currentMonthRequests).toBe(5);
+        expect(data.users[1].usageStats.currentMonthRequests).toBe(8);
+    });
+
     it('should apply search filter', async () => {
         // Arrange
         const mockSession = {

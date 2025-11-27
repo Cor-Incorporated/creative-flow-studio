@@ -22,7 +22,8 @@ vi.mock('@/lib/subscription', () => ({
 // Mock Gemini functions
 vi.mock('@/lib/gemini', () => ({
     generateVideo: vi.fn().mockResolvedValue({
-        operationName: 'projects/123/operations/456',
+        name: 'projects/123/operations/456',
+        done: false,
     }),
 }));
 
@@ -112,7 +113,9 @@ describe('POST /api/gemini/video', () => {
 
         expect(response.status).toBe(200);
         const data = await response.json();
-        expect(data.result).toHaveProperty('operationName');
+        expect(data).toHaveProperty('operationName');
+        expect(data.operationName).toBe('projects/123/operations/456');
+        expect(data).not.toHaveProperty('result');
 
         // Verify checkSubscriptionLimits was called
         expect(checkSubscriptionLimits).toHaveBeenCalledWith(

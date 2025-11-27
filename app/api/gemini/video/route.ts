@@ -73,6 +73,13 @@ export async function POST(request: NextRequest) {
         // 3. Generate video
         const result = await generateVideo(prompt, aspectRatio);
 
+        // Extract operation name from result
+        // The result from generateVideo is an operation object with a 'name' property
+        const operationName = (result as any)?.name;
+        if (!operationName) {
+            throw new Error('Operation name not found in video generation response');
+        }
+
         // 4. Log usage after successful generation
         await logUsage(session.user.id, 'video_generation', {
             aspectRatio,
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest) {
             promptLength: prompt.length,
         });
 
-        return NextResponse.json({ result });
+        return NextResponse.json({ operationName });
     } catch (error: any) {
         console.error('Gemini Video API Error:', error);
 

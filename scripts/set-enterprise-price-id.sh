@@ -23,3 +23,4 @@ EOF
 
 echo "✅ ENTERPRISE plan Price ID has been updated to: price_1SUPIgLi6CKW3pRawbELPocW"
 
+

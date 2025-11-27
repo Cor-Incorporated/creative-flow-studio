@@ -188,3 +188,4 @@ postgresql://USER:PASSWORD@/DATABASE_NAME?host=/cloudsql/PROJECT_ID:REGION:INSTA
 **解決日**: 2025-11-17  
 **担当**: Cursor (JavaSE-21 LTS)
 
+

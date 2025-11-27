@@ -12,13 +12,6 @@
 
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error(
-        'STRIPE_SECRET_KEY is not defined in environment variables. ' +
-            'Please add it to your .env.local file.'
-    );
-}
-
 /**
  * Stripe client singleton
  *
@@ -28,16 +21,39 @@ if (!process.env.STRIPE_SECRET_KEY) {
  * - Server Actions
  *
  * NEVER import this in client components or expose the secret key.
+ *
+ * Note: During build time, STRIPE_SECRET_KEY may not be available.
+ * The client will be initialized lazily on first use.
  */
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    // @ts-ignore - Using stable API version instead of latest
-    // Stripe recommends using a stable version for production
-    apiVersion: '2024-11-20.acacia',
-    typescript: true,
-    appInfo: {
-        name: 'Creative Flow Studio',
-        version: '1.0.0',
-        url: 'https://creative-flow-studio.com',
+function getStripeClient(): Stripe {
+    if (!process.env.STRIPE_SECRET_KEY) {
+        throw new Error(
+            'STRIPE_SECRET_KEY is not defined in environment variables. ' +
+                'Please add it to your .env.local file.'
+        );
+    }
+    return new Stripe(process.env.STRIPE_SECRET_KEY, {
+        // @ts-ignore - Using stable API version instead of latest
+        // Stripe recommends using a stable version for production
+        apiVersion: '2024-11-20.acacia',
+        typescript: true,
+        appInfo: {
+            name: 'Creative Flow Studio',
+            version: '1.0.0',
+            url: 'https://creative-flow-studio.com',
+        },
+    });
+}
+
+// Lazy initialization singleton pattern
+let stripeClient: Stripe | null = null;
+
+export const stripe: Stripe = new Proxy({} as Stripe, {
+    get(_target, prop) {
+        if (!stripeClient) {
+            stripeClient = getStripeClient();
+        }
+        return (stripeClient as any)[prop];
     },
 });
 

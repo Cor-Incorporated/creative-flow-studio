@@ -1,8 +1,16 @@
-# Stripe Integration Plan
+# Stripe Integration Plan (Reality-based)
 
-## 概要
+## 0. 現在の実装状況とギャップ
 
-Creative Flow StudioにStripe決済を統合し、サブスクリプションベースの課金システムを実装します。
+- 実装済み: `POST /api/stripe/checkout`, `POST /api/stripe/portal`, `POST /api/stripe/webhook`, `GET /api/stripe/subscription`。Prisma スキーマは Plan/Subscription/PaymentEvent を含む。  
+- 未確認/要修正:
+  - Secret Manager からの `STRIPE_WEBHOOK_SECRET` 注入確認（本番環境での設定必須）。
+  - Webhook Idempotency: `PaymentEvent.stripeEventId` ユニーク制約はあるが、`isEventProcessed` 実装と整合するか最終確認が必要。  
+  - Plan 解決: `getPlanIdFromStripeSubscription` の実装と Stripe Product/Price ID のマッピングを最新値で反映する必要あり。  
+  - Usage 制限: `lib/subscription.ts` は呼び出し元との契約を持つが、プランの features シード値が未定義のまま。  
+  - E2E/Unit: Webhook まわりと Checkout/Portal ハッピーパスのテストが未整備。
+
+以下は「確たる論拠を持った」最終形の設計と、上記ギャップを埋めるための手順を含む。
 
 **実装根拠:**
 - [Stripe Checkout Documentation](https://docs.stripe.com/payments/checkout)
@@ -519,27 +527,26 @@ describe('POST /api/stripe/webhook', () => {
 
 ---
 
-## Implementation Order
+## Implementation Order（現実ベースのタスク）
 
-1. ✅ **Phase 0**: Prisma schema (既に完了)
-2. **Phase 1**: Checkout Session (1-2 days)
-   - POST /api/stripe/checkout
-   - app/pricing/page.tsx
-   - Success/Cancel pages
-3. **Phase 2**: Webhook Handler (2-3 days)
-   - POST /api/stripe/webhook
-   - Event handlers (checkout.session.completed, invoice.*, customer.subscription.*)
-   - PaymentEvent logging
-4. **Phase 3**: Subscription Management (2-3 days)
-   - app/dashboard/page.tsx
-   - POST /api/stripe/portal
-   - PATCH /api/stripe/subscription
-5. **Phase 4**: Usage Limits (1-2 days)
-   - lib/subscription.ts
-   - Integration with Gemini API routes
-   - UsageLog tracking
+1. ✅ Prisma schema（完了）
+2. **Checkout/Portal ハッピーパス検証**  
+   - `POST /api/stripe/checkout` の価格 ID を最新の Stripe Price に差し替え。  
+   - `app/pricing/page.tsx` からの遷移確認。  
+   - Dashboard で `GET /api/stripe/subscription` を通して状態が表示されること。
+3. **Webhook 安定化**  
+   - 本番 Secret: `STRIPE_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY` を Secret Manager 経由で注入（`docs/terraform-production-setup.md` 参照）。  
+   - `PaymentEvent.stripeEventId` で idempotency を担保（`isEventProcessed` と整合確認）。  
+   - `getPlanIdFromStripeSubscription` を Price ID マップで実装し、Plan テーブルの seed を合わせる（`docs/stripe-price-id-setup.md` 参照）。  
+   - 主要イベント: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated/deleted`。  
+4. **プラン/Usage 連携**  
+   - `Plan.features` に `allowProMode/allowImageGeneration/allowVideoGeneration/maxRequestsPerMonth` を設定し seed。  
+   - `lib/subscription.ts` のチェックロジックを Stripe/Prisma の値に合わせ、Gemini ルートのテストを更新。  
+5. **テスト/E2E**  
+   - Vitest: checkout/webhook/subscription, gemini ルートの契約固定。  
+   - Playwright: Checkout → Webhook モック → Dashboard 反映のハッピーパス。
 
-**Total Estimate:** 6-10 days
+**目安:** 6-10 days（Checkout/Portal 1-2d、Webhook/Plan 2-3d、Usage/Test 2-3d）
 
 ---
 

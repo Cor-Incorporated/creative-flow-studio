@@ -56,3 +56,4 @@ echo ""
 echo "✅ 設定完了後、Cloud Run サービスを再デプロイしてください。"
 echo ""
 
+

@@ -21,3 +21,4 @@ WHERE email = 'your-admin-user@example.com';
 -- Expected result:
 -- role should be 'ADMIN'
 
+

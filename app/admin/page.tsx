@@ -12,6 +12,9 @@ import { prisma } from '@/lib/prisma';
  * - docs/implementation-plan.md Phase 6
  */
 
+// Force dynamic rendering to avoid build-time database connection errors
+export const dynamic = 'force-dynamic';
+
 async function getStats() {
     const [
         totalUsers,

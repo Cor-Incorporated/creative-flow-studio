@@ -8,6 +8,15 @@
 
 ## 前提条件
 
+### 0. 環境情報（dev）
+
+- 開発環境 URL: `https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app/`
+- 管理画面 URL: `https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app/admin`
+- テスト用アカウント（例／実際のID・PWはチームで共有されたものをセット）
+  - 管理者: `admin@example.com` / `*****`
+  - エンタープライズユーザー: `enterprise@example.com` / `*****`
+  - ※ Google OAuth ログイン用のテストアカウントを用意し、認証後に `scripts/grant-admin-role.sql` で ADMIN 権限を付与してください。パスワード等のシークレットはリポジトリに記載しないこと。
+
 ### 1. 環境変数の設定
 
 `.env.local` に以下のテスト用キーを設定：
@@ -397,4 +406,3 @@ LIMIT 1000;  -- PRO プランの上限（1000）を超える
 - `docs/stripe-price-id-setup.md` - Stripe Price ID 設定手順
 - `docs/manual-testing-procedure.md` - 詳細な手動テスト手順
 - `docs/terraform-production-setup.md` - Terraform 本番環境セットアップ
-

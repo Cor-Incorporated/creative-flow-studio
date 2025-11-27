@@ -45,3 +45,4 @@ unset PGPASSWORD
 echo ""
 echo "✅ Price ID update completed!"
 
+

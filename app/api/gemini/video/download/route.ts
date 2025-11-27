@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
 /**
+ * GET /api/gemini/video/download
  * Video Download Proxy API
  *
  * This endpoint proxies video downloads from Gemini API to avoid exposing
  * the API key on the client side. The client sends the video URI, and this
  * endpoint fetches the video using the server-side GEMINI_API_KEY.
  *
+ * Authentication: Required (NextAuth session)
+ * Authorization: ENTERPRISE plan required (implicitly, since only ENTERPRISE can generate videos)
+ *
  * @see https://ai.google.dev/gemini-api/docs/video-generation
  */
 export async function GET(request: NextRequest) {
     try {
+        // 1. Authentication: Check if user is logged in
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const videoUri = searchParams.get('uri');
 

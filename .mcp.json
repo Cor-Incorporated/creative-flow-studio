@@ -14,6 +14,17 @@
                 "/Users/teradakousuke/Developer/creative-flow-studio"
             ],
             "env": {}
+        },
+        "context7": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp",
+                "--api-key",
+                "ctx7sk-b9c57a64-216a-4d2f-b58c-92b2726045f3"
+            ],
+            "env": {}
         }
     }
 }

@@ -10,6 +10,7 @@ vi.mock('@/lib/prisma', () => ({
     prisma: {
         conversation: {
             findUnique: vi.fn(),
+            update: vi.fn(),
         },
         message: {
             create: vi.fn(),
@@ -42,6 +43,7 @@ describe('POST /api/conversations/[id]/messages', () => {
         vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
         vi.mocked(prisma.conversation.findUnique).mockResolvedValue(mockConversation as any);
         vi.mocked(prisma.message.create).mockResolvedValue(mockMessage as any);
+        vi.mocked(prisma.conversation.update).mockResolvedValue(mockConversation as any);
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1/messages', {
@@ -92,6 +94,7 @@ describe('POST /api/conversations/[id]/messages', () => {
         vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
         vi.mocked(prisma.conversation.findUnique).mockResolvedValue(mockConversation as any);
         vi.mocked(prisma.message.create).mockResolvedValue(mockMessage as any);
+        vi.mocked(prisma.conversation.update).mockResolvedValue(mockConversation as any);
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1/messages', {
@@ -141,6 +144,7 @@ describe('POST /api/conversations/[id]/messages', () => {
         vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
         vi.mocked(prisma.conversation.findUnique).mockResolvedValue(mockConversation as any);
         vi.mocked(prisma.message.create).mockResolvedValue(mockMessage as any);
+        vi.mocked(prisma.conversation.update).mockResolvedValue(mockConversation as any);
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1/messages', {

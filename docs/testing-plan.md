@@ -1533,6 +1533,487 @@ npm test -- __tests__/app/admin/ --watch
 
 ---
 
+## Phase 7: React 18 StrictMode Testing Patterns
+
+### 7.1 Overview
+
+React 18's StrictMode intentionally **double-invokes effects** in development to help detect side effects. This causes `useEffect` hooks to run in the following sequence:
+
+1. **Mount**: Component renders, effect runs
+2. **Unmount**: Effect cleanup runs (simulated)
+3. **Remount**: Component re-renders, effect runs again
+
+**Impact on Tests**: Any component using `useEffect` to fetch data will make **3 fetch calls** during initial render, not 1.
+
+**Why This Matters**:
+- Custom fetch mocks that don't account for this behavior will fail
+- Tests will timeout waiting for data that never arrives
+- Error messages like "Unexpected end of JSON input" or "Cannot read properties of undefined"
+
+---
+
+### 7.2 vitest-fetch-mock Setup
+
+#### Installation
+
+**Already installed** in this project:
+```bash
+npm install -D vitest-fetch-mock
+```
+
+#### Configuration
+
+**File:** `vitest.setup.ts`
+
+```typescript
+import '@testing-library/jest-dom';
+import { cleanup } from '@testing-library/react';
+import { afterEach, beforeEach, vi } from 'vitest';
+import createFetchMock from 'vitest-fetch-mock';
+
+// Initialize vitest-fetch-mock
+const fetchMock = createFetchMock(vi);
+fetchMock.enableMocks();
+
+// Reset fetch mocks before each test
+beforeEach(() => {
+    fetchMock.resetMocks();
+});
+
+// Mock environment variables
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+process.env.NEXTAUTH_SECRET = 'test-secret-key-for-vitest';
+process.env.NEXTAUTH_URL = 'http://localhost:3000';
+process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret';
+process.env.GEMINI_API_KEY = 'test-gemini-api-key';
+
+// Cleanup after each test
+afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+});
+```
+
+**Type Definitions:** `vitest-env.d.ts`
+
+```typescript
+/// <reference types="vitest" />
+/// <reference types="@testing-library/jest-dom" />
+
+import type {FetchMock} from 'vitest-fetch-mock';
+
+declare global {
+  const fetchMock: FetchMock;
+  // eslint-disable-next-line no-var
+  var fetch: FetchMock;
+}
+
+export {};
+```
+
+---
+
+### 7.3 Common Testing Patterns
+
+#### Pattern 1: Initial Render (3 Fetches)
+
+**Scenario**: Component fetches data on mount with no user interaction.
+
+**Expected Fetch Count**: **3 calls** (mount, unmount, remount)
+
+```typescript
+it('should render table with data', async () => {
+    // Arrange
+    const mockData = createMockData(3);
+    const mockResponse = JSON.stringify({
+        data: mockData,
+        total: 3,
+    });
+
+    // StrictMode: 3 initial fetches (mount, unmount, remount)
+    fetch.mockResponseOnce(mockResponse); // Mount
+    fetch.mockResponseOnce(mockResponse); // Unmount
+    fetch.mockResponseOnce(mockResponse); // Remount
+
+    // Act
+    render(<MyComponent />);
+
+    // Assert: Should show loading initially
+    expect(screen.getByText(/読み込み中/i)).toBeInTheDocument();
+
+    // Wait for loading to disappear
+    await waitFor(() => {
+        expect(screen.queryByText(/読み込み中/i)).not.toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    // Verify data is displayed
+    expect(screen.getByText('Expected Data')).toBeInTheDocument();
+});
+```
+
+---
+
+#### Pattern 2: User Interaction (4 Fetches)
+
+**Scenario**: Component renders, then user changes a filter/input, triggering a re-fetch.
+
+**Expected Fetch Count**: **4 calls** (3 initial + 1 user action)
+
+```typescript
+it('should update filter and trigger fetch', async () => {
+    // Arrange
+    const mockData = createMockData(1);
+    const mockResponse = JSON.stringify({ data: mockData, total: 1 });
+
+    // StrictMode: 3 initial fetches + 1 filter change = 4 total
+    fetch.mockResponseOnce(mockResponse); // Mount
+    fetch.mockResponseOnce(mockResponse); // Unmount
+    fetch.mockResponseOnce(mockResponse); // Remount
+    fetch.mockResponseOnce(mockResponse); // After filter change
+
+    // Act
+    render(<MyComponent />);
+
+    await waitFor(() => {
+        expect(screen.queryByText(/読み込み中/i)).not.toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    // User changes filter
+    const filterInput = screen.getByPlaceholderText(/検索/i);
+    fireEvent.change(filterInput, { target: { value: 'test' } });
+
+    // Assert - Wait for re-fetch with filter param
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining('filter=test'),
+            undefined
+        );
+    }, { timeout: 3000 });
+});
+```
+
+---
+
+#### Pattern 3: Error Handling (3 Rejections)
+
+**Scenario**: Component attempts to fetch data but network request fails.
+
+**Expected Behavior**: **3 rejected promises** (all must fail consistently)
+
+```typescript
+it('should display error message on fetch failure', async () => {
+    // Arrange - StrictMode: 3 fetch calls (mount, unmount, remount)
+    fetch.mockRejectOnce(new Error('Network error'));
+    fetch.mockRejectOnce(new Error('Network error'));
+    fetch.mockRejectOnce(new Error('Network error'));
+
+    // Act
+    render(<MyComponent />);
+
+    // Assert - Wait for loading to disappear
+    await waitFor(() => {
+        expect(screen.queryByText(/読み込み中/i)).not.toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    // Verify error message is displayed
+    expect(screen.getByText(/エラー/i)).toBeInTheDocument();
+    expect(screen.getByText(/Network error/i)).toBeInTheDocument();
+});
+```
+
+---
+
+#### Pattern 4: Loading State (Blocked Fetch)
+
+**Scenario**: Test that component displays loading indicator while fetch is in progress.
+
+**Expected Behavior**: Fetch never resolves, component remains in loading state.
+
+```typescript
+it('should display loading state', () => {
+    // Arrange: Mock fetch that never resolves (blocks indefinitely)
+    fetch.mockAbort();
+
+    // Act
+    render(<MyComponent />);
+
+    // Assert
+    expect(screen.getByText(/読み込み中/i)).toBeInTheDocument();
+});
+```
+
+---
+
+#### Pattern 5: Update with Refresh (5+ Fetches)
+
+**Scenario**: User updates data via PATCH/PUT, then component re-fetches to show updated state.
+
+**Expected Fetch Count**: **5 calls** (3 initial + 1 PATCH + 1 GET refresh)
+
+```typescript
+it('should update data and refresh', async () => {
+    // Arrange
+    const initialData = createMockData(1);
+    const updatedData = { ...initialData[0], name: 'Updated' };
+
+    const getResponse = JSON.stringify({ data: initialData, total: 1 });
+    const patchResponse = JSON.stringify({ data: updatedData });
+
+    // StrictMode: 3 initial GET + 1 PATCH + 1 GET refresh = 5 total
+    fetch.mockResponseOnce(getResponse); // Mount
+    fetch.mockResponseOnce(getResponse); // Unmount
+    fetch.mockResponseOnce(getResponse); // Remount
+    fetch.mockResponseOnce(patchResponse); // PATCH update
+    fetch.mockResponseOnce(JSON.stringify({ data: [updatedData], total: 1 })); // GET refresh
+
+    // Act
+    render(<MyComponent />);
+
+    await waitFor(() => {
+        expect(screen.queryByText(/読み込み中/i)).not.toBeInTheDocument();
+    });
+
+    // User clicks update button
+    const updateButton = screen.getByText(/更新/i);
+    fireEvent.click(updateButton);
+
+    // Assert - Verify PATCH was called
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/api/data/1'),
+            expect.objectContaining({ method: 'PATCH' })
+        );
+    });
+
+    // Verify updated data is displayed
+    expect(screen.getByText('Updated')).toBeInTheDocument();
+});
+```
+
+---
+
+#### Pattern 6: Modal Interactions (3 Fetches, No Additional)
+
+**Scenario**: User opens a modal or expands UI elements that **don't trigger fetch**.
+
+**Expected Fetch Count**: **3 calls** (only initial render)
+
+```typescript
+it('should open modal without triggering fetch', async () => {
+    // Arrange
+    const mockData = createMockData(1);
+    const mockResponse = JSON.stringify({ data: mockData, total: 1 });
+
+    // StrictMode: 3 initial fetches (modal open doesn't trigger fetch)
+    fetch.mockResponseOnce(mockResponse); // Mount
+    fetch.mockResponseOnce(mockResponse); // Unmount
+    fetch.mockResponseOnce(mockResponse); // Remount
+
+    // Act
+    render(<MyComponent />);
+
+    await waitFor(() => {
+        expect(screen.queryByText(/読み込み中/i)).not.toBeInTheDocument();
+    });
+
+    // User opens modal
+    const openButton = screen.getByText(/開く/i);
+    fireEvent.click(openButton);
+
+    // Assert - Modal is visible
+    await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    // Verify fetch was only called 3 times (no additional fetch)
+    expect(fetch).toHaveBeenCalledTimes(3);
+});
+```
+
+---
+
+### 7.4 vitest-fetch-mock API Reference
+
+#### Common Methods
+
+```typescript
+// Mock a single response
+fetch.mockResponseOnce(JSON.stringify({ data: 'value' }));
+
+// Mock a single response with options
+fetch.mockResponseOnce(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+
+// Mock a single error/rejection
+fetch.mockRejectOnce(new Error('Network error'));
+
+// Block fetch indefinitely (for loading state tests)
+fetch.mockAbort();
+
+// Reset all mocks (called automatically in beforeEach)
+fetch.mockReset();
+
+// Clear call history
+fetch.mockClear();
+
+// Persistent mock (applies to all subsequent fetch calls)
+fetch.mockResponse(JSON.stringify({ data: 'persistent' }));
+```
+
+---
+
+### 7.5 Common Pitfalls and Troubleshooting
+
+#### Issue 1: Test Timeout
+
+**Symptom**: Test times out waiting for elements to appear.
+
+**Cause**: Not enough `mockResponseOnce()` calls to satisfy StrictMode's 3 fetches.
+
+**Fix**: Add 3 mock responses for initial render.
+
+```typescript
+// ❌ WRONG: Only 1 mock response
+fetch.mockResponseOnce(mockResponse);
+render(<MyComponent />);
+
+// ✅ CORRECT: 3 mock responses for StrictMode
+fetch.mockResponseOnce(mockResponse); // Mount
+fetch.mockResponseOnce(mockResponse); // Unmount
+fetch.mockResponseOnce(mockResponse); // Remount
+render(<MyComponent />);
+```
+
+---
+
+#### Issue 2: "Unexpected end of JSON input"
+
+**Symptom**: Error message about invalid JSON.
+
+**Cause**: Custom fetch mock returning non-Response object.
+
+**Fix**: Use `vitest-fetch-mock` instead of custom implementation.
+
+```typescript
+// ❌ WRONG: Custom fetch mock returning plain objects
+global.fetch = vi.fn(() => Promise.resolve({ json: () => data }));
+
+// ✅ CORRECT: Use vitest-fetch-mock
+import createFetchMock from 'vitest-fetch-mock';
+const fetchMock = createFetchMock(vi);
+fetchMock.enableMocks();
+fetch.mockResponseOnce(JSON.stringify(data));
+```
+
+---
+
+#### Issue 3: "Cannot read properties of undefined"
+
+**Symptom**: Component state is undefined during assertions.
+
+**Cause**: Fetch mock queue exhausted before StrictMode completes all 3 calls.
+
+**Fix**: Provide sufficient mock responses.
+
+```typescript
+// ❌ WRONG: Only 2 responses, StrictMode needs 3
+fetch.mockResponseOnce(mockResponse);
+fetch.mockResponseOnce(mockResponse);
+render(<MyComponent />); // 3rd fetch will fail
+
+// ✅ CORRECT: 3 responses
+fetch.mockResponseOnce(mockResponse);
+fetch.mockResponseOnce(mockResponse);
+fetch.mockResponseOnce(mockResponse);
+render(<MyComponent />);
+```
+
+---
+
+#### Issue 4: Fetch Called More Times Than Expected
+
+**Symptom**: `expect(fetch).toHaveBeenCalledTimes(4)` fails, actual is 5 or 6.
+
+**Cause**: Multiple filters/dependencies in `useEffect` causing additional re-renders.
+
+**Fix**: Add explicit comments documenting expected count, debug with `console.log(fetch.mock.calls.length)`.
+
+```typescript
+it('should handle multiple filter changes', async () => {
+    const mockResponse = JSON.stringify({ data: [], total: 0 });
+
+    // StrictMode: 3 initial + 2 filter changes = 5 total
+    fetch.mockResponseOnce(mockResponse); // Mount
+    fetch.mockResponseOnce(mockResponse); // Unmount
+    fetch.mockResponseOnce(mockResponse); // Remount
+    fetch.mockResponseOnce(mockResponse); // Filter 1 change
+    fetch.mockResponseOnce(mockResponse); // Filter 2 change
+
+    render(<MyComponent />);
+
+    // Debug: Log actual call count
+    console.log('Fetch called:', fetch.mock.calls.length);
+
+    // Change first filter
+    fireEvent.change(filter1Input, { target: { value: 'value1' } });
+
+    // Change second filter
+    fireEvent.change(filter2Input, { target: { value: 'value2' } });
+
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(5);
+    });
+});
+```
+
+---
+
+### 7.6 Testing Checklist
+
+#### Setup Verification
+- [ ] `vitest-fetch-mock` installed (`npm list vitest-fetch-mock`)
+- [ ] `vitest.setup.ts` uses `createFetchMock(vi)`
+- [ ] `beforeEach` calls `fetchMock.resetMocks()`
+- [ ] `vitest-env.d.ts` declares global `fetch` type
+
+#### Test Pattern Verification
+- [ ] Initial render tests use 3 `mockResponseOnce()` calls
+- [ ] User interaction tests use 4 calls (3 + 1)
+- [ ] Error tests use 3 `mockRejectOnce()` calls
+- [ ] Modal/expand tests use only 3 calls (no additional)
+- [ ] Update with refresh tests use 5+ calls (3 + PATCH + GET)
+- [ ] Each test has comments documenting expected fetch count
+
+#### Troubleshooting
+- [ ] All tests pass without timeouts
+- [ ] No "Unexpected end of JSON input" errors
+- [ ] No "Cannot read properties of undefined" errors
+- [ ] `fetch.mock.calls.length` matches expectations
+- [ ] Tests run reliably in CI/CD environment
+
+---
+
+### 7.7 Example Test Commands
+
+```bash
+# Run all component tests with StrictMode patterns
+npm test -- __tests__/app/admin/
+
+# Run specific test file
+npm test -- __tests__/app/admin/users.test.tsx
+
+# Run with verbose output to see fetch call counts
+npm test -- __tests__/app/admin/users.test.tsx --reporter=verbose
+
+# Run in watch mode during development
+npm test -- __tests__/app/admin/ --watch
+
+# Run with coverage to verify all code paths tested
+npm run test:coverage -- __tests__/app/admin/
+```
+
+---
+
 ## References
 
 - [Next.js Testing Documentation](https://nextjs.org/docs/app/guides/testing)
@@ -1540,3 +2021,5 @@ npm test -- __tests__/app/admin/ --watch
 - [Playwright Documentation](https://playwright.dev/)
 - [next-test-api-route-handler](https://www.npmjs.com/package/next-test-api-route-handler)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+- [vitest-fetch-mock](https://www.npmjs.com/package/vitest-fetch-mock)
+- [React 18 StrictMode](https://react.dev/reference/react/StrictMode)

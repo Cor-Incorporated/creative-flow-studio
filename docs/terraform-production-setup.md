@@ -199,3 +199,4 @@ Cloud SQL への接続が失敗する場合：
 - `docs/interface-spec.md` - 環境変数仕様
 - `docs/stripe-integration-plan.md` - Stripe 統合設定
 
+
