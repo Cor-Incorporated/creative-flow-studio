@@ -25,98 +25,60 @@
 ```
 app/
 ├── layout.tsx                     # Root layout with SessionProvider
-├── providers.tsx                  # Client wrapper for SessionProvider (NEW - Phase 4)
-├── globals.css                    # Global styles (Tailwind)
-├── page.tsx                       # Main chat interface with conversation persistence
+├── providers.tsx                  # Client wrapper for SessionProvider
+├── globals.css                    # Global styles (Tailwind v4)
+├── icon.svg                       # SVG favicon (Next.js 14)
+├── page.tsx                       # Main chat interface + LandingPage
 ├── pricing/
-│   └── page.tsx                   # Pricing page with 3 tiers (NEW - Phase 5)
+│   └── page.tsx                   # Pricing page (FREE/PRO/ENTERPRISE)
 ├── dashboard/
-│   └── page.tsx                   # User dashboard with subscription & usage (NEW - Phase 5)
-├── admin/                         # Admin section (NEW - Phase 6)
-│   ├── layout.tsx                 # Admin layout with RBAC navigation
-│   └── page.tsx                   # Admin overview dashboard (Server Component)
-└── api/                           # API Route Handlers (server-side only)
+│   └── page.tsx                   # User dashboard (subscription, usage)
+├── admin/                         # Admin section (RBAC protected)
+│   ├── layout.tsx                 # Admin layout with navigation
+│   ├── page.tsx                   # Overview dashboard
+│   ├── users/
+│   │   └── page.tsx               # User management UI
+│   └── usage/
+│       └── page.tsx               # Usage monitoring dashboard
+└── api/                           # API Route Handlers
     ├── auth/
-    │   └── [...nextauth]/
-    │       └── route.ts           # NextAuth.js authentication
-    ├── conversations/             # Conversation APIs (NEW - Phase 4)
+    │   └── [...nextauth]/route.ts # NextAuth.js authentication
+    ├── conversations/
     │   ├── route.ts               # POST (create), GET (list)
     │   └── [id]/
-    │       ├── route.ts           # GET (read), PATCH (update), DELETE (delete)
-    │       └── messages/
-    │           └── route.ts       # POST (add message)
-    ├── stripe/                    # Stripe APIs (NEW - Phase 5)
-    │   ├── checkout/
-    │   │   └── route.ts           # POST - Create Checkout Session
-    │   ├── webhook/
-    │   │   └── route.ts           # POST - Handle Stripe webhooks
-    │   ├── subscription/
-    │   │   └── route.ts           # GET - Get subscription data
-    │   └── portal/
-    │       └── route.ts           # POST - Create Customer Portal session
-    └── gemini/
-        ├── chat/
-        │   └── route.ts           # Chat/Pro/Search (with usage limits - Phase 5)
-        ├── image/
-        │   └── route.ts           # Image generation/editing (with usage limits)
-        └── video/
-            ├── route.ts           # Video generation (ENTERPRISE only)
-            ├── status/
-            │   └── route.ts       # Video polling endpoint
-            └── download/
-                └── route.ts       # Secure video download proxy
+    │       ├── route.ts           # GET, PATCH, DELETE
+    │       └── messages/route.ts  # POST (add message)
+    ├── stripe/
+    │   ├── checkout/route.ts      # POST - Checkout Session
+    │   ├── webhook/route.ts       # POST - Webhook handler
+    │   ├── subscription/route.ts  # GET - Subscription data
+    │   └── portal/route.ts        # POST - Customer Portal
+    ├── gemini/
+    │   ├── chat/route.ts          # Chat/Pro/Search modes
+    │   ├── image/route.ts         # Image generation/editing
+    │   └── video/
+    │       ├── route.ts           # Video generation
+    │       ├── status/route.ts    # Polling endpoint
+    │       └── download/route.ts  # Secure download proxy
+    ├── admin/
+    │   ├── users/
+    │   │   ├── route.ts           # GET - List users
+    │   │   └── [id]/route.ts      # PATCH - Update role
+    │   ├── usage/route.ts         # GET - Usage logs
+    │   └── stats/route.ts         # GET - System stats
+    └── debug/
+        └── env/route.ts           # Debug endpoint
 ```
-
-### API Routes Summary
-
-All API routes are server-side only and use Next.js Route Handlers pattern.
-
-- **POST /api/auth/[...nextauth]** - NextAuth.js authentication (Google OAuth)
-- **POST /api/gemini/chat** - Text generation (Chat/Pro/Search modes)
-- **POST /api/gemini/image** - Image generation/editing (Imagen 4.0)
-- **POST /api/gemini/video** - Video generation (Veo 3.1)
-- **POST /api/gemini/video/status** - Video operation status polling
-- **GET /api/gemini/video/download** - Secure video download proxy
-
-### Conversation API Routes (Phase 4 - COMPLETED)
-
-- **POST /api/conversations** - Create new conversation (requires auth)
-- **GET /api/conversations** - List user's conversations (with pagination, mode filtering)
-- **GET /api/conversations/[id]** - Get conversation with messages (requires ownership)
-- **PATCH /api/conversations/[id]** - Update conversation title (requires ownership)
-- **DELETE /api/conversations/[id]** - Delete conversation (cascade delete messages)
-- **POST /api/conversations/[id]/messages** - Add message to conversation (requires ownership)
-
-### Stripe API Routes (Phase 5 - COMPLETED)
-
-- **POST /api/stripe/checkout** - Create Checkout Session for subscription
-- **POST /api/stripe/webhook** - Handle Stripe webhook events (signature verification)
-- **GET /api/stripe/subscription** - Get user's subscription data with usage stats
-- **POST /api/stripe/portal** - Create Customer Portal session
-
-### Admin API Routes (Phase 6 - IN PROGRESS)
-
-- **GET /api/admin** - Admin overview dashboard (Server Component, not API)
-- Future routes (Step 2):
-  - GET /api/admin/users - List all users with subscription/usage stats
-  - GET /api/admin/usage - Usage logs with filtering
-  - PATCH /api/admin/users/[id] - Update user role
 
 ## Components Directory
 
 ```
 components/
-├── ChatMessage.tsx         # Message display component
-│                           # - Handles text, images, videos, sources
-│                           # - Image editing UI
-│                           # - Loading states
-├── ChatInput.tsx           # Input area component
-│                           # - Mode selector (Chat/Pro/Search/Image/Video)
-│                           # - DJ Shacho Mode toggle
-│                           # - File upload (image/video validation)
-│                           # - Textarea with auto-resize
-└── icons.tsx               # SVG icon components
-                            # - VideoIcon, ImageIcon, SearchIcon, etc.
+├── ChatMessage.tsx         # Message display (text, images, videos, sources)
+├── ChatInput.tsx           # Input controls (mode selector, DJ Shacho toggle, file upload)
+├── icons.tsx               # SVG icon components
+├── LandingPage.tsx         # Landing page for unauthenticated users
+└── Toast.tsx               # Toast notification system with useToast hook
 ```
 
 ### Component Pattern
@@ -270,24 +232,36 @@ middleware.ts                # Role-Based Access Control (NEW - Phase 6)
                              # - Returns 403 if role !== 'ADMIN'
 ```
 
-## Tests Directory (NEW - Phase 4 & 5)
+## Tests Directory
 
 ```
 __tests__/
-├── api/
-│   ├── conversations/              # Conversation API tests (33 tests)
-│   │   ├── list.test.ts            # GET/POST /api/conversations (9 tests)
-│   │   ├── conversation-id.test.ts # GET/PATCH/DELETE /api/conversations/[id] (13 tests)
-│   │   └── messages.test.ts        # POST /api/conversations/[id]/messages (8 tests)
-│   ├── stripe/                     # Stripe API tests (14 tests)
-│   │   ├── subscription.test.ts    # GET /api/stripe/subscription (6 tests)
-│   │   └── portal.test.ts          # POST /api/stripe/portal (8 tests)
-│   └── gemini/                     # Gemini API tests (18 tests)
-│       ├── chat.test.ts            # POST /api/gemini/chat (6 tests)
-│       ├── image.test.ts           # POST /api/gemini/image (6 tests)
-│       └── video.test.ts           # POST /api/gemini/video (6 tests)
-└── lib/
-    └── subscription.test.ts        # Subscription utilities tests (23 tests)
+├── example.test.ts                 # Example tests (3 tests)
+├── app/
+│   └── admin/
+│       ├── users.test.tsx          # Admin users page tests (13 tests)
+│       └── usage.test.tsx          # Admin usage page tests (13 tests)
+├── utils/
+│   └── test-helpers.ts             # Test data factories
+├── lib/
+│   └── subscription.test.ts        # Subscription utilities (23 tests)
+└── api/
+    ├── conversations/
+    │   ├── list.test.ts            # GET/POST /api/conversations (9 tests)
+    │   ├── conversation-id.test.ts # GET/PATCH/DELETE (13 tests)
+    │   └── messages.test.ts        # POST messages (8 tests)
+    ├── stripe/
+    │   ├── subscription.test.ts    # GET subscription (6 tests)
+    │   └── portal.test.ts          # POST portal (8 tests)
+    ├── gemini/
+    │   ├── chat.test.ts            # Chat API (6 tests)
+    │   ├── image.test.ts           # Image API (6 tests)
+    │   └── video.test.ts           # Video API (6 tests)
+    └── admin/
+        ├── users.test.ts           # Users API (7 tests)
+        ├── users-update.test.ts    # Role update (5 tests)
+        ├── usage.test.ts           # Usage API (6 tests)
+        └── stats.test.ts           # Stats API (5 tests)
 ```
 
 **Test Strategy:**
@@ -295,7 +269,7 @@ __tests__/
 - Mock Prisma for isolated, fast tests
 - Mock NextAuth sessions for authentication tests
 - Mock Stripe SDK for webhook and API tests
-- 88 total tests, all passing ✅
+- 136 total tests, all passing ✅
 
 ## Configuration Files
 

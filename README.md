@@ -8,6 +8,15 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 
 **AI Studioで表示**: <https://ai.studio/apps/drive/1hanzLEEM6UDMUU_uyL5xKr7-zFedvYij>
 
+## 🔎 最新オペレーションメモ
+
+- 最初に読む: `docs/onboarding.md`（環境URL/アカウント例/手順のショートカット）
+- 役割: Claude Code（フロント）、Cursor（バックエンド/インフラ）、Codex（レビュー専任）。詳細は `AGENTS.md`
+- 現状のギャップと優先度: `docs/implementation-plan.md`
+- API 契約: `docs/interface-spec.md`
+- Stripe/Plan/Secret 方針: `docs/stripe-integration-plan.md`
+- テスト（開発/クラウド dev）: `docs/testing-manual-dev.md`
+
 ## 📂 ブランチ構成
 
 このリポジトリは2つのバージョンを管理しています：
@@ -24,7 +33,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 - **場所**: ルートディレクトリ（α版は `alpha/` に移動）
 - **フレームワーク**: Next.js 14 + TypeScript
 - **インフラ**: Google Cloud Platform (Cloud Run, Cloud SQL, etc.)
-- **ステータス**: 開発中
+- **ステータス**: 開発完了（Cloud Run auth設定待ち）
 - **詳細**: 以下のセクションを参照
 
 ---
@@ -107,57 +116,6 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 
     ブラウザで <http://localhost:3000> を開きます。
 
-### 本番環境（GCP）への環境変数設定
-
-本番環境では、環境変数は **Secret Manager** に格納し、Cloud Run に注入します。
-
-#### Secret Manager キーと環境変数のマッピング
-
-| Secret Manager キー<br/>（小文字ハイフン区切り） | 環境変数名<br/>（アプリ内で使用） | 説明                                        |
-| ------------------------------------------------ | --------------------------------- | ------------------------------------------- |
-| `database-url`                                   | `DATABASE_URL`                    | Cloud SQL 接続文字列                        |
-| `nextauth-secret`                                | `NEXTAUTH_SECRET`                 | NextAuth.js セッション暗号化キー            |
-| `google-client-id`                               | `GOOGLE_CLIENT_ID`                | Google OAuth クライアントID                 |
-| `google-client-secret`                           | `GOOGLE_CLIENT_SECRET`            | Google OAuth クライアントシークレット       |
-| `supabase-service-role`                          | `SUPABASE_SERVICE_ROLE_KEY`       | Supabase サービスロールキー（ストレージ用） |
-| `stripe-secret-key`                              | `STRIPE_SECRET_KEY`               | Stripe シークレットキー                     |
-| `stripe-webhook-secret`                          | `STRIPE_WEBHOOK_SECRET`           | Stripe Webhook 署名検証シークレット         |
-| `gemini-api-key`                                 | `GEMINI_API_KEY`                  | Google Gemini API キー                      |
-
-**非機密の環境変数**（Cloud Run に直接設定）:
-
-- `NEXTAUTH_URL`: `https://<cloud-run-url>`
-- `NEXT_PUBLIC_SUPABASE_URL`: `https://xxx.supabase.co`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase 匿名キー
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: `pk_live_...`
-- `NEXT_PUBLIC_APP_URL`: `https://<cloud-run-url>`
-
-**Terraform での設定例:**
-
-```hcl
-resource "google_secret_manager_secret" "database_url" {
-  secret_id = "database-url"
-  # ...
-}
-
-# Cloud Run で環境変数として注入
-env {
-  name = "DATABASE_URL"
-  value_source {
-    secret_key_ref {
-      secret  = "database-url"
-      version = "latest"
-    }
-  }
-}
-```
-
-**参考資料：**
-
-- ローカル開発用環境変数: [`.env.example`](.env.example)
-- Terraform設定例: [`infra/README.md`](infra/README.md)
-- 詳細な仕様: [`docs/interface-spec.md`](docs/interface-spec.md)
-
 ## 開発コマンド
 
 ```bash
@@ -199,10 +157,12 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 
 プロジェクトには包括的なテストスイートが含まれています：
 
-**単体テスト (Vitest)**
-- 全 Conversation API エンドポイント（33 tests）
-- Next.js 14 App Router パターン対応
-- Mock Prisma 戦略で高速実行
+**単体テスト (Vitest) - 136 tests**
+
+- Conversation API エンドポイント（33 tests）
+- Stripe Integration（55 tests）
+- Gemini API（18 tests）
+- Admin API & UI（48 tests）
 
 ```bash
 # 全テスト実行
@@ -219,6 +179,7 @@ npm run test:ui
 ```
 
 **E2E テスト (Playwright)**
+
 ```bash
 # 全 E2E テスト実行
 npm run test:e2e
@@ -230,12 +191,8 @@ npm run test:e2e:ui
 npm run test:e2e -- --project=chromium
 ```
 
-**テストファイル:**
-- `__tests__/api/conversations/list.test.ts` - GET/POST /api/conversations
-- `__tests__/api/conversations/conversation-id.test.ts` - GET/PATCH/DELETE
-- `__tests__/api/conversations/messages.test.ts` - POST messages
-
 **参考資料:**
+
 - 詳細なテスト計画: [`docs/testing-plan.md`](docs/testing-plan.md)
 - Vitest 公式: <https://vitest.dev/>
 - Playwright 公式: <https://playwright.dev/>
@@ -269,23 +226,47 @@ npm run test:e2e -- --project=chromium
 /
 ├── alpha/                      # React + Vite α版（mainブランチ用）
 ├── app/                        # Next.js App Router
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── globals.css
-│   └── api/                   # API Routes（今後実装）
-├── components/                 # Reactコンポーネント
+│   ├── layout.tsx              # Root layout with SessionProvider
+│   ├── page.tsx                # Main chat interface + LandingPage
+│   ├── globals.css             # Tailwind v4 styles
+│   ├── icon.svg                # SVG favicon
+│   ├── pricing/page.tsx        # Pricing page (FREE/PRO/ENTERPRISE)
+│   ├── dashboard/page.tsx      # User dashboard (subscription, usage)
+│   ├── admin/                  # Admin dashboard (RBAC protected)
+│   │   ├── page.tsx            # Overview dashboard
+│   │   ├── users/page.tsx      # User management
+│   │   └── usage/page.tsx      # Usage monitoring
+│   └── api/                    # API Routes
+│       ├── auth/               # NextAuth.js
+│       ├── conversations/      # CRUD + messages
+│       ├── stripe/             # Billing APIs
+│       ├── gemini/             # AI generation APIs
+│       └── admin/              # Admin APIs
+├── components/                 # React コンポーネント
+│   ├── ChatMessage.tsx         # Message display
+│   ├── ChatInput.tsx           # Input controls
+│   ├── LandingPage.tsx         # Landing page
+│   ├── Toast.tsx               # Notifications
+│   └── icons.tsx               # SVG icons
 ├── lib/                        # ユーティリティ・ヘルパー
-│   ├── prisma.ts              # Prisma Client singleton
-│   └── validators.ts          # Zod スキーマ（今後実装）
+│   ├── auth.ts                 # NextAuth config
+│   ├── prisma.ts               # Prisma Client singleton
+│   ├── gemini.ts               # Gemini service
+│   ├── stripe.ts               # Stripe utilities
+│   ├── subscription.ts         # Subscription management
+│   └── validators.ts           # Zod schemas
 ├── prisma/
-│   └── schema.prisma          # データベーススキーマ
+│   └── schema.prisma           # データベーススキーマ
+├── __tests__/                  # Unit tests (136 tests)
+├── e2e/                        # E2E tests
 ├── infra/                      # Terraform（GCP インフラ）
 ├── docs/                       # ドキュメント
-│   └── interface-spec.md      # インターフェース仕様書
 ├── .env.example                # 環境変数テンプレート
 ├── package.json
 ├── tsconfig.json
 ├── next.config.js
+├── CLAUDE.md                   # Developer documentation
+├── AGENTS.md                   # Tool roles & guidelines
 └── README.md
 ```
 
@@ -297,24 +278,45 @@ npm run test:e2e -- --project=chromium
 - **インターフェース仕様**: [`docs/interface-spec.md`](docs/interface-spec.md)
 - **実装計画**: [`docs/implementation-plan.md`](docs/implementation-plan.md)
 
+## 本番環境（GCP）への環境変数設定
+
+本番環境では、環境変数は **Secret Manager** に格納し、Cloud Run に注入します。
+
+| Secret Manager キー | 環境変数名 | 説明 |
+| --- | --- | --- |
+| `database-url` | `DATABASE_URL` | Cloud SQL 接続文字列 |
+| `nextauth-secret` | `NEXTAUTH_SECRET` | NextAuth.js セッション暗号化キー |
+| `google-client-id` | `GOOGLE_CLIENT_ID` | Google OAuth クライアントID |
+| `google-client-secret` | `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット |
+| `stripe-secret-key` | `STRIPE_SECRET_KEY` | Stripe シークレットキー |
+| `stripe-webhook-secret` | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット |
+| `gemini-api-key` | `GEMINI_API_KEY` | Google Gemini API キー |
+
+**非機密の環境変数**（Cloud Run に直接設定）:
+
+- `NEXTAUTH_URL`: `https://<cloud-run-url>`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: `pk_live_...`
+- `NEXT_PUBLIC_APP_URL`: `https://<cloud-run-url>`
+
+**参考資料：**
+
+- ローカル開発用環境変数: [`.env.example`](.env.example)
+- Terraform設定例: [`infra/README.md`](infra/README.md)
+- 詳細な仕様: [`docs/interface-spec.md`](docs/interface-spec.md)
+
 ## Cloud Build パイプライン
 
-`cloudbuild.yaml` は Google 公式ドキュメント（[Cloud Run へのデプロイ手順](https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run)）に沿っており、以下のステップを実行します。
+`cloudbuild.yaml` は Google 公式ドキュメントに沿っており、以下のステップを実行します。
 
 1. `npm ci / npx prisma generate / npx prisma migrate deploy / npm run build`
 2. `docker build/push` → `asia-northeast1-docker.pkg.dev/<project>/<repo>/<image>:<sha>`
-3. `gcloud run deploy` で Terraform が作成した Cloud Run サービスを更新（`--vpc-connector` と `--add-cloudsql-instances` 付き）
-
-利用手順:
+3. `gcloud run deploy` で Cloud Run サービスを更新
 
 ```bash
 gcloud builds submit \
   --config cloudbuild.yaml \
   --substitutions _SERVICE_NAME=creative-flow-studio-dev
 ```
-
-- `_PROJECT_ID`, `_REPO`, `_IMAGE_NAME`, `_VPC_CONNECTOR`, `_CLOUD_SQL_INSTANCE` などは `cloudbuild.yaml` の `substitutions` で上書き可能です。
-- Prisma マイグレーションで使用する `DATABASE_URL` は Service Networking（Cloud SQL Private IP）経由の接続文字列に置き換えてください。詳細は [Cloud SQL × Cloud Run](https://cloud.google.com/sql/docs/postgres/connect-run) を参照。
 
 ## ライセンス
 
