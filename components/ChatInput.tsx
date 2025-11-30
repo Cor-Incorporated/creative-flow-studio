@@ -130,7 +130,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
         }
     };
 
-    const handlePaste = useCallback(async (event: ClipboardEvent) => {
+    const handlePaste = useCallback(async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const items = event.clipboardData?.items;
         if (!items) return;
         for (let i = 0; i < items.length; i++) {
@@ -345,7 +345,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                     target.style.height = 'auto';
                                     target.style.height = `${Math.min(target.scrollHeight, 150)}px`;
                                 }}
-                                onPaste={handlePaste as React.ClipboardEventHandler}
+                                onPaste={handlePaste}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                         e.preventDefault();
