@@ -167,18 +167,26 @@ export async function checkSubscriptionLimits(
  *
  * @param userId - User ID
  * @param action - Action type
- * @param metadata - Optional metadata
+ * @param metadata - Optional metadata (resourceType will be extracted if present)
  */
 export async function logUsage(
     userId: string,
     action: string,
     metadata?: Record<string, any>
 ): Promise<void> {
+    // Extract resourceType from metadata if present
+    const resourceType = metadata?.resourceType as string | undefined;
+    const cleanMetadata = metadata ? { ...metadata } : {};
+    if (cleanMetadata.resourceType) {
+        delete cleanMetadata.resourceType;
+    }
+
     await prisma.usageLog.create({
         data: {
             userId,
             action,
-            metadata: metadata || {},
+            resourceType,
+            metadata: cleanMetadata,
         },
     });
 }

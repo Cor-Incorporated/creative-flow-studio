@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { GenerationMode, AspectRatio, Media } from '@/types/app';
 import {
     SendIcon,
@@ -62,6 +62,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    // IME変換中かどうかを追跡するためのref
+    const isComposingRef = useRef<boolean>(false);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -346,8 +348,15 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                     target.style.height = `${Math.min(target.scrollHeight, 150)}px`;
                                 }}
                                 onPaste={handlePaste}
+                                onCompositionStart={() => {
+                                    isComposingRef.current = true;
+                                }}
+                                onCompositionEnd={() => {
+                                    isComposingRef.current = false;
+                                }}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                    // IME変換中はEnterを無視する（日本語などの入力で変換確定前に送信されるのを防ぐ）
+                                    if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
                                         e.preventDefault();
                                         handleSubmit(e);
                                     }

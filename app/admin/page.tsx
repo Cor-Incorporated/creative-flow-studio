@@ -331,10 +331,11 @@ export default async function AdminDashboardPage() {
                         View Usage Logs
                     </a>
                     <a
-                        href="/admin/subscriptions"
+                        href="/api/admin/stats"
+                        target="_blank"
                         className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center"
                     >
-                        Manage Subscriptions
+                        View API Stats
                     </a>
                 </div>
             </div>

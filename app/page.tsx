@@ -346,14 +346,41 @@ export default function Home() {
                 // Set current conversation ID
                 setCurrentConversationId(conversation.id);
 
+                // Set mode from conversation if available
+                if (conversation.mode) {
+                    const modeMap: Record<string, GenerationMode> = {
+                        'CHAT': 'chat',
+                        'PRO': 'pro',
+                        'SEARCH': 'search',
+                        'IMAGE': 'image',
+                        'VIDEO': 'video',
+                    };
+                    const newMode = modeMap[conversation.mode] || 'chat';
+                    setMode(newMode);
+                }
+
                 // Convert database messages to UI messages
                 const loadedMessages: Message[] = conversation.messages.map((msg: any) => ({
                     id: msg.id,
                     role: msg.role.toLowerCase(),
-                    parts: msg.content,
+                    parts: Array.isArray(msg.content) ? msg.content : [{ text: String(msg.content) }],
                 }));
 
-                setMessages(loadedMessages);
+                // If no messages, show initial greeting
+                if (loadedMessages.length === 0) {
+                    const config = getInfluencerConfig(selectedInfluencer);
+                    const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
+                    setMessages([
+                        {
+                            id: 'init',
+                            role: 'model',
+                            parts: [{ text: config?.initialMessage || defaultMessage }],
+                        },
+                    ]);
+                } else {
+                    setMessages(loadedMessages);
+                }
+
                 setIsSidebarOpen(false); // Close sidebar on mobile
             }
         } catch (error) {
