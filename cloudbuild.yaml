@@ -98,11 +98,32 @@ steps:
               # DATABASE_URLを取得して、localhost経由に変換
               echo "🔑 データベース接続情報を取得しています..."
               DB_URL=$$DATABASE_URL
+              # Unix socket形式からTCP形式に変換
               DB_URL_LOCAL=$(echo "$$DB_URL" | sed 's|host=/cloudsql/[^?]*|host=127.0.0.1|' | sed 's|@/|@127.0.0.1:5432/|')
+              
+              # データベース接続が確立されるまで待機（最大30秒）
+              echo "⏳ データベース接続を待機しています..."
+              export DATABASE_URL="$$DB_URL_LOCAL"
+              MAX_RETRIES=30
+              RETRY_COUNT=0
+              while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
+                  if npx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
+                      echo "✅ データベース接続が確立されました"
+                      break
+                  fi
+                  RETRY_COUNT=$$((RETRY_COUNT + 1))
+                  echo "  試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                  sleep 1
+              done
+              
+              if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
+                  echo "❌ データベース接続の確立に失敗しました"
+                  cat /tmp/cloud-sql-proxy.log
+                  exit 1
+              fi
               
               # Prismaマイグレーションを実行
               echo "🔄 データベースマイグレーションを適用しています..."
-              export DATABASE_URL="$$DB_URL_LOCAL"
               npx prisma migrate deploy
               
               # Proxyを停止
