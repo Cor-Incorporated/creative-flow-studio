@@ -107,8 +107,11 @@ steps:
               MAX_RETRIES=30
               RETRY_COUNT=0
               while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-                  if npx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
-                      echo "✅ データベース接続が確立されました"
+                  # ポート5432が開いているか確認
+                  if nc -z 127.0.0.1 5432 2>/dev/null; then
+                      echo "✅ データベースポートが開きました"
+                      # さらに1秒待機して接続を安定させる
+                      sleep 1
                       break
                   fi
                   RETRY_COUNT=$$((RETRY_COUNT + 1))
