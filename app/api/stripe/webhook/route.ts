@@ -241,29 +241,22 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
                 console.log(`User ${userId} added to waitlist due to capacity limit`);
             }
 
-            // Record failed payment event
+            // Record failed checkout in AuditLog (PaymentEvent requires subscription)
             try {
-                // Create a temporary subscription record to track the failed attempt
-                const existingSub = await prisma.subscription.findUnique({
-                    where: { userId },
-                });
-
-                if (existingSub) {
-                    await prisma.paymentEvent.create({
-                        data: {
-                            subscription: { connect: { id: existingSub.id } },
+                await prisma.auditLog.create({
+                    data: {
+                        userId,
+                        action: 'checkout.capacity_exceeded',
+                        resource: 'subscription',
+                        metadata: {
                             stripeEventId: event.id,
-                            type: 'checkout.session.completed',
+                            sessionId: session.id,
+                            customerId: stripeCustomerId,
                             amount: session.amount_total || 0,
-                            status: 'capacity_exceeded',
-                            metadata: {
-                                sessionId: session.id,
-                                customerId: stripeCustomerId,
-                                error: 'CAPACITY_EXCEEDED',
-                            },
+                            error: 'CAPACITY_EXCEEDED',
                         },
-                    });
-                }
+                    },
+                });
             } catch (recordError) {
                 console.error('Failed to record capacity exceeded event:', recordError);
             }
