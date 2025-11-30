@@ -73,27 +73,38 @@ steps:
           - |
               set -euo pipefail
               
-              # Cloud SQL Proxyをダウンロード
-              echo "📥 Cloud SQL Proxyをダウンロードしています..."
-              wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
-              chmod +x cloud_sql_proxy
+              # Cloud SQL Proxy v2をダウンロード
+              echo "📥 Cloud SQL Proxy v2をダウンロードしています..."
+              curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.19.0/cloud-sql-proxy.linux.amd64
+              chmod +x cloud-sql-proxy
               
               # Cloud SQL Proxyをバックグラウンドで起動
               echo "🚀 Cloud SQL Proxyを起動しています..."
-              ./cloud_sql_proxy -instances=${_CLOUD_SQL_INSTANCE}=tcp:5432 > /tmp/cloud-sql-proxy.log 2>&1 &
+              echo "   インスタンス: ${_CLOUD_SQL_INSTANCE}"
+              ./cloud-sql-proxy ${_CLOUD_SQL_INSTANCE} --port=5432 --address=127.0.0.1 > /tmp/cloud-sql-proxy.log 2>&1 &
               PROXY_PID=$!
               
-              # Proxyが起動するまで待機
-              sleep 5
-              
-              # Proxyが正常に起動したか確認
-              if ! ps -p $$PROXY_PID > /dev/null; then
-                  echo "❌ Cloud SQL Proxyの起動に失敗しました"
-                  cat /tmp/cloud-sql-proxy.log
-                  exit 1
-              fi
-              
-              echo "✅ Cloud SQL Proxyが起動しました (PID: $$PROXY_PID)"
+              # Proxyが起動するまで待機（最大30秒）
+              echo "⏳ Cloud SQL Proxyの起動を待機しています..."
+              for i in {1..30}; do
+                  if ps -p $$PROXY_PID > /dev/null 2>&1; then
+                      # ポート5432がリッスンしているか確認（timeoutコマンドを使用）
+                      if timeout 1 bash -c "echo > /dev/tcp/127.0.0.1/5432" 2>/dev/null; then
+                          echo "✅ Cloud SQL Proxyが起動しました (PID: $$PROXY_PID, 試行: $$i/30)"
+                          break
+                      fi
+                  else
+                      echo "❌ Cloud SQL Proxyの起動に失敗しました"
+                      cat /tmp/cloud-sql-proxy.log
+                      exit 1
+                  fi
+                  if [ $$i -eq 30 ]; then
+                      echo "❌ Cloud SQL Proxyの起動がタイムアウトしました"
+                      cat /tmp/cloud-sql-proxy.log
+                      exit 1
+                  fi
+                  sleep 1
+              done
               
               # DATABASE_URLを取得して、localhost経由に変換
               echo "🔑 データベース接続情報を取得しています..."
@@ -108,7 +119,7 @@ steps:
               # Prismaマイグレーションを実行（接続確認も兼ねる）
               echo "🔄 データベースマイグレーションを適用しています..."
               export DATABASE_URL="$$DB_URL_LOCAL"
-              MAX_RETRIES=60
+              MAX_RETRIES=30
               RETRY_COUNT=0
               
               # set -eを一時的に無効化してエラーハンドリングを行う
@@ -127,11 +138,13 @@ steps:
                   # 接続エラー（P1001）の場合はリトライ
                   if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
                       RETRY_COUNT=$$((RETRY_COUNT + 1))
+                      echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
                       if [ $$((RETRY_COUNT % 5)) -eq 0 ]; then
-                          echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
                           echo "  エラー詳細: $$ERROR_OUTPUT"
+                          echo "  Cloud SQL Proxyログ（最新10行）:"
+                          tail -n 10 /tmp/cloud-sql-proxy.log || true
                       fi
-                      sleep 1
+                      sleep 2
                   else
                       # 接続エラー以外の場合はエラーを表示して終了
                       set -e
