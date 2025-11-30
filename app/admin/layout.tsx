@@ -60,12 +60,6 @@ export default function AdminLayout({
                             >
                                 Usage
                             </Link>
-                            <Link
-                                href="/admin/subscriptions"
-                                className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-                            >
-                                Subscriptions
-                            </Link>
                         </nav>
                     </div>
                 </div>
