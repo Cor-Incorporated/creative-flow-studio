@@ -107,11 +107,11 @@ steps:
               MAX_RETRIES=30
               RETRY_COUNT=0
               while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-                  # ポート5432が開いているか確認
-                  if nc -z 127.0.0.1 5432 2>/dev/null; then
+                  # bashの/dev/tcpを使ってポート5432が開いているか確認
+                  if timeout 1 bash -c "echo > /dev/tcp/127.0.0.1/5432" 2>/dev/null; then
                       echo "✅ データベースポートが開きました"
-                      # さらに1秒待機して接続を安定させる
-                      sleep 1
+                      # さらに2秒待機して接続を安定させる
+                      sleep 2
                       break
                   fi
                   RETRY_COUNT=$$((RETRY_COUNT + 1))
