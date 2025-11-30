@@ -112,15 +112,9 @@ steps:
               RETRY_COUNT=0
               
               while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-                  # Prisma migrate deployを実行
-                  if npx prisma migrate deploy 2>&1; then
-                      echo "✅ マイグレーションが正常に完了しました"
-                      break
-                  else
+                  # Prisma migrate deployを実行（エラーをキャプチャ）
+                  ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1) || {
                       EXIT_CODE=$$?
-                      # エラー出力を取得（最後の実行結果）
-                      ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1 || true)
-                      
                       # 接続エラー（P1001）の場合はリトライ
                       if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
                           RETRY_COUNT=$$((RETRY_COUNT + 1))
@@ -129,6 +123,7 @@ steps:
                               echo "  エラー詳細: $$ERROR_OUTPUT"
                           fi
                           sleep 1
+                          continue
                       else
                           # 接続エラー以外の場合はエラーを表示して終了
                           echo "❌ マイグレーションエラー:"
@@ -138,7 +133,10 @@ steps:
                           cat /tmp/cloud-sql-proxy.log
                           exit 1
                       fi
-                  fi
+                  }
+                  # 成功した場合
+                  echo "✅ マイグレーションが正常に完了しました"
+                  break
               done
               
               if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
