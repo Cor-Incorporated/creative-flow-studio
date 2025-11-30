@@ -200,10 +200,57 @@ export default function Home() {
     };
 
     /**
+     * Generate a title for the conversation based on the first user message
+     */
+    const generateConversationTitle = async (userMessage: string): Promise<string | null> => {
+        try {
+            const response = await fetch('/api/gemini/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: `以下のユーザーメッセージに基づいて、この会話の簡潔なタイトル（15文字以内）を1つだけ生成してください。タイトルのみを出力し、他の説明は不要です。\n\nユーザーメッセージ: ${userMessage}`,
+                    mode: 'chat',
+                    temperature: 0.3,
+                }),
+            });
+
+            if (!response.ok) return null;
+
+            const data = await response.json();
+            const title = data.result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            return title ? title.slice(0, 50) : null; // Max 50 chars
+        } catch {
+            return null;
+        }
+    };
+
+    /**
+     * Update conversation title
+     */
+    const updateConversationTitle = async (conversationId: string, title: string) => {
+        try {
+            await fetch(`/api/conversations/${conversationId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title }),
+            });
+
+            // Update local state
+            setConversations(prev =>
+                prev.map(c =>
+                    c.id === conversationId ? { ...c, title } : c
+                )
+            );
+        } catch (error) {
+            console.error('Error updating conversation title:', error);
+        }
+    };
+
+    /**
      * Create a new conversation or return existing one
      * Only saves if user is authenticated
      */
-    const createOrGetConversation = async (): Promise<string | null> => {
+    const createOrGetConversation = async (firstMessage?: string): Promise<string | null> => {
         // Skip if not authenticated
         if (!session?.user) {
             return null;
@@ -231,6 +278,27 @@ export default function Home() {
             const data = await response.json();
             const conversationId = data.conversation.id;
             setCurrentConversationId(conversationId);
+
+            // Add to conversations list immediately with placeholder title
+            const newConversation = {
+                id: conversationId,
+                title: null,
+                mode: mode.toUpperCase(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                messageCount: 0,
+            };
+            setConversations(prev => [newConversation, ...prev]);
+
+            // Generate title asynchronously if first message provided
+            if (firstMessage) {
+                generateConversationTitle(firstMessage).then(title => {
+                    if (title) {
+                        updateConversationTitle(conversationId, title);
+                    }
+                });
+            }
+
             return conversationId;
         } catch (error) {
             console.error('Error creating conversation:', error);
@@ -510,7 +578,9 @@ export default function Home() {
         addMessage({ role: 'user', parts: userParts });
 
         // Create or get conversation for authenticated users
-        await createOrGetConversation();
+        // Pass the first message for auto-title generation
+        const isNewConversation = !currentConversationId;
+        await createOrGetConversation(isNewConversation ? prompt : undefined);
 
         // Save user message
         await saveMessage('USER', userParts);
