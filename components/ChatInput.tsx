@@ -1,28 +1,28 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
-import { GenerationMode, AspectRatio, Media } from '@/types/app';
 import {
-    SendIcon,
-    PlusIcon,
-    XMarkIcon,
-    ChatBubbleIcon,
-    PhotoIcon,
-    VideoCameraIcon,
-    MagnifyingGlassIcon,
-    BoltIcon,
-    UserIcon,
-} from './icons';
-import { fileToBase64 } from '@/lib/fileUtils';
-import {
-    MAX_FILE_SIZE,
-    MAX_PROMPT_LENGTH,
     ALLOWED_IMAGE_TYPES,
     ALLOWED_VIDEO_TYPES,
     ERROR_MESSAGES,
     INFLUENCERS,
     InfluencerId,
+    MAX_FILE_SIZE,
+    MAX_PROMPT_LENGTH,
 } from '@/lib/constants';
+import { fileToBase64 } from '@/lib/fileUtils';
+import { AspectRatio, GenerationMode, Media } from '@/types/app';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    BoltIcon,
+    ChatBubbleIcon,
+    MagnifyingGlassIcon,
+    PhotoIcon,
+    PlusIcon,
+    SendIcon,
+    UserIcon,
+    VideoCameraIcon,
+    XMarkIcon,
+} from './icons';
 
 interface ChatInputProps {
     onSendMessage: (prompt: string, uploadedMedia?: Media) => void;

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe, getPlanIdFromStripeSubscription, isEventProcessed } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
+import { MAX_PAID_USERS } from '@/lib/constants';
+import { addToWaitlist } from '@/lib/waitlist';
 import Stripe from 'stripe';
 
 /**
@@ -148,22 +150,60 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
         // Get plan ID from Stripe subscription
         const planId = await getPlanIdFromStripeSubscription(stripeSubscriptionId);
 
-        // Create or update subscription
-        await prisma.subscription.upsert({
-            where: { userId },
-            update: {
-                stripeCustomerId,
-                stripeSubscriptionId,
-                status: 'ACTIVE',
-                planId,
-            },
-            create: {
-                userId,
-                planId,
-                stripeCustomerId,
-                stripeSubscriptionId,
-                status: 'ACTIVE',
-            },
+        // Get the plan to check if it's a paid plan
+        const plan = await prisma.plan.findUnique({
+            where: { id: planId },
+            select: { name: true },
+        });
+
+        const isPaidPlan = plan && plan.name !== 'FREE';
+
+        // Use transaction to prevent race condition when capacity is limited
+        await prisma.$transaction(async (tx) => {
+            // Check if user already has a subscription (plan change, not new signup)
+            const existingSubscription = await tx.subscription.findUnique({
+                where: { userId },
+                include: { plan: true },
+            });
+
+            const isExistingPaidUser = existingSubscription && existingSubscription.plan.name !== 'FREE';
+
+            // Only check capacity for NEW paid users (not existing paid users changing plans)
+            if (isPaidPlan && !isExistingPaidUser) {
+                // Count current paid users within transaction
+                const paidUsersCount = await tx.subscription.count({
+                    where: {
+                        status: 'ACTIVE',
+                        plan: { name: { not: 'FREE' } },
+                        user: { role: { not: 'ADMIN' } },
+                    },
+                });
+
+                if (paidUsersCount >= MAX_PAID_USERS) {
+                    // Capacity reached - this shouldn't happen if checkout check worked
+                    // but this is a safety net for race conditions
+                    console.error(`Capacity exceeded during checkout completion for user ${userId}`);
+                    throw new Error('CAPACITY_EXCEEDED');
+                }
+            }
+
+            // Create or update subscription within transaction
+            await tx.subscription.upsert({
+                where: { userId },
+                update: {
+                    stripeCustomerId,
+                    stripeSubscriptionId,
+                    status: 'ACTIVE',
+                    planId,
+                },
+                create: {
+                    userId,
+                    planId,
+                    stripeCustomerId,
+                    stripeSubscriptionId,
+                    status: 'ACTIVE',
+                },
+            });
         });
 
         // Record payment event
@@ -186,6 +226,52 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
         console.log(`Subscription created/updated for user ${userId}`);
     } catch (error: any) {
         console.error('Error handling checkout.session.completed:', error);
+
+        // Handle capacity exceeded error specially
+        if (error.message === 'CAPACITY_EXCEEDED') {
+            // Get user email for waitlist
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true, name: true },
+            });
+
+            if (user?.email) {
+                // Add user to waitlist
+                await addToWaitlist(user.email, user.name || undefined);
+                console.log(`User ${userId} added to waitlist due to capacity limit`);
+            }
+
+            // Record failed checkout in AuditLog (PaymentEvent requires subscription)
+            try {
+                await prisma.auditLog.create({
+                    data: {
+                        userId,
+                        action: 'checkout.capacity_exceeded',
+                        resource: 'subscription',
+                        metadata: {
+                            stripeEventId: event.id,
+                            sessionId: session.id,
+                            customerId: stripeCustomerId,
+                            amount: session.amount_total || 0,
+                            error: 'CAPACITY_EXCEEDED',
+                        },
+                    },
+                });
+            } catch (recordError) {
+                console.error('Failed to record capacity exceeded event:', recordError);
+            }
+
+            // TODO: Trigger refund via Stripe API
+            // const paymentIntent = session.payment_intent;
+            // if (paymentIntent) {
+            //     await stripe.refunds.create({ payment_intent: paymentIntent as string });
+            // }
+
+            // Return 200 to Stripe to prevent retries (the payment is handled, just capacity issue)
+            // The error will be logged but won't cause webhook retries
+            return;
+        }
+
         throw error;
     }
 }
