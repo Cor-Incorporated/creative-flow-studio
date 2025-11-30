@@ -122,13 +122,15 @@ export async function addToWaitlist(
         where: { email },
     });
 
+    let entry;
+
     if (existing) {
         if (existing.status === 'PENDING' || existing.status === 'NOTIFIED') {
             return { success: false, error: 'ALREADY_ON_WAITLIST' };
         }
 
         // If previously cancelled/expired, allow re-registration
-        await prisma.waitlist.update({
+        entry = await prisma.waitlist.update({
             where: { email },
             data: {
                 status: 'PENDING',
@@ -137,7 +139,7 @@ export async function addToWaitlist(
             },
         });
     } else {
-        await prisma.waitlist.create({
+        entry = await prisma.waitlist.create({
             data: {
                 email,
                 name,
@@ -146,12 +148,12 @@ export async function addToWaitlist(
         });
     }
 
-    // Calculate position
+    // Calculate position using the entry's createdAt timestamp
     const position = await prisma.waitlist.count({
         where: {
             status: 'PENDING',
             createdAt: {
-                lte: new Date(),
+                lte: entry.createdAt,
             },
         },
     });

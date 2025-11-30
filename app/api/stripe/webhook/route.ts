@@ -135,12 +135,12 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
 
     if (!userId) {
         console.error('checkout.session.completed: Missing userId in metadata');
-        return;
+        return NextResponse.json({ received: true }, { status: 200 });
     }
 
     if (!customer || !subscription) {
         console.error('checkout.session.completed: Missing customer or subscription');
-        return;
+        return NextResponse.json({ received: true }, { status: 200 });
     }
 
     const stripeCustomerId = typeof customer === 'string' ? customer : customer.id;
@@ -267,9 +267,12 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
             //     await stripe.refunds.create({ payment_intent: paymentIntent as string });
             // }
 
+            // Log for manual refund processing
+            console.error(`CRITICAL: Capacity exceeded for user ${userId}, manual refund required. Session: ${session.id}, Amount: ${session.amount_total || 0}`);
+
             // Return 200 to Stripe to prevent retries (the payment is handled, just capacity issue)
             // The error will be logged but won't cause webhook retries
-            return;
+            return NextResponse.json({ received: true }, { status: 200 });
         }
 
         throw error;

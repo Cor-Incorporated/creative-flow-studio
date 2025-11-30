@@ -44,18 +44,8 @@ async function getStats() {
         prisma.subscription.count({
             where: {
                 status: 'ACTIVE',
-                AND: [
-                    {
-                        plan: {
-                            name: { not: 'FREE' },
-                        },
-                    },
-                    {
-                        user: {
-                            role: { not: 'ADMIN' },
-                        },
-                    },
-                ],
+                plan: { name: { not: 'FREE' } },
+                user: { role: { not: 'ADMIN' } },
             },
         }),
     ]);

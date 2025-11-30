@@ -28,21 +28,13 @@ import { expireOldNotifications } from '@/lib/waitlist';
 export async function GET(request: NextRequest) {
     try {
         // Verify cron secret to prevent unauthorized access
+        // Require authentication in ALL environments
+        const isVercelCron = !!request.headers.get('x-vercel-cron');
         const cronSecret = process.env.CRON_SECRET;
         const providedSecret = request.headers.get('x-cron-secret');
-        const vercelCron = request.headers.get('x-vercel-cron');
 
-        // In production, require authentication
-        if (process.env.NODE_ENV === 'production') {
-            // If CRON_SECRET is not configured, only allow Vercel Cron
-            if (!cronSecret && !vercelCron) {
-                console.error('CRON_SECRET not configured and not a Vercel cron request');
-                return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
-            }
-        }
-
-        // Require either valid secret or Vercel's internal header
-        if (!vercelCron && (!cronSecret || providedSecret !== cronSecret)) {
+        // Allow either Vercel's internal header OR valid secret
+        if (!isVercelCron && (!cronSecret || providedSecret !== cronSecret)) {
             console.error('Unauthorized cron request - invalid or missing secret');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
