@@ -5,16 +5,16 @@ resource "google_sql_database_instance" "this" {
   region           = var.region
 
   settings {
-    tier              = var.tier
-    disk_size         = var.disk_size
-    disk_autoresize   = var.disk_autoresize
+    tier            = var.tier
+    disk_size       = var.disk_size
+    disk_autoresize = var.disk_autoresize
     backup_configuration {
-      enabled = var.backup_enabled
+      enabled  = var.backup_enabled
       location = var.region
     }
 
     ip_configuration {
-      ipv4_enabled    = false
+      ipv4_enabled    = var.ipv4_enabled
       private_network = var.private_network
       require_ssl     = true
     }

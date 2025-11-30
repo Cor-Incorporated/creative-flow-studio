@@ -27,8 +27,9 @@ serviceAccount: projects/${_PROJECT_ID}/serviceAccounts/cloud-build-runner@dataa
 
 availableSecrets:
     secretManager:
-        # NOTE: DATABASE_URL is NOT included here - it's only set at runtime in Cloud Run
-        # This prevents Next.js from hardcoding DATABASE_URL during build
+        # DATABASE_URL is included for migration step only, not for Next.js build
+        - versionName: projects/${_PROJECT_ID}/secrets/database-url/versions/latest
+          env: DATABASE_URL
         - versionName: projects/${_PROJECT_ID}/secrets/nextauth-secret/versions/latest
           env: NEXTAUTH_SECRET
         - versionName: projects/${_PROJECT_ID}/secrets/google-client-id/versions/latest
@@ -64,15 +65,55 @@ steps:
       entrypoint: npx
       args: ['prisma', 'generate']
 
-    # TODO: Re-enable once we have a secure way to supply the Cloud SQL credentials during build.
-    # - id: 'Apply database migrations'
-    #   name: 'node:20'
-    #   entrypoint: npx
-    #   args: ['prisma', 'migrate', 'deploy']
-    #   env:
-    #       - 'DATABASE_URL=postgresql://user:password@/creative_flow_studio?host=/cloudsql/${_CLOUD_SQL_INSTANCE}'
-    #   secretEnv:
-    #       - DATABASE_URL
+    - id: 'Apply database migrations'
+      name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+              
+              # Cloud SQL Proxyをダウンロード
+              echo "📥 Cloud SQL Proxyをダウンロードしています..."
+              wget -q https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+              chmod +x cloud_sql_proxy
+              
+              # Cloud SQL Proxyをバックグラウンドで起動
+              echo "🚀 Cloud SQL Proxyを起動しています..."
+              ./cloud_sql_proxy -instances=${_CLOUD_SQL_INSTANCE}=tcp:5432 > /tmp/cloud-sql-proxy.log 2>&1 &
+              PROXY_PID=$!
+              
+              # Proxyが起動するまで待機
+              sleep 5
+              
+              # Proxyが正常に起動したか確認
+              if ! ps -p $PROXY_PID > /dev/null; then
+                  echo "❌ Cloud SQL Proxyの起動に失敗しました"
+                  cat /tmp/cloud-sql-proxy.log
+                  exit 1
+              fi
+              
+              echo "✅ Cloud SQL Proxyが起動しました (PID: $PROXY_PID)"
+              
+              # DATABASE_URLを取得して、localhost経由に変換
+              echo "🔑 データベース接続情報を取得しています..."
+              DB_URL=$$DATABASE_URL
+              DB_URL_LOCAL=$(echo "$$DB_URL" | sed 's|host=/cloudsql/[^?]*|host=127.0.0.1|' | sed 's|@/|@127.0.0.1:5432/|')
+              
+              # Prismaマイグレーションを実行
+              echo "🔄 データベースマイグレーションを適用しています..."
+              export DATABASE_URL="$$DB_URL_LOCAL"
+              npx prisma migrate deploy
+              
+              # Proxyを停止
+              echo "🛑 Cloud SQL Proxyを停止しています..."
+              kill $PROXY_PID 2>/dev/null || true
+              wait $PROXY_PID 2>/dev/null || true
+              
+              echo "✅ マイグレーションが正常に完了しました"
+      secretEnv:
+          - DATABASE_URL
+      waitFor: ['Generate Prisma client']
 
     - id: 'Build Next.js app'
       name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'

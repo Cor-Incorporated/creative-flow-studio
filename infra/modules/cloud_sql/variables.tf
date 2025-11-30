@@ -73,3 +73,9 @@ variable "deletion_protection" {
   description = "削除保護を有効にするか"
   default     = false
 }
+
+variable "ipv4_enabled" {
+  type        = bool
+  description = "パブリックIPアドレスを有効化するか（ローカル開発やマイグレーション用）"
+  default     = false
+}

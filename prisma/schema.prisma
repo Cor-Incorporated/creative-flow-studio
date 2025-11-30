@@ -20,6 +20,7 @@ model User {
     emailVerified DateTime?
     name          String?
     image         String?
+    password      String?   // For email/password authentication (hashed)
     role          Role      @default(USER)
     createdAt     DateTime  @default(now())
     updatedAt     DateTime  @updatedAt
