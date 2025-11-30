@@ -1,6 +1,6 @@
 # Creative Flow Studio 実装計画
 
-最終更新: 2025-11-28
+最終更新: 2025-11-30
 ステータス: **コア機能完了** - Cloud Run 認証設定待ち
 
 ---
@@ -14,11 +14,16 @@
 | 2 | 環境セットアップ | 2025-11-12 | - |
 | 3 | 認証基盤 | 2025-11-12 | - |
 | 4 | 会話永続化 | 2025-11-13 | 33 |
-| 5 | Stripe 統合 | 2025-11-13 | 55 |
+| 5 | Stripe 統合 | 2025-11-13 | 37 |
+| 5 | Subscription Utilities | 2025-11-13 | 23 |
 | 6 | 管理画面 | 2025-11-13 | 48 |
+| - | Shared API Utilities | 2025-11-28 | 14 |
+| - | Validators | 2025-11-28 | 9 |
 | - | Landing Page & Auth UX | 2025-11-17 | - |
+| - | Gemini API | - | 18 |
+| - | Example tests | - | 3 |
 
-**合計テスト数:** 136 passing ✅
+**合計テスト数:** 185 passing ✅
 
 ### 実装済み機能
 
@@ -179,6 +184,8 @@ const usageCounts = await prisma.usageLog.groupBy({
 │  lib/gemini.ts        │  Stripe API                     │
 │  lib/stripe.ts        │  Google OAuth                   │
 │  lib/subscription.ts  │  Cloud SQL (PostgreSQL)         │
+│  lib/api-utils.ts     │                                 │
+│  lib/validators.ts    │                                 │
 └─────────────────────────────────────────────────────────┘
 ```
 

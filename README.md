@@ -33,7 +33,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 - **場所**: ルートディレクトリ（α版は `alpha/` に移動）
 - **フレームワーク**: Next.js 14 + TypeScript
 - **インフラ**: Google Cloud Platform (Cloud Run, Cloud SQL, etc.)
-- **ステータス**: 開発完了（Cloud Run auth設定待ち）
+- **ステータス**: 開発完了（Cloud Run auth設定待ち） - 185 tests passing
 - **詳細**: 以下のセクションを参照
 
 ---
@@ -157,12 +157,16 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 
 プロジェクトには包括的なテストスイートが含まれています：
 
-**単体テスト (Vitest) - 136 tests**
+**単体テスト (Vitest) - 185 tests**
 
 - Conversation API エンドポイント（33 tests）
-- Stripe Integration（55 tests）
+- Stripe Integration（37 tests）
 - Gemini API（18 tests）
 - Admin API & UI（48 tests）
+- API Utilities（14 tests）
+- Subscription Utilities（23 tests）
+- Validators（9 tests）
+- Example tests（3 tests）
 
 ```bash
 # 全テスト実行
@@ -254,10 +258,13 @@ npm run test:e2e -- --project=chromium
 │   ├── gemini.ts               # Gemini service
 │   ├── stripe.ts               # Stripe utilities
 │   ├── subscription.ts         # Subscription management
-│   └── validators.ts           # Zod schemas
+│   ├── validators.ts           # Zod schemas
+│   ├── api-utils.ts            # Shared API utilities (auth, error handling)
+│   ├── constants.ts            # App-wide constants
+│   └── fileUtils.ts            # File/base64 utilities
 ├── prisma/
 │   └── schema.prisma           # データベーススキーマ
-├── __tests__/                  # Unit tests (136 tests)
+├── __tests__/                  # Unit tests (185 tests)
 ├── e2e/                        # E2E tests
 ├── infra/                      # Terraform（GCP インフラ）
 ├── docs/                       # ドキュメント

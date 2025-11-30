@@ -16,7 +16,7 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 
 ---
 
-## Current Status (2025-11-28)
+## Current Status (2025-11-30)
 
 ### ✅ Completed Features
 
@@ -26,11 +26,14 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 | Authentication (NextAuth.js + Google OAuth) | ✅ | - |
 | Gemini API (Chat/Pro/Search/Image/Video) | ✅ | 18 |
 | Conversation Persistence (CRUD + Messages) | ✅ | 33 |
-| Stripe Integration (Checkout/Portal/Webhooks) | ✅ | 55 |
+| Stripe Integration (Checkout/Portal/Webhooks) | ✅ | 37 |
+| Subscription Utilities | ✅ | 23 |
 | Admin Dashboard (RBAC + Users/Usage) | ✅ | 48 |
+| Shared API Utilities | ✅ | 14 |
+| Validators | ✅ | 9 |
 | Landing Page & Auth UX (Toast notifications) | ✅ | - |
 
-**Total Tests**: 136 passing ✅
+**Total Tests**: 185 passing ✅
 
 ### 🔄 Pending (Infrastructure - Cursor)
 
@@ -49,7 +52,7 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 - **Database**: PostgreSQL via Prisma 6.19.0
 - **Authentication**: NextAuth.js 4.24.13 + Prisma Adapter
 - **AI SDK**: @google/genai 1.29.0
-- **Payments**: Stripe SDK v18+
+- **Payments**: Stripe SDK v19.3.1
 - **Styling**: Tailwind CSS 4.1.17
 - **Validation**: Zod 4.1.12
 - **Testing**: Vitest 4.0.8 + Playwright 1.56.1
@@ -90,12 +93,13 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 │   ├── stripe.ts                  # Stripe utilities
 │   ├── subscription.ts            # Subscription management
 │   ├── validators.ts              # Zod schemas
+│   ├── api-utils.ts               # Shared API utilities (auth, errors)
 │   ├── constants.ts               # App-wide constants
 │   └── fileUtils.ts               # File utilities
 ├── types/app.ts                   # TypeScript types
 ├── prisma/schema.prisma           # Database schema
 ├── middleware.ts                  # RBAC middleware
-├── __tests__/                     # Unit tests (136 tests)
+├── __tests__/                     # Unit tests (185 tests)
 ├── e2e/                           # E2E tests
 ├── docs/                          # Documentation
 └── infra/                         # Terraform (Codex territory)
@@ -293,12 +297,19 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
 
 ## Session Notes
 
-**Last Updated**: 2025-11-28
-**Current Focus**: Documentation update
+**Last Updated**: 2025-11-30
+**Current Focus**: Documentation update and codebase improvements
+
+**Recent Changes:**
+
+- Added `lib/api-utils.ts` with shared API utilities (requireAuth, requireAdmin, errorResponse, handleValidationError, handleSubscriptionLimitError)
+- Added tests for api-utils.ts (14 tests) and validators.ts (9 tests)
+- Test count increased from 136 to 185
 
 **Pending for Cursor:**
+
 1. Setup NextAuth environment variables on Cloud Run
 2. Register Google OAuth redirect URI
 3. Optimize N+1 query in admin users API
 
-**Test Status**: 136/136 passing ✅
+**Test Status**: 185/185 passing ✅

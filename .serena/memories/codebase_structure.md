@@ -109,12 +109,12 @@ lib/
 │                            # - Server-side only
 │                            # - Wrapper for @google/genai SDK
 │                            # - Error handling
-├── stripe.ts                # Stripe service utilities (NEW - Phase 5)
+├── stripe.ts                # Stripe service utilities
 │                            # - Stripe client singleton
 │                            # - getOrCreateStripeCustomer()
 │                            # - getPlanIdFromStripeSubscription()
 │                            # - isEventProcessed() - Idempotency check
-├── subscription.ts          # Subscription management utilities (NEW - Phase 5)
+├── subscription.ts          # Subscription management utilities
 │                            # - getUserSubscription() - Get subscription with plan
 │                            # - hasActiveSubscription() - Check active status
 │                            # - getMonthlyUsageCount() - Get current month's usage
@@ -124,12 +124,18 @@ lib/
 │                            # - GEMINI_MODELS
 │                            # - DJ_SHACHO_SYSTEM_PROMPT
 │                            # - ASPECT_RATIOS
-├── validators.ts            # Zod schemas (UPDATED - Phase 4)
+├── validators.ts            # Zod schemas
 │                            # - Prisma JSON field schemas (PlanFeaturesSchema, etc.)
-│                            # - Conversation API schemas (NEW):
+│                            # - Conversation API schemas:
 │                            #   - createConversationSchema
 │                            #   - updateConversationSchema
 │                            #   - createMessageSchema
+├── api-utils.ts             # Shared API utilities (NEW)
+│                            # - requireAuth() - Session validation
+│                            # - requireAdmin() - Admin role check
+│                            # - errorResponse() - Standardized error responses
+│                            # - handleValidationError() - Zod error handling
+│                            # - handleSubscriptionLimitError() - Limit error handling
 └── fileUtils.ts             # File/base64 utilities
                              # - File type detection
                              # - Base64 conversion helpers
@@ -244,7 +250,9 @@ __tests__/
 ├── utils/
 │   └── test-helpers.ts             # Test data factories
 ├── lib/
-│   └── subscription.test.ts        # Subscription utilities (23 tests)
+│   ├── subscription.test.ts        # Subscription utilities (23 tests)
+│   ├── api-utils.test.ts           # API utilities (14 tests)
+│   └── validators.test.ts          # Validators (9 tests)
 └── api/
     ├── conversations/
     │   ├── list.test.ts            # GET/POST /api/conversations (9 tests)
@@ -269,7 +277,7 @@ __tests__/
 - Mock Prisma for isolated, fast tests
 - Mock NextAuth sessions for authentication tests
 - Mock Stripe SDK for webhook and API tests
-- 136 total tests, all passing ✅
+- 185 total tests, all passing ✅
 
 ## Configuration Files
 

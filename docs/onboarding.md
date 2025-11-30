@@ -1,4 +1,4 @@
-# オンボーディング（2025-11-28 更新）
+# オンボーディング（2025-11-30 更新）
 
 このプロジェクトに初めて参加するエンジニア向けの最短ガイドです。
 
@@ -35,7 +35,7 @@
 - Google OAuth redirect URI を登録
 - N+1 クエリ最適化
 
-**テスト:** 136 tests passing ✅
+**テスト:** 185 tests passing ✅
 
 ---
 
@@ -172,3 +172,6 @@ npm run format
 - `lib/stripe.ts` - Stripe ユーティリティ
 - `lib/subscription.ts` - サブスク管理
 - `lib/validators.ts` - Zod スキーマ
+- `lib/api-utils.ts` - 共有 API ユーティリティ
+- `lib/constants.ts` - 定数定義
+- `lib/fileUtils.ts` - ファイル操作
