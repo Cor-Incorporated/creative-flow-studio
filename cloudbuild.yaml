@@ -87,13 +87,13 @@ steps:
               sleep 5
               
               # Proxyが正常に起動したか確認
-              if ! ps -p $PROXY_PID > /dev/null; then
+              if ! ps -p $$PROXY_PID > /dev/null; then
                   echo "❌ Cloud SQL Proxyの起動に失敗しました"
                   cat /tmp/cloud-sql-proxy.log
                   exit 1
               fi
               
-              echo "✅ Cloud SQL Proxyが起動しました (PID: $PROXY_PID)"
+              echo "✅ Cloud SQL Proxyが起動しました (PID: $$PROXY_PID)"
               
               # DATABASE_URLを取得して、localhost経由に変換
               echo "🔑 データベース接続情報を取得しています..."
@@ -107,8 +107,8 @@ steps:
               
               # Proxyを停止
               echo "🛑 Cloud SQL Proxyを停止しています..."
-              kill $PROXY_PID 2>/dev/null || true
-              wait $PROXY_PID 2>/dev/null || true
+              kill $$PROXY_PID 2>/dev/null || true
+              wait $$PROXY_PID 2>/dev/null || true
               
               echo "✅ マイグレーションが正常に完了しました"
       secretEnv:
