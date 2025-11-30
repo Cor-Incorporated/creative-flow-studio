@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       force_apply:
-        description: 'Force apply even if no infra changes'
+        description: "Force apply even if no infra changes"
         required: false
-        default: 'false'
+        default: "false"
         type: boolean
 
 env:

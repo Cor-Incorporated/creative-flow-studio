@@ -4,7 +4,7 @@
 set -euo pipefail
 
 PROJECT_ID="dataanalyticsclinic"
-REGION="asia-northeast1"
+REGION="global"  # GitHub接続はglobalリージョンで作成されている
 TRIGGER_NAME="creative-flow-dev-trigger"
 BRANCH="develop"
 

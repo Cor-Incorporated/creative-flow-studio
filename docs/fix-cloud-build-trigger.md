@@ -16,33 +16,79 @@
 
 #### 1. トリガーの存在確認
 
+**重要**: GitHub接続は`global`リージョンで作成されているため、トリガーも`global`リージョンで確認する必要があります。
+
 ```bash
 gcloud builds triggers list \
   --project=dataanalyticsclinic \
-  --region=asia-northeast1
+  --region=global
 ```
 
-#### 2. トリガーが存在しない場合、作成する
+#### 2. GitHub接続を確認
+
+まず、GitHub接続が存在するか確認：
 
 ```bash
-gcloud builds triggers create github \
-  --name="creative-flow-dev-trigger" \
-  --repo-name="creative-flow-studio" \
-  --repo-owner="Cor-Incorporated" \
-  --branch-pattern="^develop$" \
-  --build-config="cloudbuild.yaml" \
+gcloud builds connections list \
   --project=dataanalyticsclinic \
-  --region=asia-northeast1 \
-  --substitutions=_NEXT_PUBLIC_APP_URL="https://creative-flow-studio-667780715339.asia-northeast1.run.app",_NEXT_PUBLIC_SUPABASE_URL="SET_IN_TRIGGER",SHORT_SHA="automatic"
+  --region=global
 ```
 
-#### 3. 手動でトリガーを実行（テスト用）
+接続が存在しない場合、作成する必要があります（GitHub AppのインストールIDとApp IDが必要）：
+
+```bash
+gcloud builds connections create github \
+  --region=global \
+  --project=dataanalyticsclinic \
+  --installation-id=INSTALLATION_ID \
+  --app-id=APP_ID \
+  --service-account=projects/dataanalyticsclinic/serviceAccounts/cloud-build-runner@dataanalyticsclinic.iam.gserviceaccount.com
+```
+
+#### 3. リポジトリ接続を確認
+
+```bash
+gcloud builds connections list \
+  --project=dataanalyticsclinic \
+  --region=global \
+  --connection=CONNECTION_NAME
+```
+
+#### 4. トリガーが存在しない場合、作成する
+
+**重要**: GitHub接続は`global`リージョンで作成されているため、トリガーも`global`リージョンで作成する必要があります。
+
+```bash
+# まず、接続名とリポジトリ名を確認
+gcloud builds connections list \
+  --project=dataanalyticsclinic \
+  --region=global
+
+# 接続名が分かったら、以下の形式でトリガーを作成
+gcloud builds triggers create github \
+  --region=global \
+  --project=dataanalyticsclinic \
+  --name="creative-flow-dev-trigger" \
+  --connection=CONNECTION_NAME \
+  --repo="Cor-Incorporated/creative-flow-studio" \
+  --branch-pattern="^develop$" \
+  --build-config="cloudbuild.yaml" \
+  --substitutions=_NEXT_PUBLIC_APP_URL="https://creative-flow-studio-667780715339.asia-northeast1.run.app",_NEXT_PUBLIC_SUPABASE_URL="SET_IN_TRIGGER",SHORT_SHA="automatic" \
+  --service-account=projects/dataanalyticsclinic/serviceAccounts/cloud-build-runner@dataanalyticsclinic.iam.gserviceaccount.com
+```
+
+**注意**: 
+- `--region=global`を使用（`asia-northeast1`ではない）
+- `--repo`は`OWNER/REPO`形式（`--repo-name`と`--repo-owner`ではない）
+- `--connection`で接続名を指定する必要がある
+
+#### 5. 手動でトリガーを実行（テスト用）
 
 ```bash
 gcloud builds triggers run creative-flow-dev-trigger \
   --branch=develop \
   --project=dataanalyticsclinic \
-  --region=asia-northeast1
+  --region=global
 ```
 
 ### 方法2: スクリプトを使用
