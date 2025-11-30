@@ -76,4 +76,14 @@
     .safe-area-bottom {
         padding-bottom: env(safe-area-inset-bottom);
     }
+    .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+    }
+}
+
+/* Smooth scrolling for better mobile UX */
+@layer utilities {
+    .overscroll-contain {
+        overscroll-behavior: contain;
+    }
 }
