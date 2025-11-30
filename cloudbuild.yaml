@@ -162,6 +162,22 @@ steps:
                           echo "$$ERROR_OUTPUT"
                           exit 1
                       fi
+                  # マイグレーションファイルが見つからないエラー（P3017）の場合は、存在しないマイグレーションをbaselineとして設定
+                  elif echo "$$ERROR_OUTPUT" | grep -q "P3017"; then
+                      echo "⚠️  データベースに存在するが、ソースコードに存在しないマイグレーションが見つかりました。"
+                      # エラーメッセージからマイグレーション名を抽出
+                      MISSING_MIGRATION=$(echo "$$ERROR_OUTPUT" | grep -oP "migration \K[^\s]+" | head -1)
+                      if [ -n "$$MISSING_MIGRATION" ]; then
+                          echo "  存在しないマイグレーションをbaselineとして設定: $$MISSING_MIGRATION"
+                          npx prisma migrate resolve --applied "$$MISSING_MIGRATION" 2>&1 || true
+                          # 再度migrate deployを実行
+                          continue
+                      else
+                          echo "❌ マイグレーション名を抽出できませんでした"
+                          set -e
+                          echo "$$ERROR_OUTPUT"
+                          exit 1
+                      fi
                   else
                       # 接続エラー以外の場合はエラーを表示して終了
                       set -e
