@@ -4,7 +4,11 @@ locals {
     environment = var.environment
   }
 
-  vpc_connector = module.network.connector_name == null ? null : "projects/${var.project_id}/locations/${var.region}/connectors/${module.network.connector_name}"
+  # 既存のVPC Access Connectorを使用する場合（create_serverless_connector = false）
+  # またはTerraformで作成したConnectorを使用する場合
+  vpc_connector = var.create_serverless_connector ? (
+    module.network.connector_name == null ? null : "projects/${var.project_id}/locations/${var.region}/connectors/${module.network.connector_name}"
+  ) : "projects/${var.project_id}/locations/${var.region}/connectors/${var.environment}-serverless-connector"
 }
 
 module "network" {
@@ -16,6 +20,7 @@ module "network" {
   environment  = var.environment
   subnet_cidr  = var.subnet_cidr
   connector_cidr = var.connector_cidr
+  create_serverless_connector = var.create_serverless_connector
 }
 
 resource "google_compute_global_address" "private_service_range" {

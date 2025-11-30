@@ -34,6 +34,12 @@ variable "connector_cidr" {
   default     = "10.8.0.0/28"
 }
 
+variable "create_serverless_connector" {
+  description = "Serverless VPC Access Connector を作成するか（既存のConnectorを使用する場合は false）"
+  type        = bool
+  default     = false
+}
+
 variable "psa_address" {
   description = "Private Service Connect (Service Networking) 用の開始アドレス"
   type        = string
