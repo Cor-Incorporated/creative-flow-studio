@@ -223,3 +223,28 @@ model AuditLog {
     @@index([action, createdAt])
     @@map("audit_logs")
 }
+
+// ============================================
+// Waitlist (User Capacity Management)
+// ============================================
+
+model Waitlist {
+    id         String         @id @default(cuid())
+    email      String         @unique
+    name       String?
+    status     WaitlistStatus @default(PENDING)
+    notifiedAt DateTime?      // When user was notified of availability
+    createdAt  DateTime       @default(now())
+    updatedAt  DateTime       @updatedAt
+
+    @@index([status, createdAt])
+    @@map("waitlist")
+}
+
+enum WaitlistStatus {
+    PENDING    // Waiting for a spot
+    NOTIFIED   // Notified that a spot is available
+    CONVERTED  // Successfully converted to paid user
+    EXPIRED    // Notification expired without action
+    CANCELLED  // User cancelled waitlist registration
+}
