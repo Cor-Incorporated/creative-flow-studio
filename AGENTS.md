@@ -1,36 +1,141 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-- `App.tsx` orchestrates chat, image, and video flows plus Google GenAI interactions.
-- `components/` holds reusable views (`ChatInput`, `ChatMessage`, `ApiKeyModal`, `icons.tsx`); keep them presentation-focused.
-- `services/geminiService.ts` wraps GenAI SDK access; extend it for new models to reuse key handling and polling.
-- `utils/fileUtils.ts` stores binary helpers like `fileToBase64`; place shared utilities here.
-- `types.ts` centralizes message, media, and mode types—update these before introducing new interfaces elsewhere.
-- Core configuration lives in `vite.config.ts`, `tsconfig.json`, and `package.json`.
+## Current Status (2025-11-30)
 
-## Build, Test, and Development Commands
-- `npm install` installs dependencies; rerun after changes to `package.json`.
-- `npm run dev` launches the Vite dev server with hot reload; export `API_KEY` beforehand.
-- `npm run build` generates a production `/dist`; run before release or when validating bundle size.
-- `npm run preview` serves the built assets for local smoke-testing.
+**Branch**: `feature/admin-dashboard-final` (dev base)
+**Tests**: 185 passing ✅
+**Phase**: All core features complete, pending Cloud Run auth setup
 
-## Coding Style & Naming Conventions
-- Use TypeScript, functional React components, four-space indentation, single quotes, and JSX formatting consistent with existing files.
-- Name components with PascalCase (`ChatMessage`), utilities with camelCase (`handleDownload`), and prefix custom hooks with `use`.
-- Keep state local when UI-specific; lift shared logic into `services/` or `utils/` before copying it.
-- Compose styles with Tailwind-like class strings; reserve comments for non-obvious control flow or API nuances.
+---
 
-## Testing Guidelines
-- Tests are not configured; add Vitest + React Testing Library under `__tests__/` next to the code under test.
-- Cover multi-step flows (image editing, video polling) with integration-style cases, or document manual QA steps in the PR.
-- Name test files `<Component>.test.tsx` or `<module>.test.ts` and focus assertions on user-visible behavior.
+## Development Tool Roles
 
-## Commit & Pull Request Guidelines
-- Git metadata is absent in this snapshot; default to Conventional Commit titles (for example `feat: support video polling status`) in the imperative mood.
-- Keep commits focused and include a short body covering problem, solution, and validation when complexity warrants it.
-- Pull requests must link issues, list verification steps (`npm run build`, manual QA), and attach screenshots or clips for UI updates.
+### Claude Code (フルスタック実装)
 
-## Security & Configuration Tips
-- Set `API_KEY=<Google GenAI key>` in your environment (for example `.env.local`) before issuing GenAI requests.
-- Keep keys and generated media out of version control; rely on `.gitignore` or temp directories.
-- The UI expects `window.aistudio` bindings; stub them when running stories, tests, or demos outside the Studio shell.
+**担当:**
+- Next.js フロントエンド・バックエンド実装
+- API Routes 開発とテスト
+- React コンポーネント作成
+- Vitest / Playwright テスト作成
+- ドキュメント更新
+
+**特徴:**
+- 外部接続可能（Web検索、API呼び出し可）
+- MCP サーバー統合（Serena）による高度なコード解析
+
+**制約:**
+- GCP / Terraform は Cursor が管理
+
+### Cursor (バックエンド・クラウド開発)
+
+**担当:**
+- クラウドインフラ（GCP, Terraform, Cloud Build）
+- Secret Manager / 環境変数設定
+- Cloud Run デプロイ
+- バックエンドパフォーマンス最適化
+
+**現在のタスク:**
+1. NextAuth 環境変数を Cloud Run に設定
+2. Google OAuth redirect URI を登録
+3. N+1 クエリの最適化（admin/users API）
+
+### Codex (レビュー専任)
+
+**担当:**
+- 要件定義の矛盾チェック
+- アーキテクチャ・セキュリティレビュー
+- コード品質監査
+- Terraform / IaC レビュー
+
+**特徴:**
+- 外部接続不可（Web検索、API呼び出しできない）
+- リポジトリ内の資料のみ参照可能
+- 実装は行わず、レビューに専念
+
+---
+
+## Branch Strategy
+
+- **main**: Alpha版 (React + Vite)、Vercel デプロイ
+- **dev**: Next.js 14 フルスタック SaaS 開発ブランチ
+- **feature/admin-dashboard-final**: 現在の作業ブランチ
+
+---
+
+## GCP Infrastructure
+
+**Project**: `dataanalyticsclinic`
+**Region**: `asia-northeast1`
+**Cloud Run URL**: `https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app`
+
+**Service Accounts:**
+- `cloud-run-runtime@...` - Cloud Run 実行
+- `667780715339@cloudbuild.gserviceaccount.com` - Cloud Build
+- `terraform@...` - Terraform 管理
+
+**Terraform State**: `gs://dataanalyticsclinic-terraform-state`
+
+---
+
+## Development Commands
+
+```bash
+# Development
+npm run dev           # Start dev server
+npm run build         # Production build
+npm run type-check    # TypeScript check
+
+# Testing
+npm test              # Vitest
+npm run test:e2e      # Playwright
+
+# Database
+npm run prisma:generate   # Generate client
+npm run prisma:migrate    # Run migrations
+npm run prisma:studio     # Open Studio
+
+# Linting
+npm run lint          # ESLint
+npm run format        # Prettier
+```
+
+---
+
+## Coding Conventions
+
+- TypeScript, 4 spaces, single quotes
+- App Router pattern
+- Prisma + NextAuth (DB sessions)
+- Server-side Gemini API calls
+- Tailwind CSS classes
+- Vitest/Playwright for testing
+
+---
+
+## Key Documents
+
+| Document | Purpose |
+|----------|---------|
+| `CLAUDE.md` | Developer documentation |
+| `docs/onboarding.md` | Quick start guide |
+| `docs/implementation-plan.md` | Implementation status |
+| `docs/interface-spec.md` | API contracts |
+| `docs/testing-plan.md` | Manual validation |
+| `docs/stripe-integration-plan.md` | Stripe/Plan setup |
+
+---
+
+## Commit Guidelines
+
+- Conventional Commits format
+- Small, focused commits
+- Include verification steps in PR
+- Screenshots for UI changes
+
+```bash
+# Examples
+feat: Add user authentication
+fix: Resolve video download issue
+docs: Update API documentation
+test: Add conversation API tests
+```

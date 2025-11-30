@@ -1,198 +1,315 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Project Overview
 
-Creative Flow Studio is a React + TypeScript application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features a DJ Shacho Mode that applies a unique persona (high-energy, Kyushu dialect speaking entrepreneur) to text responses.
+Creative Flow Studio is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features a DJ Shacho Mode that applies a unique persona (high-energy, Kyushu dialect speaking entrepreneur) to text responses.
 
-## Development Commands
+## Branch Strategy
 
-```bash
-# Install dependencies
-npm install
+- **main**: Alpha version (React + Vite frontend-only), deployed to Vercel
+- **dev**: Next.js 14 full-stack SaaS (CURRENT DEVELOPMENT BRANCH)
+- **feature/admin-dashboard-final**: Current working branch
 
-# Run development server (port 3000)
-npm run dev
+**IMPORTANT:** You are currently working on the `dev` branch. This document describes the Next.js implementation.
 
-# Build for production
-npm run build
+---
 
-# Preview production build
-npm run preview
-```
+## Current Status (2025-11-30)
+
+### ✅ Completed Features
+
+| Feature | Status | Tests |
+|---------|--------|-------|
+| Environment Setup (Next.js 14, Prisma, Tailwind v4) | ✅ | - |
+| Authentication (NextAuth.js + Google OAuth) | ✅ | - |
+| Gemini API (Chat/Pro/Search/Image/Video) | ✅ | 18 |
+| Conversation Persistence (CRUD + Messages) | ✅ | 33 |
+| Stripe Integration (Checkout/Portal/Webhooks) | ✅ | 37 |
+| Subscription Utilities | ✅ | 23 |
+| Admin Dashboard (RBAC + Users/Usage) | ✅ | 48 |
+| Shared API Utilities | ✅ | 14 |
+| Validators | ✅ | 9 |
+| Landing Page & Auth UX (Toast notifications) | ✅ | - |
+
+**Total Tests**: 185 passing ✅
+
+### 🔄 Pending (Infrastructure - Cursor)
+
+1. **Cloud Run Auth Setup**: NextAuth environment variables not configured
+2. **Google OAuth**: Redirect URI not registered
+3. **N+1 Query**: Admin users API optimization needed
+
+---
 
 ## Architecture
 
-### Core Application Flow
+### Tech Stack
 
-**App.tsx** is the main orchestrator that:
-- Manages conversation state (`messages` array)
-- Handles mode switching between 5 generation modes: `chat`, `pro`, `search`, `image`, `video`
-- Manages DJ Shacho Mode toggle (`isDjShachoMode` state) which applies persona styling to text responses
-- Integrates with AI Studio's API key management via `window.aistudio` global
-- Delegates all Gemini API calls to `services/geminiService.ts` with optional `systemInstruction` and `temperature` parameters
-- Handles async video generation polling with progress updates
-- Converts error messages to DJ Shacho style when DJ Shacho Mode is enabled
+- **Framework**: Next.js 14.2.33 (App Router)
+- **Language**: TypeScript 5.9.3
+- **Database**: PostgreSQL via Prisma 6.19.0
+- **Authentication**: NextAuth.js 4.24.13 + Prisma Adapter
+- **AI SDK**: @google/genai 1.29.0
+- **Payments**: Stripe SDK v19.3.1
+- **Styling**: Tailwind CSS 4.1.17
+- **Validation**: Zod 4.1.12
+- **Testing**: Vitest 4.0.8 + Playwright 1.56.1
 
-### Key Components
+### File Structure
 
-**ChatInput** (`components/ChatInput.tsx`)
-- Mode selector buttons for switching between generation modes
-- DJ Shacho Mode toggle button for persona switching
-- Aspect ratio controls for image/video generation
-- File upload handling for multimodal inputs
-- Paste support for images
+```
+/
+├── app/                           # Next.js App Router
+│   ├── page.tsx                   # Main chat + LandingPage
+│   ├── layout.tsx                 # Root layout with SessionProvider
+│   ├── globals.css                # Tailwind v4 styles
+│   ├── icon.svg                   # SVG favicon
+│   ├── providers.tsx              # SessionProvider wrapper
+│   ├── pricing/page.tsx           # Pricing tiers
+│   ├── dashboard/page.tsx         # User dashboard
+│   ├── admin/                     # Admin dashboard (RBAC protected)
+│   │   ├── layout.tsx             # Admin layout
+│   │   ├── page.tsx               # Overview dashboard
+│   │   ├── users/page.tsx         # User management
+│   │   └── usage/page.tsx         # Usage monitoring
+│   └── api/
+│       ├── auth/[...nextauth]/    # NextAuth.js
+│       ├── conversations/         # CRUD + messages
+│       ├── stripe/                # Checkout, portal, webhook, subscription
+│       ├── gemini/                # Chat, image, video (+ status, download)
+│       └── admin/                 # Users, usage, stats
+├── components/
+│   ├── LandingPage.tsx            # Landing page for unauthenticated users
+│   ├── Toast.tsx                  # Toast notification system
+│   ├── ChatMessage.tsx            # Message display
+│   ├── ChatInput.tsx              # Input controls
+│   └── icons.tsx                  # SVG icons
+├── lib/
+│   ├── auth.ts                    # NextAuth configuration
+│   ├── prisma.ts                  # Prisma client singleton
+│   ├── gemini.ts                  # Gemini API service
+│   ├── stripe.ts                  # Stripe utilities
+│   ├── subscription.ts            # Subscription management
+│   ├── validators.ts              # Zod schemas
+│   ├── api-utils.ts               # Shared API utilities (auth, errors)
+│   ├── constants.ts               # App-wide constants
+│   └── fileUtils.ts               # File utilities
+├── types/app.ts                   # TypeScript types
+├── prisma/schema.prisma           # Database schema
+├── middleware.ts                  # RBAC middleware
+├── __tests__/                     # Unit tests (185 tests)
+├── e2e/                           # E2E tests
+├── docs/                          # Documentation
+└── infra/                         # Terraform (Codex territory)
+```
 
-**ChatMessage** (`components/ChatMessage.tsx`)
-- Renders different content types: text, images, videos, loading states
-- Displays DJ Shacho avatar when DJ Shacho Mode is enabled
-- Supports image editing workflow (hover to trigger edit prompt)
-- Downloads generated media
-- Displays grounding sources for search mode
+### API Routes
 
-### Service Layer
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/auth/*` | * | NextAuth.js |
+| `/api/conversations` | GET, POST | List/Create conversations |
+| `/api/conversations/[id]` | GET, PATCH, DELETE | Conversation CRUD |
+| `/api/conversations/[id]/messages` | POST | Add message |
+| `/api/stripe/checkout` | POST | Create checkout session |
+| `/api/stripe/portal` | POST | Customer portal |
+| `/api/stripe/webhook` | POST | Stripe webhooks |
+| `/api/stripe/subscription` | GET | Subscription data |
+| `/api/gemini/chat` | POST | Chat/Pro/Search |
+| `/api/gemini/image` | POST | Image generation/editing |
+| `/api/gemini/video` | POST | Video generation |
+| `/api/gemini/video/status` | POST | Polling |
+| `/api/gemini/video/download` | GET | Secure download |
+| `/api/admin/users` | GET | List users (ADMIN) |
+| `/api/admin/users/[id]` | PATCH | Update role (ADMIN) |
+| `/api/admin/usage` | GET | Usage logs (ADMIN) |
+| `/api/admin/stats` | GET | System stats (ADMIN) |
 
-**geminiService.ts** (`services/geminiService.ts`)
-- All Gemini API interactions go through this service
-- Creates fresh `GoogleGenAI` client on each call to ensure latest API key is used
-- Key functions:
-  - `generateChatResponse()` - Uses gemini-2.5-flash with conversation history; supports `systemInstruction` and `temperature` for DJ Shacho Mode
-  - `generateProResponse()` - Uses gemini-2.5-pro with thinking budget; supports `systemInstruction` and `temperature` for DJ Shacho Mode
-  - `generateSearchGroundedResponse()` - Uses googleSearch tool for grounded answers; supports DJ Shacho Mode with dual-pass approach (search then reformat)
-  - `generateImage()` - Imagen 4.0 with configurable aspect ratios (note: DJ Shacho Mode does not modify prompts to comply with policy)
-  - `analyzeImage()` - Vision capabilities for uploaded images; supports `systemInstruction` for DJ Shacho Mode
-  - `editImage()` - Uses gemini-2.5-flash-image with IMAGE response modality
-  - `generateVideo()` - Veo 3.1 (long-running operation, requires polling; note: DJ Shacho Mode does not modify prompts to comply with policy)
-  - `pollVideoOperation()` - Checks video generation status
+---
 
-### Type System
+## Security
 
-**types.ts** defines the core data structures:
-- `Message` - Chat message with `role` ('user' | 'model') and `parts` array
-- `ContentPart` - Can contain text, media, grounding sources, loading/error states
-- `Media` - Represents image/video with data URL and MIME type
-- `GenerationMode` - Five modes: 'chat' | 'pro' | 'search' | 'image' | 'video'
-- `AspectRatio` - Supported ratios: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+### Critical Rules
 
-### Environment Configuration
+1. **API Key Handling**: ALL Gemini API calls are server-side only. `GEMINI_API_KEY` is NEVER exposed to client.
+2. **Video Downloads**: Use `/api/gemini/video/download` proxy endpoint.
+3. **Authentication**: NextAuth.js session required for all protected APIs.
+4. **Authorization**: Users can only access their own conversations (userId check).
+5. **Admin Routes**: Protected by RBAC middleware (ADMIN role required).
 
-- API key is set in `.env.local` as `GEMINI_API_KEY`
-- Vite config maps this to `process.env.API_KEY` at build time
-- The app also integrates with AI Studio's key selection dialog via `window.aistudio` API
+### Usage Limits
 
-### Video Generation Pattern
+| Plan | Features | Limit |
+|------|----------|-------|
+| FREE | Chat/Search | 100 req/month |
+| PRO | Chat/Pro/Search/Image | 1000 req/month |
+| ENTERPRISE | All + Video | Unlimited |
 
-Video generation is asynchronous and requires polling:
-1. Call `generateVideo()` to start operation
-2. Poll with `pollVideoOperation()` every 5 seconds
-3. Check `operation.done` and `operation.metadata.progressPercentage`
-4. When done, retrieve video from `operation.response.generatedVideos[0].video.uri`
-5. Append API key to download URL and convert to blob/data URL for display
+HTTP Status Codes:
+- 401 Unauthorized - No session
+- 403 Forbidden - Feature not in plan
+- 429 Too Many Requests - Monthly limit exceeded
 
-### Image Editing Workflow
+---
 
-1. User hovers over generated image in `ChatMessage`
-2. Edit button appears with text input
-3. Original image is passed as context with edit prompt
-4. `editImage()` uses the flash-image model with IMAGE response modality
-5. New edited image replaces loading state in conversation
+## Development
 
-## Important Implementation Notes
+### Commands
 
-- **API Client Pattern**: `getAiClient()` is called on every request to ensure fresh API key after user selection
-- **Message Updates**: Use `updateLastMessage()` or map over messages array to update loading/progress states
-- **Error Handling**: `handleApiError()` detects specific error patterns (e.g., invalid API key) and updates UI state
-- **Conversation History**: For chat mode, entire message history is flattened and passed to maintain context
-- **Media Handling**: Images/videos use data URLs (base64) for display; `dataUrlToBase64()` utility extracts raw base64 for API calls
+```bash
+npm run dev              # Development server
+npm run build            # Production build
+npm run type-check       # TypeScript check
+npm test                 # Vitest
+npm run test:e2e         # Playwright
+npm run lint             # ESLint
+npm run format           # Prettier
+npm run prisma:generate  # Generate Prisma Client
+npm run prisma:migrate   # Run migrations
+npm run prisma:studio    # Prisma Studio
+```
 
-## Input Validation and Constants
+### Environment Variables
 
-The application includes comprehensive input validation and centralized constants for better maintainability and security.
+**Server-Side (NEVER expose):**
 
-**Constants (`constants.ts`):**
+```env
+DATABASE_URL="postgresql://..."
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="..."
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+GEMINI_API_KEY="..."
+```
 
-- `MAX_PROMPT_LENGTH`: 30,000 characters (Gemini API limit)
-- `MAX_FILE_SIZE`: 10MB limit for uploaded files
-- `ALLOWED_IMAGE_TYPES`: Permitted image MIME types (JPEG, PNG, WebP, GIF)
-- `ALLOWED_VIDEO_TYPES`: Permitted video MIME types (MP4, WebM, QuickTime, AVI, MPEG)
-- `DJ_SHACHO_TEMPERATURE`: 0.9 (creative temperature for DJ Shacho responses)
-- `THINKING_BUDGET`: 32,768 tokens for Pro mode thinking
-- `VIDEO_POLL_INTERVAL_MS`: 5,000ms polling interval
-- `MAX_VIDEO_POLL_ATTEMPTS`: 120 attempts (10 minutes max)
-- `ERROR_MESSAGES`: Centralized error message strings
+**Client-Side:**
 
-**Validation in ChatInput:**
+```env
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
 
-- File size checked against MAX_FILE_SIZE before upload
-- MIME type validated against allowed types
-- Prompt length validated before submission
-- Visual error messages displayed to user
-- Paste functionality includes same validation
+### Model IDs
 
-**Video Polling Improvements:**
+```typescript
+export const GEMINI_MODELS = {
+    FLASH: 'gemini-2.5-flash',
+    PRO: 'gemini-2.5-pro',
+    FLASH_IMAGE: 'gemini-2.5-flash-image',
+    IMAGEN: 'imagen-4.0',
+    VEO: 'veo-3.1-fast',
+};
+```
 
-- Timeout protection with MAX_VIDEO_POLL_ATTEMPTS
-- Progress percentage clamped to 0-100 range
-- Clear timeout error messages
-- Prevents infinite polling loops
+---
+
+## Development Tools
+
+### Claude Code (This Tool)
+
+- Next.js frontend/backend implementation
+- API Routes development
+- React components
+- Testing (Vitest/Playwright)
+- Documentation
+
+### Cursor
+
+- Cloud infrastructure (GCP, Terraform)
+- Secret Manager / environment setup
+- Cloud Run deployments
+- Backend performance optimization
+
+### Codex
+
+- Code review (security, architecture)
+- Requirements validation
+- No external access (review only)
+
+---
 
 ## DJ Shacho Mode
 
-DJ Shacho Mode is a special persona mode that transforms text responses to match the speaking style of DJ Shacho (Shunsuke Kimoto), leader of Repezen Foxx and charismatic entrepreneur.
+Special persona mode applying DJ Shacho (Shunsuke Kimoto) speaking style.
 
 **Characteristics:**
-
 - High-energy, enthusiastic tone
-- Kyushu dialect (Japanese regional dialect)
-- Positive, motivational messaging
-- Distinctive verbal patterns and expressions
+- Kyushu dialect (博多弁)
+- First-person: 「俺」
 
 **Implementation:**
+- Toggle in `ChatInput` component
+- `DJ_SHACHO_SYSTEM_PROMPT` in `lib/constants.ts`
+- Error messages converted to DJ Shacho style
 
-- Toggle enabled via ChatInput component
-- System instruction (`DJ_SHACHO_SYSTEM_PROMPT`) passed to text generation APIs
-- Temperature set to 0.9 for more creative/varied responses
-- Error messages also converted to DJ Shacho style for consistency
-- Image/video prompts NOT modified (to comply with API policies on real person names)
-- Search mode uses dual-pass: search execution then style reformatting
+---
 
-**Files:**
+## GCP Setup
 
-- `services/prompts/djShachoPrompt.ts` - System prompts and templates
-- `DJ_Shacho_400x400.jpg` - Avatar image displayed in chat messages
+**Project**: `dataanalyticsclinic`
+**Region**: `asia-northeast1`
+**Cloud Run URL**: `https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app`
 
-## Styling
+**Service Accounts:**
+- `cloud-run-runtime@...` - Cloud Run execution
+- `terraform@...` - Terraform management
 
-The app uses Tailwind CSS for styling:
+**Terraform State**: `gs://dataanalyticsclinic-terraform-state`
 
-- `tailwind.config.js` - Tailwind configuration
-- `postcss.config.js` - PostCSS configuration for Tailwind
-- `index.css` - Tailwind directives and global styles
+---
 
-## Project Structure
+## Common Issues
 
-```text
-/
-├── App.tsx                    # Main application component & orchestration
-├── index.tsx                  # React entry point
-├── index.html                 # HTML template
-├── index.css                  # Tailwind directives & global styles
-├── types.ts                   # TypeScript interfaces for messages, media, modes
-├── constants.ts               # Centralized constants & validation limits
-├── vite-env.d.ts             # Vite type definitions
-├── tailwind.config.js        # Tailwind CSS configuration
-├── postcss.config.js         # PostCSS configuration
-├── DJ_Shacho_400x400.jpg     # DJ Shacho avatar image
-├── components/               # React components
-│   ├── ChatInput.tsx         # Input area with mode/aspect ratio/DJ Shacho controls
-│   ├── ChatMessage.tsx       # Message rendering (text/image/video/sources/avatar)
-│   ├── ApiKeyModal.tsx       # API key selection prompt
-│   └── icons.tsx             # SVG icon components
-├── services/
-│   ├── geminiService.ts      # All Gemini API interactions
-│   └── prompts/
-│       └── djShachoPrompt.ts # DJ Shacho system prompts & templates
-└── utils/
-    └── fileUtils.ts          # File/base64 conversion utilities
-```
+### ESLint 9 Errors
+
+ESLint disabled during builds (`next.config.js`). Run `npm run lint` separately.
+
+### Prisma Client Not Found
+
+Run `npm run prisma:generate` or `npm run build`.
+
+### NextAuth Session Null
+
+1. Check `.env.local` has all auth variables
+2. Verify `NEXTAUTH_URL` matches current URL
+3. Ensure database connection works
+
+### Video Download Fails
+
+Use `/api/gemini/video/download` proxy, NOT direct URI.
+
+---
+
+## References
+
+- [Next.js 14 Documentation](https://nextjs.org/docs)
+- [Gemini API Documentation](https://ai.google.dev/gemini-api/docs)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [NextAuth.js Documentation](https://next-auth.js.org/)
+- [Tailwind CSS v4](https://tailwindcss.com/docs)
+- [Stripe Documentation](https://stripe.com/docs)
+
+---
+
+## Session Notes
+
+**Last Updated**: 2025-11-30
+**Current Focus**: Documentation update and codebase improvements
+
+**Recent Changes:**
+
+- Added `lib/api-utils.ts` with shared API utilities (requireAuth, requireAdmin, errorResponse, handleValidationError, handleSubscriptionLimitError)
+- Added tests for api-utils.ts (14 tests) and validators.ts (9 tests)
+- Test count increased from 136 to 185
+
+**Pending for Cursor:**
+
+1. Setup NextAuth environment variables on Cloud Run
+2. Register Google OAuth redirect URI
+3. Optimize N+1 query in admin users API
+
+**Test Status**: 185/185 passing ✅

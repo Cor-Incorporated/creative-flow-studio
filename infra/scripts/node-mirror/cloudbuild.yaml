@@ -1,0 +1,23 @@
+steps:
+    - name: 'gcr.io/cloud-builders/docker'
+      entrypoint: bash
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+              docker pull node:20.18.0
+              docker tag node:20.18.0 asia-northeast1-docker.pkg.dev/dataanalyticsclinic/node-mirror/node:20.18.0
+              docker push asia-northeast1-docker.pkg.dev/dataanalyticsclinic/node-mirror/node:20.18.0
+
+images:
+    - 'asia-northeast1-docker.pkg.dev/dataanalyticsclinic/node-mirror/node:20.18.0'
+
+
+
+
+
+
+
+
+
+

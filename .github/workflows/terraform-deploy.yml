@@ -1,0 +1,64 @@
+name: Terraform Deploy
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform-deploy.yml"
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: dataanalyticsclinic
+  REGION: asia-northeast1
+  TERRAFORM_STATE_BUCKET: dataanalyticsclinic-terraform-state
+
+jobs:
+  terraform:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v2"
+        with:
+          workload_identity_provider: "${{ secrets.WIF_PROVIDER }}"
+          service_account: "${{ secrets.WIF_SERVICE_ACCOUNT }}"
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v2"
+
+      - name: "Configure gcloud"
+        run: |
+          gcloud config set project ${{ env.PROJECT_ID }}
+          gcloud config set compute/region ${{ env.REGION }}
+
+      - name: "Terraform Init"
+        working-directory: infra/envs/dev
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/dev/state"
+
+      - name: "Terraform Plan"
+        working-directory: infra/envs/dev
+        run: terraform plan -out=tfplan
+
+      - name: "Terraform Apply"
+        working-directory: infra/envs/dev
+        run: terraform apply -auto-approve tfplan
+
+      - name: "Verify Cloud Run Service"
+        run: |
+          gcloud run services describe creative-flow-studio-dev \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format="get(status.url)"
