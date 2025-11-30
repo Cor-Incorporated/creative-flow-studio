@@ -6,6 +6,7 @@ import { Message, GenerationMode, AspectRatio, Media, ContentPart } from '@/type
 import ChatInput from '@/components/ChatInput';
 import ChatMessage from '@/components/ChatMessage';
 import LandingPage from '@/components/LandingPage';
+import UsageLimitBanner, { UsageLimitInfo } from '@/components/UsageLimitBanner';
 import { SparklesIcon } from '@/components/icons';
 import { useToast } from '@/components/Toast';
 import {
@@ -46,6 +47,8 @@ export default function Home() {
         }>
     >([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+    const [usageLimitInfo, setUsageLimitInfo] = useState<UsageLimitInfo | null>(null);
+    const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const { showToast, ToastContainer } = useToast();
@@ -91,6 +94,41 @@ export default function Home() {
         };
 
         loadConversations();
+    }, [session]);
+
+    // Check usage limits and admin status on mount
+    useEffect(() => {
+        const checkUsageLimits = async () => {
+            if (!session?.user) return;
+
+            try {
+                const response = await fetch('/api/usage');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Set admin status
+                    setIsAdmin(data.isAdmin === true);
+
+                    if (data.isLimitReached) {
+                        setUsageLimitInfo({
+                            isLimitReached: true,
+                            planName: data.plan.name,
+                            usage: {
+                                current: data.usage.current,
+                                limit: data.usage.limit,
+                            },
+                            resetDate: data.resetDate,
+                        });
+                    } else {
+                        setUsageLimitInfo(null);
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking usage limits:', error);
+            }
+        };
+
+        checkUsageLimits();
     }, [session]);
 
     // インフルエンサーモード変更時に初期メッセージを更新
@@ -632,6 +670,20 @@ export default function Home() {
 
                 if (!response.ok) {
                     const errorData = await response.json();
+
+                    // Handle rate limit exceeded (429)
+                    if (response.status === 429 && errorData.code === 'RATE_LIMIT_EXCEEDED') {
+                        setUsageLimitInfo({
+                            isLimitReached: true,
+                            planName: errorData.planName || 'FREE',
+                            usage: {
+                                current: errorData.usage?.current || 0,
+                                limit: errorData.usage?.limit || null,
+                            },
+                            resetDate: errorData.resetDate || null,
+                        });
+                    }
+
                     throw new Error(errorData.error || ERROR_MESSAGES.IMAGE_GENERATION_FAILED);
                 }
 
@@ -672,6 +724,20 @@ export default function Home() {
 
                 if (!response.ok) {
                     const errorData = await response.json();
+
+                    // Handle rate limit exceeded (429)
+                    if (response.status === 429 && errorData.code === 'RATE_LIMIT_EXCEEDED') {
+                        setUsageLimitInfo({
+                            isLimitReached: true,
+                            planName: errorData.planName || 'FREE',
+                            usage: {
+                                current: errorData.usage?.current || 0,
+                                limit: errorData.usage?.limit || null,
+                            },
+                            resetDate: errorData.resetDate || null,
+                        });
+                    }
+
                     throw new Error(errorData.error || ERROR_MESSAGES.VIDEO_GENERATION_FAILED);
                 }
 
@@ -738,6 +804,20 @@ export default function Home() {
 
                 if (!response.ok) {
                     const errorData = await response.json();
+
+                    // Handle rate limit exceeded (429)
+                    if (response.status === 429 && errorData.code === 'RATE_LIMIT_EXCEEDED') {
+                        setUsageLimitInfo({
+                            isLimitReached: true,
+                            planName: errorData.planName || 'FREE',
+                            usage: {
+                                current: errorData.usage?.current || 0,
+                                limit: errorData.usage?.limit || null,
+                            },
+                            resetDate: errorData.resetDate || null,
+                        });
+                    }
+
                     throw new Error(errorData.error || ERROR_MESSAGES.GENERIC_ERROR);
                 }
 
@@ -940,6 +1020,37 @@ export default function Home() {
                         </div>
                     )}
                 </div>
+
+                {/* Sidebar Footer - Admin Link */}
+                {isAdmin && (
+                    <div className="p-4 border-t border-gray-700">
+                        <a
+                            href="/admin"
+                            className="flex items-center gap-3 px-4 py-3 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 rounded-lg font-medium transition-colors min-h-[48px]"
+                        >
+                            <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                                />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                            </svg>
+                            管理ダッシュボード
+                        </a>
+                    </div>
+                )}
             </div>
 
             {/* Main Content */}
@@ -1010,9 +1121,19 @@ export default function Home() {
                     ))}
                 </main>
 
+                {/* Usage Limit Banner - shown above chat input when limit reached */}
+                {usageLimitInfo?.isLimitReached && (
+                    <div className="px-4 pt-2">
+                        <UsageLimitBanner
+                            limitInfo={usageLimitInfo}
+                            onDismiss={() => setUsageLimitInfo(null)}
+                        />
+                    </div>
+                )}
+
                 <ChatInput
                     onSendMessage={handleSendMessage}
-                    isLoading={isLoading}
+                    isLoading={isLoading || (usageLimitInfo?.isLimitReached ?? false)}
                     mode={mode}
                     setMode={setMode}
                     aspectRatio={aspectRatio}
