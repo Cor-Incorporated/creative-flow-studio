@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { adminUsageQuerySchema } from '@/lib/validators';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/admin/usage
  * Retrieve usage logs with filtering and pagination
