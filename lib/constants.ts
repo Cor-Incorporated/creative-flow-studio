@@ -1,6 +1,24 @@
 // Application constants (migrated from alpha/constants.ts)
 
+// ============================================
+// User Capacity & Waitlist Settings
+// ============================================
+
+/**
+ * Maximum number of paid users (excluding ADMIN users and FREE plan users)
+ * When this limit is reached, new users will be added to waitlist
+ */
+export const MAX_PAID_USERS = 2000;
+
+/**
+ * Days until waitlist notification expires
+ * If user doesn't upgrade within this period, their spot goes to next person
+ */
+export const WAITLIST_NOTIFICATION_EXPIRY_DAYS = 7;
+
+// ============================================
 // API Limits and Validation
+// ============================================
 export const MAX_PROMPT_LENGTH = 30000; // Gemini API prompt length limit
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB file size limit
 
@@ -57,6 +75,9 @@ export const ERROR_MESSAGES = {
     UNAUTHORIZED: '認証が必要です。ログインしてください。',
     RATE_LIMIT_EXCEEDED: 'リクエスト制限に達しました。しばらく待ってから再度お試しください。',
     INTERNAL_SERVER_ERROR: 'サーバーエラーが発生しました。後でもう一度お試しください。',
+    CAPACITY_REACHED: '現在、新規の有料プラン登録を制限しています。ウェイトリストに登録してください。',
+    ALREADY_ON_WAITLIST: 'すでにウェイトリストに登録されています。',
+    WAITLIST_REGISTRATION_SUCCESS: 'ウェイトリストに登録しました。空きが出次第、メールでお知らせします。',
 };
 
 // Aspect Ratios

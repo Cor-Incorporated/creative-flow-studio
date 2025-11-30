@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { MAX_PAID_USERS } from '@/lib/constants';
 
 /**
  * Admin Dashboard - Overview Page
@@ -23,6 +24,8 @@ async function getStats() {
         totalSubscriptions,
         activeSubscriptions,
         usageLogsToday,
+        waitlistPending,
+        paidUsersCount,
     ] = await Promise.all([
         prisma.user.count(),
         prisma.conversation.count(),
@@ -34,6 +37,14 @@ async function getStats() {
                 createdAt: {
                     gte: new Date(new Date().setHours(0, 0, 0, 0)),
                 },
+            },
+        }),
+        prisma.waitlist.count({ where: { status: 'PENDING' } }),
+        prisma.subscription.count({
+            where: {
+                status: 'ACTIVE',
+                plan: { name: { not: 'FREE' } },
+                user: { role: { not: 'ADMIN' } },
             },
         }),
     ]);
@@ -64,6 +75,10 @@ async function getStats() {
         activeSubscriptions,
         usageLogsToday,
         planStats,
+        waitlistPending,
+        paidUsersCount,
+        maxPaidUsers: MAX_PAID_USERS,
+        capacityPercent: Math.round((paidUsersCount / MAX_PAID_USERS) * 100),
     };
 }
 
@@ -78,6 +93,49 @@ export default async function AdminDashboardPage() {
                 <p className="mt-1 text-sm text-gray-500">
                     System statistics and key metrics
                 </p>
+            </div>
+
+            {/* Capacity Alert */}
+            {stats.capacityPercent >= 90 && (
+                <div className={`rounded-lg p-4 ${stats.capacityPercent >= 100 ? 'bg-red-100 border border-red-300' : 'bg-yellow-100 border border-yellow-300'}`}>
+                    <div className="flex items-center">
+                        <svg className={`w-5 h-5 mr-2 ${stats.capacityPercent >= 100 ? 'text-red-600' : 'text-yellow-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span className={`font-medium ${stats.capacityPercent >= 100 ? 'text-red-800' : 'text-yellow-800'}`}>
+                            {stats.capacityPercent >= 100
+                                ? `定員に達しました (${stats.waitlistPending}名が待機中)`
+                                : `定員の${stats.capacityPercent}%に達しています`}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Capacity Progress */}
+            <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">有料ユーザー容量</h3>
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">
+                        {stats.paidUsersCount.toLocaleString()} / {stats.maxPaidUsers.toLocaleString()} ユーザー
+                    </span>
+                    <span className={`text-sm font-medium ${stats.capacityPercent >= 100 ? 'text-red-600' : stats.capacityPercent >= 90 ? 'text-yellow-600' : 'text-green-600'}`}>
+                        {stats.capacityPercent}%
+                    </span>
+                </div>
+                <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full rounded-full transition-all ${stats.capacityPercent >= 100 ? 'bg-red-500' : stats.capacityPercent >= 90 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                        style={{ width: `${Math.min(stats.capacityPercent, 100)}%` }}
+                    />
+                </div>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="text-gray-500">
+                        空き: {(stats.maxPaidUsers - stats.paidUsersCount).toLocaleString()}枠
+                    </span>
+                    <span className="text-yellow-600">
+                        待機中: {stats.waitlistPending.toLocaleString()}名
+                    </span>
+                </div>
             </div>
 
             {/* Stats Grid */}
