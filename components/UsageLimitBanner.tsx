@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { SUPPORT_EMAIL } from '@/lib/constants';
 
 export type UsageLimitInfo = {
     isLimitReached: boolean;
@@ -102,7 +103,7 @@ export default function UsageLimitBanner({ limitInfo, onDismiss }: UsageLimitBan
                                     {formatResetDate(resetDate)}にリセットされます。
                                     追加の容量が必要な場合は
                                     <a
-                                        href="mailto:support@example.com"
+                                        href={`mailto:${SUPPORT_EMAIL}`}
                                         className="font-medium underline ml-1"
                                     >
                                         サポートにお問い合わせ

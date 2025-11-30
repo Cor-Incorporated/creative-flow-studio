@@ -192,6 +192,7 @@ GOOGLE_CLIENT_SECRET="..."
 STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 GEMINI_API_KEY="..."
+CRON_SECRET="..."  # Required in production for cron endpoints
 ```
 
 **Client-Side:**
@@ -199,6 +200,7 @@ GEMINI_API_KEY="..."
 ```env
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_SUPPORT_EMAIL="support@creative-flow.studio"  # Support contact email
 ```
 
 ### Model IDs

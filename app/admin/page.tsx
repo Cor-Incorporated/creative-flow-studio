@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
 import { MAX_PAID_USERS } from '@/lib/constants';
+import { prisma } from '@/lib/prisma';
 
 /**
  * Admin Dashboard - Overview Page
@@ -17,6 +17,21 @@ import { MAX_PAID_USERS } from '@/lib/constants';
 export const dynamic = 'force-dynamic';
 
 async function getStats() {
+    // Helper function to safely count waitlist entries
+    // Returns 0 if table doesn't exist (migration not applied yet)
+    async function getWaitlistCount(): Promise<number> {
+        try {
+            return await prisma.waitlist.count({ where: { status: 'PENDING' } });
+        } catch (error: any) {
+            // If table doesn't exist, return 0
+            if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+                console.warn('Waitlist table does not exist yet. Migration may be pending.');
+                return 0;
+            }
+            throw error;
+        }
+    }
+
     const [
         totalUsers,
         totalConversations,
@@ -39,7 +54,8 @@ async function getStats() {
                 },
             },
         }),
-        prisma.waitlist.count({ where: { status: 'PENDING' } }),
+        getWaitlistCount(),
+        // Count paid users: active subscriptions with non-FREE plans, excluding ADMIN users
         prisma.subscription.count({
             where: {
                 status: 'ACTIVE',
@@ -83,9 +99,10 @@ async function getStats() {
 }
 
 export default async function AdminDashboardPage() {
-    const stats = await getStats();
+    try {
+        const stats = await getStats();
 
-    return (
+        return (
         <div className="space-y-6">
             {/* Page Header */}
             <div>
@@ -398,5 +415,35 @@ export default async function AdminDashboardPage() {
                 </div>
             </div>
         </div>
-    );
+        );
+    } catch (error: any) {
+        console.error('Error in AdminDashboardPage:', error);
+        
+        return (
+            <div className="space-y-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h2 className="text-xl font-bold text-red-900 mb-2">エラーが発生しました</h2>
+                    <p className="text-red-700 mb-4">
+                        ダッシュボードのデータを読み込めませんでした。
+                    </p>
+                    {process.env.NODE_ENV === 'development' && (
+                        <details className="text-sm text-red-600">
+                            <summary className="cursor-pointer font-medium">エラー詳細（開発環境のみ）</summary>
+                            <pre className="mt-2 p-3 bg-red-100 rounded overflow-auto">
+                                {error.message || String(error)}
+                            </pre>
+                        </details>
+                    )}
+                    <div className="mt-4">
+                        <a
+                            href="/admin"
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 inline-block"
+                        >
+                            再読み込み
+                        </a>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 }

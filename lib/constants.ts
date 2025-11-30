@@ -13,8 +13,25 @@ export const MAX_PAID_USERS = 2000;
 /**
  * Days until waitlist notification expires
  * If user doesn't upgrade within this period, their spot goes to next person
+ * 
+ * Business requirement: 7 days was chosen to balance:
+ * - Giving users enough time to complete checkout (typically 1-2 days)
+ * - Preventing waitlist spots from being held indefinitely
+ * - Ensuring fair rotation for other waitlist users
  */
 export const WAITLIST_NOTIFICATION_EXPIRY_DAYS = 7;
+
+/**
+ * Support email address for enterprise users
+ * Used in UsageLimitBanner and other support-related UI
+ */
+export const SUPPORT_EMAIL = (() => {
+    const email = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@creative-flow.studio';
+    if (!process.env.NEXT_PUBLIC_SUPPORT_EMAIL) {
+        console.warn('NEXT_PUBLIC_SUPPORT_EMAIL not set, using default: support@creative-flow.studio');
+    }
+    return email;
+})();
 
 // ============================================
 // API Limits and Validation
@@ -52,8 +69,8 @@ export const GEMINI_MODELS = {
     FLASH: 'gemini-2.5-flash',
     PRO: 'gemini-2.5-pro',
     FLASH_IMAGE: 'gemini-2.5-flash-image',
-    IMAGEN: 'imagen-4.0',
-    VEO: 'veo-3.1-fast',
+    IMAGEN: 'imagen-4.0-generate-001', // Fixed: Use correct model name from alpha
+    VEO: 'veo-3.1-fast-generate-preview', // Fixed: Use correct model name from alpha
 } as const;
 
 // Error Messages

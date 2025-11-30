@@ -634,7 +634,7 @@ export default function Home() {
             });
             return;
         }
-        
+
         setIsLoading(true);
 
         const userParts: ContentPart[] = [];
@@ -756,7 +756,12 @@ export default function Home() {
                 );
 
                 // Start polling for video status
-                const videoParts = await pollVideoStatus(data.operationName, loadingMessageId);
+                // Support both operation object and operationName (for backward compatibility)
+                const operationName = data.operation?.name || data.operationName;
+                if (!operationName) {
+                    throw new Error('Operation name not found in video generation response');
+                }
+                const videoParts = await pollVideoStatus(operationName, loadingMessageId);
 
                 // Save model response (video) if successfully generated
                 if (videoParts) {
@@ -865,7 +870,7 @@ export default function Home() {
             });
             return;
         }
-        
+
         setIsLoading(true);
         addMessage({ role: 'user', parts: [{ text: `画像編集: 「${prompt}」` }] });
 

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * Middleware for Role-Based Access Control (RBAC)
@@ -18,36 +18,69 @@ export async function middleware(request: NextRequest) {
 
     // Admin route protection
     if (pathname.startsWith('/admin')) {
-        const token = await getToken({
-            req: request,
-            secret: process.env.NEXTAUTH_SECRET,
-        });
+        try {
+            // Check if NEXTAUTH_SECRET is configured
+            if (!process.env.NEXTAUTH_SECRET) {
+                console.error('NEXTAUTH_SECRET is not configured');
+                return new NextResponse(
+                    JSON.stringify({
+                        error: 'Configuration Error',
+                        message: 'Authentication is not properly configured',
+                    }),
+                    {
+                        status: 500,
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+            }
 
-        // No session - redirect to login
-        if (!token) {
-            const loginUrl = new URL('/api/auth/signin', request.url);
-            loginUrl.searchParams.set('callbackUrl', pathname);
-            return NextResponse.redirect(loginUrl);
-        }
+            const token = await getToken({
+                req: request,
+                secret: process.env.NEXTAUTH_SECRET,
+            });
 
-        // Not an admin - return 403 Forbidden
-        if (token.role !== 'ADMIN') {
+            // No session - redirect to login
+            if (!token) {
+                const loginUrl = new URL('/api/auth/signin', request.url);
+                loginUrl.searchParams.set('callbackUrl', pathname);
+                return NextResponse.redirect(loginUrl);
+            }
+
+            // Not an admin - return 403 Forbidden
+            if (token.role !== 'ADMIN') {
+                return new NextResponse(
+                    JSON.stringify({
+                        error: 'Forbidden',
+                        message: 'You do not have permission to access this resource',
+                    }),
+                    {
+                        status: 403,
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+            }
+
+            // Admin user - allow access
+            return NextResponse.next();
+        } catch (error: any) {
+            console.error('Error in admin middleware:', error);
             return new NextResponse(
                 JSON.stringify({
-                    error: 'Forbidden',
-                    message: 'You do not have permission to access this resource',
+                    error: 'Internal Server Error',
+                    message: 'An error occurred while checking authentication',
                 }),
                 {
-                    status: 403,
+                    status: 500,
                     headers: {
                         'Content-Type': 'application/json',
                     },
                 }
             );
         }
-
-        // Admin user - allow access
-        return NextResponse.next();
     }
 
     // All other routes - continue
