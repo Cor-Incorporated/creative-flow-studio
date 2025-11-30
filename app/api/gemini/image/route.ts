@@ -103,7 +103,14 @@ export async function POST(request: NextRequest) {
         if (originalImage) {
             const result = await editImage(prompt, originalImage);
             // Extract image from edit response (same as alpha)
-            for (const part of result.candidates[0].content.parts) {
+            if (!result.candidates || result.candidates.length === 0) {
+                throw new Error('No candidates found in edit response');
+            }
+            const candidate = result.candidates[0];
+            if (!candidate?.content?.parts) {
+                throw new Error('No content parts found in edit response');
+            }
+            for (const part of candidate.content.parts) {
                 if (part.inlineData) {
                     const base64ImageBytes: string = part.inlineData.data;
                     imageUrl = `data:image/png;base64,${base64ImageBytes}`;
