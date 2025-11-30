@@ -29,6 +29,11 @@ interface PricingPlan {
     popular?: boolean;
 }
 
+// Pricing based on Google Gemini API costs (2024-2025):
+// - Gemini 2.5 Flash: $0.30/1M input, $2.50/1M output tokens
+// - Gemini 2.5 Pro: $1.25/1M input, $10/1M output tokens
+// - Imagen 4 Standard: $0.04/image
+// - Veo 3.1 Fast: $0.15/second (~$1.20 for 8s video)
 const PRICING_PLANS: PricingPlan[] = [
     {
         name: 'FREE',
@@ -36,41 +41,42 @@ const PRICING_PLANS: PricingPlan[] = [
         features: [
             'チャットモード',
             '検索モード',
-            '月100リクエスト',
+            '月50リクエスト',
             '最大5MBファイル',
             'コミュニティサポート',
         ],
-        maxRequests: '100/月',
+        maxRequests: '50/月',
     },
     {
         name: 'PRO',
-        price: '¥1,980',
+        price: '¥3,000',
         priceId: 'price_pro_monthly', // TODO: Replace with actual Stripe Price ID
         features: [
             'すべてFREE機能',
             'PROモード（思考プロセス表示）',
             '画像生成（Imagen 4.0）',
-            '月1,000リクエスト',
+            '月500リクエスト',
             '最大50MBファイル',
             '優先サポート',
         ],
-        maxRequests: '1,000/月',
+        maxRequests: '500/月',
         popular: true,
     },
     {
         name: 'ENTERPRISE',
-        price: '¥9,800',
+        price: '¥30,000',
         priceId: 'price_enterprise_monthly', // TODO: Replace with actual Stripe Price ID
         features: [
             'すべてPRO機能',
             '動画生成（Veo 3.1）',
-            '無制限リクエスト',
+            '月3,000リクエスト',
+            '動画生成 月50本',
             '最大500MBファイル',
             'カスタムブランディング',
             '専任サポート',
             'SLA保証',
         ],
-        maxRequests: '無制限',
+        maxRequests: '3,000/月 + 動画50本',
     },
 ];
 
@@ -117,17 +123,40 @@ export default function PricingPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
+                {/* Back to Chat Button */}
+                <div className="mb-8">
+                    <button
+                        onClick={() => router.push('/')}
+                        className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
+                    >
+                        <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                            />
+                        </svg>
+                        チャットに戻る
+                    </button>
+                </div>
+
                 {/* Header */}
-                <div className="text-center mb-16">
-                    <h1 className="text-5xl font-bold mb-4">料金プラン</h1>
-                    <p className="text-xl text-gray-300">
+                <div className="text-center mb-10 sm:mb-16">
+                    <h1 className="text-3xl sm:text-5xl font-bold mb-3 sm:mb-4">料金プラン</h1>
+                    <p className="text-base sm:text-xl text-gray-300">
                         あなたのニーズに合ったプランを選択してください
                     </p>
                 </div>
 
                 {/* Pricing Cards */}
-                <div className="grid md:grid-cols-3 gap-8 mb-16">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-10 sm:mb-16">
                     {PRICING_PLANS.map(plan => (
                         <div
                             key={plan.name}
@@ -201,55 +230,61 @@ export default function PricingPage() {
                 </div>
 
                 {/* Feature Comparison Table */}
-                <div className="mt-16 bg-gray-800 rounded-2xl p-8">
-                    <h2 className="text-3xl font-bold mb-8 text-center">機能比較表</h2>
+                <div className="mt-10 sm:mt-16 bg-gray-800 rounded-2xl p-4 sm:p-8">
+                    <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center">機能比較表</h2>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                        <table className="w-full text-left text-sm sm:text-base min-w-[500px]">
                             <thead>
                                 <tr className="border-b border-gray-700">
-                                    <th className="py-4 px-6">機能</th>
-                                    <th className="py-4 px-6 text-center">FREE</th>
-                                    <th className="py-4 px-6 text-center">PRO</th>
-                                    <th className="py-4 px-6 text-center">ENTERPRISE</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6">機能</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-center">FREE</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-center">PRO</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-center">ENTERPRISE</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 <tr>
-                                    <td className="py-4 px-6">月間リクエスト数</td>
-                                    <td className="py-4 px-6 text-center">100</td>
-                                    <td className="py-4 px-6 text-center">1,000</td>
-                                    <td className="py-4 px-6 text-center">無制限</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">月間リクエスト数</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">50</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">500</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">3,000</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">最大ファイルサイズ</td>
-                                    <td className="py-4 px-6 text-center">5MB</td>
-                                    <td className="py-4 px-6 text-center">50MB</td>
-                                    <td className="py-4 px-6 text-center">500MB</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">月間動画生成数</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">50本</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">PROモード</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">最大ファイルサイズ</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">5MB</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">50MB</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">500MB</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">画像生成</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">PROモード</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">動画生成</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">画像生成</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">サポート</td>
-                                    <td className="py-4 px-6 text-center">コミュニティ</td>
-                                    <td className="py-4 px-6 text-center">優先</td>
-                                    <td className="py-4 px-6 text-center">専任</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">動画生成</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
+                                </tr>
+                                <tr>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">サポート</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">コミュニティ</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">優先</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">専任</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -257,12 +292,12 @@ export default function PricingPage() {
                 </div>
 
                 {/* FAQ Section */}
-                <div className="mt-16 text-center">
-                    <h2 className="text-3xl font-bold mb-4">よくある質問</h2>
-                    <p className="text-gray-300 mb-8">
+                <div className="mt-10 sm:mt-16 text-center">
+                    <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">よくある質問</h2>
+                    <p className="text-gray-300 mb-6 sm:mb-8 text-sm sm:text-base">
                         ご不明な点がございましたら、お気軽にお問い合わせください。
                     </p>
-                    <button className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg font-semibold">
+                    <button className="bg-blue-600 hover:bg-blue-700 px-6 sm:px-8 py-3 rounded-lg font-semibold text-sm sm:text-base">
                         お問い合わせ
                     </button>
                 </div>

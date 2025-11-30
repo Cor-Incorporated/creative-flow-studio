@@ -1,6 +1,6 @@
 'use client';
 
-import { SparklesIcon } from '@/components/icons';
+import { SparklesIcon, EyeIcon, EyeSlashIcon } from '@/components/icons';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -15,6 +15,7 @@ function SignInContent() {
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(
         error === 'CredentialsSignin' ? 'メールアドレスまたはパスワードが正しくありません' : null
     );
@@ -142,16 +143,26 @@ function SignInContent() {
                         <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
                             パスワード
                         </label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            minLength={8}
-                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-                            placeholder="8文字以上"
-                        />
+                        <div className="relative">
+                            <input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                minLength={8}
+                                className="w-full px-4 py-3 pr-12 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                                placeholder="8文字以上"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors p-1"
+                                aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                            >
+                                {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
                     <button
                         type="submit"

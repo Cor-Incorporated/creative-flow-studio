@@ -825,12 +825,12 @@ export default function Home() {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col">
-                <header className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
-                    <div className="flex items-center gap-2">
+                <header className="flex items-center justify-between p-3 md:p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                         {/* Hamburger Menu Button (Mobile) */}
                         <button
                             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            className="md:hidden p-2 hover:bg-gray-700 rounded-lg"
+                            className="md:hidden p-2 hover:bg-gray-700 rounded-lg flex-shrink-0"
                         >
                             <svg
                                 className="w-6 h-6"
@@ -846,28 +846,28 @@ export default function Home() {
                                 />
                             </svg>
                         </button>
-                        <SparklesIcon className="w-6 h-6 text-blue-400" />
-                        <h1 className="text-xl font-bold">クリエイティブフロースタジオ</h1>
+                        <SparklesIcon className="w-6 h-6 text-blue-400 flex-shrink-0" />
+                        <h1 className="text-base md:text-xl font-bold truncate">クリエイティブフロースタジオ</h1>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
                         {/* Login/Logout Button */}
                         {/* Note: At this point, user is authenticated (landing page check passed) */}
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 md:gap-3">
                             <a
                                 href="/pricing"
-                                className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                                className="hidden sm:block px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
                             >
                                 料金プラン
                             </a>
                             <button
                                 onClick={() => signOut({ callbackUrl: window.location.href })}
-                                className="px-4 py-1.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+                                className="px-3 md:px-4 py-1.5 text-xs md:text-sm font-medium bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
                             >
                                 ログアウト
                             </button>
                         </div>
-                        <div className="relative">
-                            <div className="w-32 h-2 bg-gray-700 rounded-full">
+                        <div className="relative hidden sm:block">
+                            <div className="w-24 md:w-32 h-2 bg-gray-700 rounded-full">
                                 <div
                                     className="h-2 bg-green-500 rounded-full"
                                     style={{ width: '80%' }}
