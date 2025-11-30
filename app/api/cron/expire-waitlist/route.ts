@@ -28,28 +28,26 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
     try {
         // Verify cron secret to prevent unauthorized access
+        // Production: Require authentication always
+        // Development: Allow without secret for testing (with warning)
         const isVercelCron = !!request.headers.get('x-vercel-cron');
         const cronSecret = process.env.CRON_SECRET;
         const providedSecret = request.headers.get('x-cron-secret');
         const isProduction = process.env.NODE_ENV === 'production';
 
-        // In production, require authentication
-        if (isProduction) {
-            // Allow either Vercel's internal header OR valid secret
-            if (!isVercelCron && (!cronSecret || providedSecret !== cronSecret)) {
-                console.error('Unauthorized cron request - invalid or missing secret');
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-            }
-        } else {
-            // In development, allow without secret for testing, but warn if secret is not configured
-            if (!isVercelCron && cronSecret && providedSecret !== cronSecret) {
-                console.error('Unauthorized cron request - invalid secret');
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-            }
-            // If CRON_SECRET is not set in dev, allow but warn
-            if (!isVercelCron && !cronSecret) {
-                console.warn('CRON_SECRET not configured in development - allowing request for testing. Set CRON_SECRET for production-like testing.');
-            }
+        // Production: Require auth always
+        if (isProduction && !isVercelCron && providedSecret !== cronSecret) {
+            console.error('Unauthorized cron request - invalid or missing secret');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Development: Warn but allow (for testing)
+        if (!isProduction && !isVercelCron && !cronSecret) {
+            console.warn('CRON_SECRET not set in development - request allowed for testing');
+        } else if (!isProduction && !isVercelCron && cronSecret && providedSecret !== cronSecret) {
+            // If secret is set in dev, validate it
+            console.error('Unauthorized cron request - invalid secret');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         // Expire old notifications

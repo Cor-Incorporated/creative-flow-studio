@@ -263,14 +263,22 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<Next
                 console.error('Failed to record capacity exceeded event:', recordError);
             }
 
-            // TODO: Trigger refund via Stripe API
+            // Refund processing:
+            // Option 1: Automatic refund (recommended for production)
             // const paymentIntent = session.payment_intent;
             // if (paymentIntent) {
-            //     await stripe.refunds.create({ payment_intent: paymentIntent as string });
+            //     try {
+            //         await stripe.refunds.create({ payment_intent: paymentIntent as string });
+            //         console.log(`Refund processed for session ${session.id}`);
+            //     } catch (refundError) {
+            //         console.error('Failed to process automatic refund:', refundError);
+            //         // Fall through to manual processing
+            //     }
             // }
-
-            // Log for manual refund processing
-            console.error(`CRITICAL: Capacity exceeded for user ${userId}, manual refund required. Session: ${session.id}, Amount: ${session.amount_total || 0}`);
+            //
+            // Option 2: Manual refund (current implementation)
+            // Log for manual refund processing via admin dashboard or Stripe Dashboard
+            console.error(`CRITICAL: Capacity exceeded for user ${userId}, manual refund required. Session: ${session.id}, Amount: ${session.amount_total || 0}, Customer: ${stripeCustomerId}`);
 
             // Return 200 to Stripe to prevent retries (the payment is handled, just capacity issue)
             // The error will be logged but won't cause webhook retries

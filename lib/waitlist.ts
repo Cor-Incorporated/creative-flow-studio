@@ -117,8 +117,10 @@ export async function addToWaitlist(
     email: string,
     name?: string
 ): Promise<{ success: boolean; position?: number; error?: string }> {
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Validate email format with stricter regex
+    // Allows: alphanumeric, dots, underscores, percent, plus, hyphens before @
+    // Domain must have at least one dot and valid TLD (2+ letters)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) {
         return { success: false, error: 'INVALID_EMAIL' };
     }
