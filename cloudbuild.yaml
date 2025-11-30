@@ -98,30 +98,41 @@ steps:
               # DATABASE_URLを取得して、localhost経由に変換
               echo "🔑 データベース接続情報を取得しています..."
               DB_URL=$$DATABASE_URL
-              # Unix socket形式からTCP形式に変換
-              DB_URL_LOCAL=$(echo "$$DB_URL" | sed 's|host=/cloudsql/[^?]*|host=127.0.0.1|' | sed 's|@/|@127.0.0.1:5432/|')
+              echo "  元のDATABASE_URL: $$DB_URL"
               
-              # データベース接続が確立されるまで待機（最大30秒）
+              # Unix socket形式からTCP形式に変換
+              # postgresql://user:pass@/db?host=/cloudsql/... -> postgresql://user:pass@127.0.0.1:5432/db
+              DB_URL_LOCAL=$(echo "$$DB_URL" | sed 's|host=/cloudsql/[^?]*||' | sed 's|@/|@127.0.0.1:5432/|')
+              echo "  変換後のDATABASE_URL: $$DB_URL_LOCAL"
+              
+              # データベース接続が確立されるまで待機（最大60秒）
               echo "⏳ データベース接続を待機しています..."
               export DATABASE_URL="$$DB_URL_LOCAL"
-              MAX_RETRIES=30
+              MAX_RETRIES=60
               RETRY_COUNT=0
+              CONNECTED=false
+              
               while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-                  # bashの/dev/tcpを使ってポート5432が開いているか確認
-                  if timeout 1 bash -c "echo > /dev/tcp/127.0.0.1/5432" 2>/dev/null; then
-                      echo "✅ データベースポートが開きました"
-                      # さらに2秒待機して接続を安定させる
-                      sleep 2
+                  # Prismaを使って実際に接続を試みる
+                  if npx prisma db execute --stdin <<< "SELECT 1;" > /dev/null 2>&1; then
+                      echo "✅ データベース接続が確立されました"
+                      CONNECTED=true
                       break
                   fi
                   RETRY_COUNT=$$((RETRY_COUNT + 1))
-                  echo "  試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                  if [ $$((RETRY_COUNT % 5)) -eq 0 ]; then
+                      echo "  試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                  fi
                   sleep 1
               done
               
-              if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
-                  echo "❌ データベース接続の確立に失敗しました"
+              if [ "$$CONNECTED" != "true" ]; then
+                  echo "❌ データベース接続の確立に失敗しました（$$MAX_RETRIES回試行）"
+                  echo "Cloud SQL Proxyログ:"
                   cat /tmp/cloud-sql-proxy.log
+                  echo ""
+                  echo "接続テスト:"
+                  npx prisma db execute --stdin <<< "SELECT 1;" || true
                   exit 1
               fi
               
