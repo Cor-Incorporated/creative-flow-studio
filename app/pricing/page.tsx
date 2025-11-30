@@ -117,17 +117,17 @@ export default function PricingPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
                 {/* Header */}
-                <div className="text-center mb-16">
-                    <h1 className="text-5xl font-bold mb-4">料金プラン</h1>
-                    <p className="text-xl text-gray-300">
+                <div className="text-center mb-10 sm:mb-16">
+                    <h1 className="text-3xl sm:text-5xl font-bold mb-3 sm:mb-4">料金プラン</h1>
+                    <p className="text-base sm:text-xl text-gray-300">
                         あなたのニーズに合ったプランを選択してください
                     </p>
                 </div>
 
                 {/* Pricing Cards */}
-                <div className="grid md:grid-cols-3 gap-8 mb-16">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-10 sm:mb-16">
                     {PRICING_PLANS.map(plan => (
                         <div
                             key={plan.name}
@@ -201,55 +201,55 @@ export default function PricingPage() {
                 </div>
 
                 {/* Feature Comparison Table */}
-                <div className="mt-16 bg-gray-800 rounded-2xl p-8">
-                    <h2 className="text-3xl font-bold mb-8 text-center">機能比較表</h2>
+                <div className="mt-10 sm:mt-16 bg-gray-800 rounded-2xl p-4 sm:p-8">
+                    <h2 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center">機能比較表</h2>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                    <div className="overflow-x-auto -mx-4 sm:mx-0">
+                        <table className="w-full text-left text-sm sm:text-base min-w-[500px]">
                             <thead>
                                 <tr className="border-b border-gray-700">
-                                    <th className="py-4 px-6">機能</th>
-                                    <th className="py-4 px-6 text-center">FREE</th>
-                                    <th className="py-4 px-6 text-center">PRO</th>
-                                    <th className="py-4 px-6 text-center">ENTERPRISE</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6">機能</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-center">FREE</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-center">PRO</th>
+                                    <th className="py-3 sm:py-4 px-3 sm:px-6 text-center">ENTERPRISE</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 <tr>
-                                    <td className="py-4 px-6">月間リクエスト数</td>
-                                    <td className="py-4 px-6 text-center">100</td>
-                                    <td className="py-4 px-6 text-center">1,000</td>
-                                    <td className="py-4 px-6 text-center">無制限</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">月間リクエスト数</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">100</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">1,000</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">無制限</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">最大ファイルサイズ</td>
-                                    <td className="py-4 px-6 text-center">5MB</td>
-                                    <td className="py-4 px-6 text-center">50MB</td>
-                                    <td className="py-4 px-6 text-center">500MB</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">最大ファイルサイズ</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">5MB</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">50MB</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">500MB</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">PROモード</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">PROモード</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">画像生成</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">画像生成</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">動画生成</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">-</td>
-                                    <td className="py-4 px-6 text-center">✓</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">動画生成</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">-</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">✓</td>
                                 </tr>
                                 <tr>
-                                    <td className="py-4 px-6">サポート</td>
-                                    <td className="py-4 px-6 text-center">コミュニティ</td>
-                                    <td className="py-4 px-6 text-center">優先</td>
-                                    <td className="py-4 px-6 text-center">専任</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6">サポート</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">コミュニティ</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">優先</td>
+                                    <td className="py-3 sm:py-4 px-3 sm:px-6 text-center">専任</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -257,12 +257,12 @@ export default function PricingPage() {
                 </div>
 
                 {/* FAQ Section */}
-                <div className="mt-16 text-center">
-                    <h2 className="text-3xl font-bold mb-4">よくある質問</h2>
-                    <p className="text-gray-300 mb-8">
+                <div className="mt-10 sm:mt-16 text-center">
+                    <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">よくある質問</h2>
+                    <p className="text-gray-300 mb-6 sm:mb-8 text-sm sm:text-base">
                         ご不明な点がございましたら、お気軽にお問い合わせください。
                     </p>
-                    <button className="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-lg font-semibold">
+                    <button className="bg-blue-600 hover:bg-blue-700 px-6 sm:px-8 py-3 rounded-lg font-semibold text-sm sm:text-base">
                         お問い合わせ
                     </button>
                 </div>

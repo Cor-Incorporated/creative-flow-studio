@@ -161,7 +161,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }, []);
 
     return (
-        <div className="p-4 bg-gray-900 border-t border-gray-700">
+        <div className="p-4 bg-gray-900 border-t border-gray-700 safe-area-bottom">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="text-sm font-semibold text-gray-400 mr-2">モード:</span>
                 <ModeButton currentMode={mode} buttonMode="chat" onClick={() => setMode('chat')}>
@@ -265,11 +265,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         </button>
                     </div>
                 )}
-                <form onSubmit={handleSubmit} className="flex items-center w-full">
+                <form onSubmit={handleSubmit} className="flex items-start w-full gap-2">
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-gray-400 hover:text-white"
+                        className="p-2 text-gray-400 hover:text-white flex-shrink-0"
                     >
                         <AttachmentIcon />
                     </button>
@@ -282,20 +282,27 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     />
                     <textarea
                         value={prompt}
-                        onChange={e => setPrompt(e.target.value)}
+                        onChange={e => {
+                            setPrompt(e.target.value);
+                            // Auto-resize textarea
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
+                        }}
                         onPaste={handlePaste as any}
                         onKeyDown={e => {
                             if (e.key === 'Enter' && e.shiftKey) handleSubmit(e);
                         }}
-                        placeholder="何でも質問したり、画像や動画の説明を入力してください... (Shift+Enterで送信)"
-                        className="flex-grow bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none resize-none"
+                        placeholder="何でも質問してください... (Shift+Enterで送信)"
+                        className="flex-grow bg-transparent text-gray-100 placeholder-gray-500 focus:outline-none resize-none min-h-[44px] max-h-[200px] py-2 text-base leading-relaxed overflow-y-auto"
                         rows={1}
                         disabled={isLoading}
+                        style={{ fontSize: '16px' }}
                     />
                     <button
                         type="submit"
                         disabled={isLoading || (!prompt.trim() && !uploadedMedia)}
-                        className="p-2 text-white bg-blue-600 rounded-full disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                        className="p-2 text-white bg-blue-600 rounded-full disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors flex-shrink-0"
                     >
                         {isLoading ? (
                             <div className="w-6 h-6 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
