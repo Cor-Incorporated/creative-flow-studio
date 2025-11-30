@@ -182,15 +182,15 @@ variable "cloud_run_secret_env_vars" {
   description = "Secret Manager を参照する環境変数 (ENV_NAME => secret_id)"
   type        = map(string)
   default = {
-    DATABASE_URL                      = "database-url"
-    NEXTAUTH_SECRET                   = "nextauth-secret"
-    GOOGLE_CLIENT_ID                  = "google-client-id"
-    GOOGLE_CLIENT_SECRET              = "google-client-secret"
-    SUPABASE_SERVICE_ROLE_KEY         = "supabase-service-role"
-    STRIPE_SECRET_KEY                 = "stripe-secret-key"
-    STRIPE_WEBHOOK_SECRET             = "stripe-webhook-secret"
+    DATABASE_URL                       = "database-url"
+    NEXTAUTH_SECRET                    = "nextauth-secret"
+    GOOGLE_CLIENT_ID                   = "google-client-id"
+    GOOGLE_CLIENT_SECRET               = "google-client-secret"
+    SUPABASE_SERVICE_ROLE_KEY          = "supabase-service-role"
+    STRIPE_SECRET_KEY                  = "stripe-secret-key"
+    STRIPE_WEBHOOK_SECRET              = "stripe-webhook-secret"
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "stripe-publishable-key"
-    GEMINI_API_KEY                    = "gemini-api-key"
+    GEMINI_API_KEY                     = "gemini-api-key"
   }
 }
 
