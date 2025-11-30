@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { stripe, getPlanIdFromStripeSubscription, isEventProcessed } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { MAX_PAID_USERS } from '@/lib/constants';
+import { addToWaitlist } from '@/lib/waitlist';
 import Stripe from 'stripe';
 
 /**
@@ -225,6 +226,59 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
         console.log(`Subscription created/updated for user ${userId}`);
     } catch (error: any) {
         console.error('Error handling checkout.session.completed:', error);
+
+        // Handle capacity exceeded error specially
+        if (error.message === 'CAPACITY_EXCEEDED') {
+            // Get user email for waitlist
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true, name: true },
+            });
+
+            if (user?.email) {
+                // Add user to waitlist
+                await addToWaitlist(user.email, user.name || undefined);
+                console.log(`User ${userId} added to waitlist due to capacity limit`);
+            }
+
+            // Record failed payment event
+            try {
+                // Create a temporary subscription record to track the failed attempt
+                const existingSub = await prisma.subscription.findUnique({
+                    where: { userId },
+                });
+
+                if (existingSub) {
+                    await prisma.paymentEvent.create({
+                        data: {
+                            subscription: { connect: { id: existingSub.id } },
+                            stripeEventId: event.id,
+                            type: 'checkout.session.completed',
+                            amount: session.amount_total || 0,
+                            status: 'capacity_exceeded',
+                            metadata: {
+                                sessionId: session.id,
+                                customerId: stripeCustomerId,
+                                error: 'CAPACITY_EXCEEDED',
+                            },
+                        },
+                    });
+                }
+            } catch (recordError) {
+                console.error('Failed to record capacity exceeded event:', recordError);
+            }
+
+            // TODO: Trigger refund via Stripe API
+            // const paymentIntent = session.payment_intent;
+            // if (paymentIntent) {
+            //     await stripe.refunds.create({ payment_intent: paymentIntent as string });
+            // }
+
+            // Return 200 to Stripe to prevent retries (the payment is handled, just capacity issue)
+            // The error will be logged but won't cause webhook retries
+            return;
+        }
+
         throw error;
     }
 }

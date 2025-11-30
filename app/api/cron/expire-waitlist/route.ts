@@ -30,16 +30,21 @@ export async function GET(request: NextRequest) {
         // Verify cron secret to prevent unauthorized access
         const cronSecret = process.env.CRON_SECRET;
         const providedSecret = request.headers.get('x-cron-secret');
+        const vercelCron = request.headers.get('x-vercel-cron');
 
-        // Allow access from Vercel Cron (they set CRON_SECRET automatically)
-        // or from external cron services with matching secret
-        if (cronSecret && providedSecret !== cronSecret) {
-            // Also check for Vercel's internal cron header
-            const vercelCron = request.headers.get('x-vercel-cron');
-            if (!vercelCron) {
-                console.error('Unauthorized cron request - invalid secret');
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // In production, require authentication
+        if (process.env.NODE_ENV === 'production') {
+            // If CRON_SECRET is not configured, only allow Vercel Cron
+            if (!cronSecret && !vercelCron) {
+                console.error('CRON_SECRET not configured and not a Vercel cron request');
+                return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
             }
+        }
+
+        // Require either valid secret or Vercel's internal header
+        if (!vercelCron && (!cronSecret || providedSecret !== cronSecret)) {
+            console.error('Unauthorized cron request - invalid or missing secret');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         // Expire old notifications
