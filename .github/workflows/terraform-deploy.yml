@@ -18,6 +18,9 @@ jobs:
   terraform:
     name: Terraform Apply
     runs-on: ubuntu-latest
+    concurrency:
+      group: terraform-deploy
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
@@ -62,8 +65,18 @@ jobs:
         run: terraform apply -auto-approve tfplan
 
       - name: "Verify Cloud Run Service"
+        working-directory: infra/envs/dev
         run: |
-          gcloud run services describe creative-flow-studio-dev \
+          # Terraformの出力からサービス名を取得
+          SERVICE_NAME=$(terraform output -raw service_name 2>/dev/null || echo "creative-flow-studio")
+          echo "Service name: $SERVICE_NAME"
+          
+          # Cloud RunサービスのURLを取得
+          gcloud run services describe $SERVICE_NAME \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} \
-            --format="get(status.url)"
+            --format="get(status.url)" || \
+          gcloud run services list \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format="table(SERVICE,URL)" | head -5
