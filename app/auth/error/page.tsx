@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SparklesIcon } from '@/components/icons';
 
@@ -19,7 +20,7 @@ const errorMessages: Record<string, string> = {
     Default: '認証中にエラーが発生しました。',
 };
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
     const searchParams = useSearchParams();
     const error = searchParams.get('error') || 'Default';
     const errorMessage = errorMessages[error] || errorMessages.Default;
@@ -80,5 +81,17 @@ export default function AuthErrorPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function AuthErrorPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+                <div className="text-white">読み込み中...</div>
+            </div>
+        }>
+            <AuthErrorContent />
+        </Suspense>
     );
 }
