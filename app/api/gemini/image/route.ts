@@ -96,21 +96,18 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Generate or edit image
-        let result;
         let imageUrl: string | undefined;
         const isEditing = !!originalImage;
 
         // Image editing mode
         if (originalImage) {
-            result = await editImage(prompt, originalImage);
-            // Extract image from edit response
-            const candidates = (result as any).candidates;
-            if (candidates && candidates[0]?.content?.parts) {
-                for (const part of candidates[0].content.parts) {
-                    if (part.inlineData) {
-                        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
-                        break;
-                    }
+            const result = await editImage(prompt, originalImage);
+            // Extract image from edit response (same as alpha)
+            for (const part of result.candidates[0].content.parts) {
+                if (part.inlineData) {
+                    const base64ImageBytes: string = part.inlineData.data;
+                    imageUrl = `data:image/png;base64,${base64ImageBytes}`;
+                    break;
                 }
             }
             if (!imageUrl) {
@@ -119,25 +116,8 @@ export async function POST(request: NextRequest) {
         }
         // Image generation mode
         else {
-            result = await generateImage(prompt, aspectRatio);
-            // Extract image URL from generation response
-            const generatedImages = (result as any).generatedImages;
-            if (!generatedImages || generatedImages.length === 0) {
-                throw new Error('No images generated');
-            }
-            const firstImage = generatedImages[0];
-            let base64ImageBytes: string | undefined;
-            if (firstImage?.image?.imageBytes) {
-                base64ImageBytes = firstImage.image.imageBytes;
-            } else if (firstImage?.imageBytes) {
-                base64ImageBytes = firstImage.imageBytes;
-            } else if (firstImage?.data) {
-                base64ImageBytes = firstImage.data;
-            }
-            if (!base64ImageBytes) {
-                throw new Error('Image data not found in response');
-            }
-            imageUrl = `data:image/png;base64,${base64ImageBytes}`;
+            // generateImage now returns data URL directly (same as alpha)
+            imageUrl = await generateImage(prompt, aspectRatio);
         }
 
         // 4. Log usage after successful generation

@@ -1,7 +1,7 @@
 // Gemini API Service (Server-side version migrated from alpha/services/geminiService.ts)
 import { GoogleGenAI, Modality } from '@google/genai';
-import { THINKING_BUDGET, GEMINI_MODELS, ERROR_MESSAGES } from './constants';
-import type { Media, AspectRatio } from '../types/app';
+import type { AspectRatio, Media } from '../types/app';
+import { ERROR_MESSAGES, GEMINI_MODELS, THINKING_BUDGET } from './constants';
 
 // Get AI client with API key from environment
 const getAiClient = () => {
@@ -106,15 +106,53 @@ export const generateSearchGroundedResponse = async (
 // --- Image Generation ---
 export const generateImage = async (prompt: string, aspectRatio: AspectRatio = '1:1') => {
     const ai = getAiClient();
+    
+    // Validate aspect ratio (same as alpha implementation)
+    const VALID_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const;
+    const normalizedAspectRatio = VALID_IMAGE_ASPECT_RATIOS.includes(aspectRatio as any)
+        ? aspectRatio
+        : '1:1';
+
     const result = await ai.models.generateImages({
         model: GEMINI_MODELS.IMAGEN,
         prompt,
         config: {
             numberOfImages: 1,
-            aspectRatio,
+            outputMimeType: 'image/png', // Fixed: Add outputMimeType from alpha
+            aspectRatio: normalizedAspectRatio,
         },
     });
-    return result;
+
+    // Error handling: Check if generatedImages exists and has elements (same as alpha)
+    if (!result || !result.generatedImages || result.generatedImages.length === 0) {
+        const httpResponse = result?.sdkHttpResponse as any;
+        const errorMessage = httpResponse?.body
+            ? `${ERROR_MESSAGES.IMAGE_GENERATION_FAILED}: ${JSON.stringify(httpResponse.body)}`
+            : ERROR_MESSAGES.IMAGE_NO_IMAGES;
+        throw new Error(errorMessage);
+    }
+
+    const firstImage = result.generatedImages[0];
+    if (!firstImage) {
+        throw new Error(ERROR_MESSAGES.IMAGE_NO_DATA);
+    }
+
+    // Extract image data (same logic as alpha)
+    let base64ImageBytes: string;
+    const imageData = firstImage as any;
+
+    if (imageData.image && imageData.image.imageBytes) {
+        base64ImageBytes = imageData.image.imageBytes;
+    } else if (imageData.imageBytes) {
+        base64ImageBytes = imageData.imageBytes;
+    } else if (imageData.data) {
+        base64ImageBytes = imageData.data;
+    } else {
+        throw new Error(ERROR_MESSAGES.IMAGE_UNEXPECTED_FORMAT);
+    }
+
+    // Return data URL format (same as alpha)
+    return `data:image/png;base64,${base64ImageBytes}`;
 };
 
 // --- Image Analysis ---
@@ -178,21 +216,37 @@ export const editImage = async (prompt: string, originalImage: Media) => {
 };
 
 // --- Video Generation ---
-export const generateVideo = async (prompt: string, aspectRatio: AspectRatio = '16:9') => {
+export const generateVideo = async (
+    prompt: string,
+    aspectRatio: AspectRatio = '16:9',
+    startImage?: Media
+) => {
     const ai = getAiClient();
+    
+    // Prepare image payload if startImage is provided (same as alpha)
+    const imagePayload = startImage
+        ? {
+              imageBytes: dataUrlToBase64(startImage.url),
+              mimeType: startImage.mimeType,
+          }
+        : undefined;
+
     const result = await ai.models.generateVideos({
         model: GEMINI_MODELS.VEO,
         prompt,
+        image: imagePayload, // Fixed: Add image support from alpha
         config: {
-            aspectRatio,
+            numberOfVideos: 1, // Fixed: Add from alpha
+            resolution: '720p', // Fixed: Add from alpha
+            aspectRatio: aspectRatio as '16:9' | '9:16', // Fixed: Type assertion from alpha
         },
     });
+
     return result;
 };
 
 // Poll video generation status
-export const pollVideoOperation = async (operationName: string) => {
+export const pollVideoOperation = async (operation: any) => {
     const ai = getAiClient();
-    const result = await ai.operations.get({ name: operationName } as any);
-    return result;
+    return await ai.operations.getVideosOperation({ operation: operation });
 };

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { generateVideo } from '@/lib/gemini';
-import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { ERROR_MESSAGES, VALID_VIDEO_ASPECT_RATIOS } from '@/lib/constants';
+import { generateVideo } from '@/lib/gemini';
+import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage, PlanFeatures } from '@/lib/subscription';
 import type { AspectRatio } from '@/types/app';
+import { getServerSession } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * POST /api/gemini/video
@@ -85,23 +85,23 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. Generate video
-        const result = await generateVideo(prompt, aspectRatio);
+        const operation = await generateVideo(prompt, aspectRatio);
 
-        // Extract operation name from result
-        // The result from generateVideo is an operation object with a 'name' property
-        const operationName = (result as any)?.name;
-        if (!operationName) {
-            throw new Error('Operation name not found in video generation response');
+        // Validate operation object
+        if (!operation || !operation.name) {
+            throw new Error('Operation object not found in video generation response');
         }
 
         // 4. Log usage after successful generation
         await logUsage(session.user.id, 'video_generation', {
             aspectRatio,
-            resourceType: 'veo-3.1-fast',
+            resourceType: 'veo-3.1-fast-generate-preview',
             promptLength: prompt.length,
         });
 
-        return NextResponse.json({ operationName });
+        // Return operation object (same as alpha implementation)
+        // Frontend will use operation.name for polling
+        return NextResponse.json({ operation });
     } catch (error: any) {
         console.error('Gemini Video API Error:', error);
 

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { pollVideoOperation } from '@/lib/gemini';
 import { ERROR_MESSAGES } from '@/lib/constants';
+import { pollVideoOperation } from '@/lib/gemini';
+import { getServerSession } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * POST /api/gemini/video/status
@@ -24,13 +24,20 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { operationName }: { operationName: string } = body;
+        const { operation: operationFromBody, operationName }: { operation?: any; operationName?: string } = body;
 
-        if (!operationName) {
-            return NextResponse.json({ error: 'Operation name is required' }, { status: 400 });
+        // Support both operation object and operationName string (for backward compatibility)
+        let operationToPoll: any;
+        if (operationFromBody) {
+            operationToPoll = operationFromBody;
+        } else if (operationName) {
+            // If only operationName is provided, create a minimal operation object
+            operationToPoll = { name: operationName };
+        } else {
+            return NextResponse.json({ error: 'Operation or operationName is required' }, { status: 400 });
         }
 
-        const operation = await pollVideoOperation(operationName);
+        const operation = await pollVideoOperation(operationToPoll);
 
         return NextResponse.json({ operation });
     } catch (error: any) {

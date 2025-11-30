@@ -17,6 +17,21 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 async function getStats() {
+    // Helper function to safely count waitlist entries
+    // Returns 0 if table doesn't exist (migration not applied yet)
+    async function getWaitlistCount(): Promise<number> {
+        try {
+            return await prisma.waitlist.count({ where: { status: 'PENDING' } });
+        } catch (error: any) {
+            // If table doesn't exist, return 0
+            if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+                console.warn('Waitlist table does not exist yet. Migration may be pending.');
+                return 0;
+            }
+            throw error;
+        }
+    }
+
     const [
         totalUsers,
         totalConversations,
@@ -39,7 +54,7 @@ async function getStats() {
                 },
             },
         }),
-        prisma.waitlist.count({ where: { status: 'PENDING' } }),
+        getWaitlistCount(),
         // Count paid users: active subscriptions with non-FREE plans, excluding ADMIN users
         prisma.subscription.count({
             where: {

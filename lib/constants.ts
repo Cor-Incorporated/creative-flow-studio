@@ -69,8 +69,8 @@ export const GEMINI_MODELS = {
     FLASH: 'gemini-2.5-flash',
     PRO: 'gemini-2.5-pro',
     FLASH_IMAGE: 'gemini-2.5-flash-image',
-    IMAGEN: 'imagen-4.0',
-    VEO: 'veo-3.1-fast',
+    IMAGEN: 'imagen-4.0-generate-001', // Fixed: Use correct model name from alpha
+    VEO: 'veo-3.1-fast-generate-preview', // Fixed: Use correct model name from alpha
 } as const;
 
 // Error Messages
