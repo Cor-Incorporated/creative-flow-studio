@@ -30,6 +30,7 @@ resource "google_secret_manager_secret" "managed" {
       }
     }
   }
+
 }
 
 resource "google_secret_manager_secret_version" "current" {
