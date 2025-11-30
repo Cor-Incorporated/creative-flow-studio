@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @source "../app";
 @source "../components";
+@source "../lib";
+@source "../types";
 
 @layer base {
     * {

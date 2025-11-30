@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-Creative Flow Studio is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features a DJ Shacho Mode that applies a unique persona (high-energy, Kyushu dialect speaking entrepreneur) to text responses.
+Creative Flow Studio is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features an Influencer Mode that allows selecting different AI personas (DJ Shacho, HIKAKIN風, etc.) to customize text responses.
 
 ## Branch Strategy
 
@@ -23,7 +23,7 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 | Feature | Status | Tests |
 |---------|--------|-------|
 | Environment Setup (Next.js 14, Prisma, Tailwind v4) | ✅ | - |
-| Authentication (NextAuth.js + Google OAuth) | ✅ | - |
+| Authentication (NextAuth.js + Google OAuth + Email/Password) | ✅ | - |
 | Gemini API (Chat/Pro/Search/Image/Video) | ✅ | 18 |
 | Conversation Persistence (CRUD + Messages) | ✅ | 33 |
 | Stripe Integration (Checkout/Portal/Webhooks) | ✅ | 37 |
@@ -32,6 +32,8 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 | Shared API Utilities | ✅ | 14 |
 | Validators | ✅ | 9 |
 | Landing Page & Auth UX (Toast notifications) | ✅ | - |
+| Influencer Mode (DJ Shacho, HIKAKIN風) | ✅ | - |
+| Chat Sidebar (New chat, History, Delete) | ✅ | - |
 
 **Total Tests**: 185 passing ✅
 
@@ -69,6 +71,9 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 │   ├── providers.tsx              # SessionProvider wrapper
 │   ├── pricing/page.tsx           # Pricing tiers
 │   ├── dashboard/page.tsx         # User dashboard
+│   ├── auth/                      # Authentication pages
+│   │   ├── signin/page.tsx        # Login/Register page
+│   │   └── error/page.tsx         # Auth error page
 │   ├── admin/                     # Admin dashboard (RBAC protected)
 │   │   ├── layout.tsx             # Admin layout
 │   │   ├── page.tsx               # Overview dashboard
@@ -87,14 +92,15 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 │   ├── ChatInput.tsx              # Input controls
 │   └── icons.tsx                  # SVG icons
 ├── lib/
-│   ├── auth.ts                    # NextAuth configuration
+│   ├── auth.ts                    # NextAuth configuration (Google + Credentials)
+│   ├── password.ts                # Password hashing utilities (PBKDF2)
 │   ├── prisma.ts                  # Prisma client singleton
 │   ├── gemini.ts                  # Gemini API service
 │   ├── stripe.ts                  # Stripe utilities
 │   ├── subscription.ts            # Subscription management
 │   ├── validators.ts              # Zod schemas
 │   ├── api-utils.ts               # Shared API utilities (auth, errors)
-│   ├── constants.ts               # App-wide constants
+│   ├── constants.ts               # App-wide constants + Influencer configs
 │   └── fileUtils.ts               # File utilities
 ├── types/app.ts                   # TypeScript types
 ├── prisma/schema.prisma           # Database schema
@@ -232,19 +238,30 @@ export const GEMINI_MODELS = {
 
 ---
 
-## DJ Shacho Mode
+## Influencer Mode
 
-Special persona mode applying DJ Shacho (Shunsuke Kimoto) speaking style.
+Selectable AI persona mode that applies different influencer speaking styles.
 
-**Characteristics:**
-- High-energy, enthusiastic tone
-- Kyushu dialect (博多弁)
-- First-person: 「俺」
+**Available Personas:**
+
+| ID | Name | Description |
+|----|------|-------------|
+| `dj_shacho` | DJ社長 | Repezen Foxx leader, 九州弁, high-energy |
+| `hikakin` | HIKAKIN風 | Top YouTuber style, friendly, polite |
+| `none` | OFF | Default AI assistant |
 
 **Implementation:**
-- Toggle in `ChatInput` component
-- `DJ_SHACHO_SYSTEM_PROMPT` in `lib/constants.ts`
-- Error messages converted to DJ Shacho style
+- Dropdown selector in `ChatInput` component
+- `INFLUENCERS` config object in `lib/constants.ts`
+- `getInfluencerConfig(id)` helper function
+- Error messages styled to match selected influencer
+- Initial greeting changes based on selection
+
+**Adding New Influencers:**
+1. Add new config to `INFLUENCERS` in `lib/constants.ts`
+2. Define `systemPrompt`, `initialMessage`, `temperature`
+3. Add avatar image to `/public/` if needed
+4. Update `ChatMessage.tsx` avatar logic
 
 ---
 
@@ -298,18 +315,35 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
 ## Session Notes
 
 **Last Updated**: 2025-11-30
-**Current Focus**: Documentation update and codebase improvements
+**Current Focus**: Beta version feature implementation
 
-**Recent Changes:**
+**Recent Changes (This Session):**
 
-- Added `lib/api-utils.ts` with shared API utilities (requireAuth, requireAdmin, errorResponse, handleValidationError, handleSubscriptionLimitError)
-- Added tests for api-utils.ts (14 tests) and validators.ts (9 tests)
-- Test count increased from 136 to 185
+- Fixed Tailwind v4 CSS issues - added `@source` directives for `lib` and `types` directories
+- Added Email/Password authentication with CredentialsProvider
+  - New `lib/password.ts` for PBKDF2 password hashing
+  - New `/app/auth/signin/page.tsx` and `/app/auth/error/page.tsx`
+  - Updated NextAuth config to JWT session strategy
+  - Added `password` field to User model in Prisma schema
+- Refactored DJ Shacho Mode to Influencer Mode
+  - New `INFLUENCERS` config object in `lib/constants.ts`
+  - Dropdown selector instead of toggle
+  - Added HIKAKIN風 persona as additional option
+  - Updated ChatInput, ChatMessage, and page.tsx components
+- Added Admin Dashboard documentation (`docs/admin-dashboard.md`)
+- Updated CLAUDE.md with new features
 
 **Pending for Cursor:**
 
 1. Setup NextAuth environment variables on Cloud Run
 2. Register Google OAuth redirect URI
 3. Optimize N+1 query in admin users API
+4. Run `prisma migrate dev` to add password field to users table
+
+**Migration Required:**
+```bash
+npm run prisma:migrate
+# Creates migration for new `password` field on User model
+```
 
 **Test Status**: 185/185 passing ✅
