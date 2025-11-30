@@ -261,19 +261,40 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                         {/* Influencer Mode */}
                                         <div className="p-2 border-b border-gray-700">
                                             <p className="text-xs text-gray-400 px-2 mb-2">インフルエンサーモード</p>
-                                            <div className="px-1">
-                                                <select
-                                                    value={selectedInfluencer}
-                                                    onChange={(e) => setSelectedInfluencer(e.target.value as InfluencerId)}
-                                                    className="w-full px-3 py-2 text-sm rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:border-blue-500"
+                                            <div className="px-1 space-y-1">
+                                                {/* OFF Button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedInfluencer('none')}
+                                                    className={`w-full px-3 py-2 text-sm rounded-lg text-left transition-colors ${
+                                                        selectedInfluencer === 'none'
+                                                            ? 'bg-gray-600 text-white'
+                                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                    }`}
                                                 >
-                                                    <option value="none">OFF</option>
-                                                    {Object.values(INFLUENCERS).map((influencer) => (
-                                                        <option key={influencer.id} value={influencer.id}>
-                                                            {influencer.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                    OFF
+                                                </button>
+                                                {/* Influencer Buttons */}
+                                                {Object.values(INFLUENCERS).map((influencer) => (
+                                                    <button
+                                                        key={influencer.id}
+                                                        type="button"
+                                                        onClick={() => !influencer.comingSoon && setSelectedInfluencer(influencer.id)}
+                                                        disabled={influencer.comingSoon}
+                                                        className={`w-full px-3 py-2 text-sm rounded-lg text-left transition-colors flex items-center justify-between ${
+                                                            influencer.comingSoon
+                                                                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                                                                : selectedInfluencer === influencer.id
+                                                                    ? 'bg-amber-600 text-white'
+                                                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                        }`}
+                                                    >
+                                                        <span>{influencer.name}</span>
+                                                        {influencer.comingSoon && (
+                                                            <span className="text-xs text-gray-500 italic">Coming soon...</span>
+                                                        )}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
 
