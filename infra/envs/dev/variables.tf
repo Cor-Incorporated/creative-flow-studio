@@ -37,7 +37,7 @@ variable "connector_cidr" {
 variable "create_serverless_connector" {
   description = "Serverless VPC Access Connector を作成するか（既存のConnectorを使用する場合は false）"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "psa_address" {
