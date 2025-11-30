@@ -1,5 +1,5 @@
-import { prisma } from '@/lib/prisma';
 import { MAX_PAID_USERS } from '@/lib/constants';
+import { prisma } from '@/lib/prisma';
 
 /**
  * Admin Dashboard - Overview Page
@@ -40,11 +40,22 @@ async function getStats() {
             },
         }),
         prisma.waitlist.count({ where: { status: 'PENDING' } }),
+        // Count paid users: active subscriptions with non-FREE plans, excluding ADMIN users
         prisma.subscription.count({
             where: {
                 status: 'ACTIVE',
-                plan: { name: { not: 'FREE' } },
-                user: { role: { not: 'ADMIN' } },
+                AND: [
+                    {
+                        plan: {
+                            name: { not: 'FREE' },
+                        },
+                    },
+                    {
+                        user: {
+                            role: { not: 'ADMIN' },
+                        },
+                    },
+                ],
             },
         }),
     ]);
@@ -83,9 +94,10 @@ async function getStats() {
 }
 
 export default async function AdminDashboardPage() {
-    const stats = await getStats();
+    try {
+        const stats = await getStats();
 
-    return (
+        return (
         <div className="space-y-6">
             {/* Page Header */}
             <div>
@@ -398,5 +410,33 @@ export default async function AdminDashboardPage() {
                 </div>
             </div>
         </div>
-    );
+        );
+    } catch (error: any) {
+        console.error('Error in AdminDashboardPage:', error);
+        
+        return (
+            <div className="space-y-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h2 className="text-xl font-bold text-red-900 mb-2">エラーが発生しました</h2>
+                    <p className="text-red-700 mb-4">
+                        ダッシュボードのデータを読み込めませんでした。
+                    </p>
+                    <details className="text-sm text-red-600">
+                        <summary className="cursor-pointer font-medium">エラー詳細</summary>
+                        <pre className="mt-2 p-3 bg-red-100 rounded overflow-auto">
+                            {error.message || String(error)}
+                        </pre>
+                    </details>
+                    <div className="mt-4">
+                        <a
+                            href="/admin"
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 inline-block"
+                        >
+                            再読み込み
+                        </a>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 }
