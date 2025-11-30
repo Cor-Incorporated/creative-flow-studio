@@ -1,0 +1,68 @@
+# Cloud Build pipeline for Terraform deployment
+# Triggered on develop branch push
+
+options:
+    logging: CLOUD_LOGGING_ONLY
+    machineType: E2_HIGHCPU_4
+
+tags:
+    - creative-flow-studio
+    - terraform
+
+substitutions:
+    _PROJECT_ID: dataanalyticsclinic
+    _REGION: asia-northeast1
+    _TERRAFORM_STATE_BUCKET: dataanalyticsclinic-terraform-state
+
+serviceAccount: projects/${_PROJECT_ID}/serviceAccounts/terraform@${_PROJECT_ID}.iam.gserviceaccount.com
+
+steps:
+    - id: 'Checkout code'
+      name: 'gcr.io/cloud-builders/git'
+      args:
+          - 'clone'
+          - '--depth=1'
+          - '--single-branch'
+          - '--branch=${BRANCH_NAME}'
+          - 'https://github.com/Cor-Incorporated/creative-flow-studio.git'
+          - '/workspace/repo'
+
+    - id: 'Terraform Init'
+      name: 'hashicorp/terraform:1.6.0'
+      dir: '/workspace/repo/infra/envs/dev'
+      entrypoint: 'terraform'
+      args:
+          - 'init'
+          - '-backend-config=bucket=${_TERRAFORM_STATE_BUCKET}'
+          - '-backend-config=prefix=terraform/dev/state'
+          - '-upgrade'
+
+    - id: 'Terraform Plan'
+      name: 'hashicorp/terraform:1.6.0'
+      dir: '/workspace/repo/infra/envs/dev'
+      entrypoint: 'terraform'
+      args:
+          - 'plan'
+          - '-out=tfplan'
+          - '-detailed-exitcode'
+
+    - id: 'Terraform Apply'
+      name: 'hashicorp/terraform:1.6.0'
+      dir: '/workspace/repo/infra/envs/dev'
+      entrypoint: 'terraform'
+      args:
+          - 'apply'
+          - '-auto-approve'
+          - 'tfplan'
+
+    - id: 'Verify Cloud Run Service'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: 'gcloud'
+      args:
+          - 'run'
+          - 'services'
+          - 'describe'
+          - 'creative-flow-studio-dev'
+          - '--region=${_REGION}'
+          - '--project=${_PROJECT_ID}'
+          - '--format=get(status.url)'
