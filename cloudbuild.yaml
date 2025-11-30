@@ -6,6 +6,8 @@
 options:
     logging: CLOUD_LOGGING_ONLY
     machineType: E2_HIGHCPU_8
+    pool:
+        name: projects/${_PROJECT_ID}/locations/${_REGION}/workerPools/cloud-build-private-pool
 
 tags:
     - creative-flow-studio
