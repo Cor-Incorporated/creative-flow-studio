@@ -12,7 +12,7 @@ psql $DATABASE_URL -f prisma/admin-setup.sql
 psql "postgresql://user:password@host:5432/database" -f prisma/admin-setup.sql
 ```
 
-### 方法2: Prisma Studioで手動変更
+### 方法2: Prisma Studioで手動変更（ローカル開発環境）
 
 1. `npm run prisma:studio` を実行
 2. Usersテーブルを開く
@@ -20,12 +20,37 @@ psql "postgresql://user:password@host:5432/database" -f prisma/admin-setup.sql
 4. `role` フィールドを `ADMIN` に変更
 5. 保存
 
-### 方法3: 直接SQLを実行
+**注意**: 本番環境（Cloud SQL）の場合は、方法1または方法3を使用してください。
 
-```sql
+### 方法3: gcloudコマンドで直接SQLを実行（本番環境推奨）
+
+```bash
+# Cloud SQLに接続してSQLを実行
+gcloud sql connect creative-flow-studio-sql \
+  --project=dataanalyticsclinic \
+  --user=app_user \
+  --database=creative_flow_studio
+
+# 接続後、以下のSQLを実行
 UPDATE "users"
 SET role = 'ADMIN', "updatedAt" = NOW()
 WHERE email = 'company@cor-jp.com';
+
+# 確認
+SELECT id, email, name, role, "createdAt", "updatedAt"
+FROM "users"
+WHERE email = 'company@cor-jp.com';
+```
+
+### 方法4: Cloud SQL Proxy経由で実行（ローカルから本番環境）
+
+```bash
+# 1. Cloud SQL Proxyを起動（別ターミナル）
+./cloud-sql-proxy dataanalyticsclinic:asia-northeast1:creative-flow-studio-sql --port=5432
+
+# 2. 別ターミナルでSQLスクリプトを実行
+export DATABASE_URL="postgresql://app_user:PASSWORD@127.0.0.1:5432/creative_flow_studio"
+psql "$DATABASE_URL" -f prisma/admin-setup.sql
 ```
 
 ## 管理者権限の機能
