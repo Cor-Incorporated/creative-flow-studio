@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generateVideo } from '@/lib/gemini';
-import { checkSubscriptionLimits, logUsage } from '@/lib/subscription';
+import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { ERROR_MESSAGES, VALID_VIDEO_ASPECT_RATIOS } from '@/lib/constants';
 import type { AspectRatio } from '@/types/app';
 
@@ -53,10 +53,24 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            // Monthly limit exceeded
+            // Monthly limit exceeded - return detailed info
             if (error.message.includes('Monthly request limit exceeded')) {
+                const subscription = await getUserSubscription(session.user.id);
+                const usageCount = await getMonthlyUsageCount(session.user.id);
+                const features = subscription?.plan.features as PlanFeatures | undefined;
+                const limit = features?.maxRequestsPerMonth ?? null;
+
                 return NextResponse.json(
-                    { error: error.message },
+                    {
+                        error: error.message,
+                        code: 'RATE_LIMIT_EXCEEDED',
+                        planName: subscription?.plan.name || 'FREE',
+                        usage: {
+                            current: usageCount,
+                            limit,
+                        },
+                        resetDate: subscription?.currentPeriodEnd?.toISOString() || null,
+                    },
                     {
                         status: 429,
                         headers: {
