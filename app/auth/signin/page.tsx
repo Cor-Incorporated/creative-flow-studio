@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { SparklesIcon } from '@/components/icons';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { SparklesIcon } from '@/components/icons';
+import { Suspense, useState } from 'react';
 
 function SignInContent() {
     const searchParams = useSearchParams();

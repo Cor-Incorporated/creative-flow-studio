@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { SparklesIcon } from '@/components/icons';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 const errorMessages: Record<string, string> = {
     Configuration: 'サーバー設定にエラーがあります。管理者にお問い合わせください。',
