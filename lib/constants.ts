@@ -76,6 +76,7 @@ export interface InfluencerConfig {
     systemPrompt: string;
     initialMessage: string;
     temperature: number;
+    comingSoon?: boolean; // Flag for features not yet available
 }
 
 // DJ Shacho Configuration
@@ -111,7 +112,7 @@ const DJ_SHACHO_CONFIG: InfluencerConfig = {
     temperature: 0.9,
 };
 
-// HIKAKIN Configuration (placeholder for future)
+// HIKAKIN Configuration (Coming Soon - placeholder for future)
 const HIKAKIN_CONFIG: InfluencerConfig = {
     id: 'hikakin',
     name: 'HIKAKIN風',
@@ -140,6 +141,7 @@ const HIKAKIN_CONFIG: InfluencerConfig = {
 
 何でも聞いてください！分かりやすく説明しますよ！😄`,
     temperature: 0.9,
+    comingSoon: true, // Not yet available
 };
 
 // All available influencers
