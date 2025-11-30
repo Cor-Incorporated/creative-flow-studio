@@ -105,15 +105,9 @@ steps:
               DB_URL_LOCAL=$(echo "$$DB_URL" | sed 's|host=/cloudsql/[^?]*||' | sed 's|@/|@127.0.0.1:5432/|')
               echo "  変換後のDATABASE_URL: $$DB_URL_LOCAL"
               
-              # データベース接続が確立されるまで待機（最大60秒）
-              echo "⏳ データベース接続を待機しています..."
-              export DATABASE_URL="$$DB_URL_LOCAL"
-              MAX_RETRIES=60
-              RETRY_COUNT=0
-              CONNECTED=false
-              
               # Prismaマイグレーションを実行（接続確認も兼ねる）
               echo "🔄 データベースマイグレーションを適用しています..."
+              export DATABASE_URL="$$DB_URL_LOCAL"
               MAX_RETRIES=60
               RETRY_COUNT=0
               
