@@ -4,6 +4,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from './prisma';
 import { comparePassword, hashPassword } from './password';
+import { Role } from '@prisma/client';
 
 // Validate required environment variables
 if (!process.env.GOOGLE_CLIENT_ID) {
@@ -155,7 +156,7 @@ export const authOptions: NextAuthOptions = {
         async session({ session, token }) {
             if (session.user && token) {
                 session.user.id = token.id as string;
-                session.user.role = token.role as string;
+                session.user.role = token.role as Role;
             }
             return session;
         },
