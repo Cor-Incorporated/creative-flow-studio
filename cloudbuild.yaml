@@ -146,6 +146,22 @@ steps:
                           tail -n 10 /tmp/cloud-sql-proxy.log || true
                       fi
                       sleep 2
+                  # スキーマが空でないエラー（P3005）の場合はbaselineを設定
+                  elif echo "$$ERROR_OUTPUT" | grep -q "P3005"; then
+                      echo "⚠️  データベースに既存のスキーマが存在します。baselineを設定します..."
+                      # 既存のマイグレーションを確認
+                      MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | head -1)
+                      if [ -n "$$MIGRATIONS" ]; then
+                          echo "  最初のマイグレーションをbaselineとして設定: $$MIGRATIONS"
+                          npx prisma migrate resolve --applied "$$MIGRATIONS" 2>&1 || true
+                          # 再度migrate deployを実行
+                          continue
+                      else
+                          echo "❌ マイグレーションファイルが見つかりません"
+                          set -e
+                          echo "$$ERROR_OUTPUT"
+                          exit 1
+                      fi
                   else
                       # 接続エラー以外の場合はエラーを表示して終了
                       set -e
