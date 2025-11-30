@@ -50,16 +50,25 @@ export default function Home() {
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
+    const currentConversationIdRef = useRef<string | null>(null);
     const { showToast, ToastContainer } = useToast();
 
     // Update ref immediately during render to avoid race conditions
     selectedInfluencerRef.current = selectedInfluencer;
+
+    // Keep track of current conversation ID for effects
+    useEffect(() => {
+        currentConversationIdRef.current = currentConversationId;
+    }, [currentConversationId]);
 
     // Get current influencer config
     const influencerConfig = getInfluencerConfig(selectedInfluencer);
 
     // Track blob URLs for cleanup to prevent memory leaks
     const blobUrlsRef = useRef<Set<string>>(new Set());
+
+    const authedFetch = (input: RequestInfo | URL, init: RequestInit = {}) =>
+        fetch(input, { credentials: 'include', ...init });
 
     // Cleanup all blob URLs on unmount
     useEffect(() => {
@@ -82,10 +91,17 @@ export default function Home() {
             if (!session?.user) return;
 
             try {
-                const response = await fetch('/api/conversations?limit=50');
+                const response = await authedFetch('/api/conversations?limit=50', {
+                    credentials: 'include',
+                });
                 if (response.ok) {
                     const data = await response.json();
-                    setConversations(data.conversations || []);
+                    const fetchedConversations = data.conversations || [];
+                    setConversations(fetchedConversations);
+
+                    if (fetchedConversations.length > 0 && !currentConversationIdRef.current) {
+                        loadConversation(fetchedConversations[0].id);
+                    }
                 }
             } catch (error) {
                 console.error('Error loading conversations:', error);
@@ -105,7 +121,7 @@ export default function Home() {
             setIsAdmin(session.user.role === 'ADMIN');
 
             try {
-                const response = await fetch('/api/usage');
+                const response = await authedFetch('/api/usage', { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
 
@@ -169,7 +185,7 @@ export default function Home() {
         try {
             const prompt = `以下のエラーメッセージを${config.name}のスタイルで説明してください。エラーの内容は正確に伝えつつ、${config.name}らしい口調で伝えてください。\n\nエラーメッセージ: ${errorMessage}`;
 
-            const response = await fetch('/api/gemini/chat', {
+            const response = await authedFetch('/api/gemini/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -242,7 +258,7 @@ export default function Home() {
      */
     const generateConversationTitle = async (userMessage: string): Promise<string | null> => {
         try {
-            const response = await fetch('/api/gemini/chat', {
+            const response = await authedFetch('/api/gemini/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -267,7 +283,7 @@ export default function Home() {
      */
     const updateConversationTitle = async (conversationId: string, title: string) => {
         try {
-            await fetch(`/api/conversations/${conversationId}`, {
+            await authedFetch(`/api/conversations/${conversationId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title }),
@@ -295,12 +311,12 @@ export default function Home() {
         }
 
         // Return existing conversation ID if already created
-        if (currentConversationId) {
-            return currentConversationId;
+        if (currentConversationIdRef.current) {
+            return currentConversationIdRef.current;
         }
 
         try {
-            const response = await fetch('/api/conversations', {
+            const response = await authedFetch('/api/conversations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -316,6 +332,7 @@ export default function Home() {
             const data = await response.json();
             const conversationId = data.conversation.id;
             setCurrentConversationId(conversationId);
+            currentConversationIdRef.current = conversationId;
 
             // Add to conversations list immediately with placeholder title
             const newConversation = {
@@ -348,14 +365,20 @@ export default function Home() {
      * Save a message to the current conversation
      * Best-effort: doesn't throw errors to avoid disrupting UX
      */
-    const saveMessage = async (role: 'USER' | 'MODEL', parts: ContentPart[]) => {
+    const saveMessage = async (
+        role: 'USER' | 'MODEL',
+        parts: ContentPart[],
+        conversationIdOverride?: string | null
+    ) => {
+        const activeConversationId = conversationIdOverride || currentConversationIdRef.current;
+
         // Skip if not authenticated or no conversation
-        if (!session?.user || !currentConversationId) {
+        if (!session?.user || !activeConversationId) {
             return;
         }
 
         try {
-            await fetch(`/api/conversations/${currentConversationId}/messages`, {
+            await authedFetch(`/api/conversations/${activeConversationId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -376,13 +399,14 @@ export default function Home() {
         if (!session?.user) return;
 
         try {
-            const response = await fetch(`/api/conversations/${conversationId}`);
+            const response = await authedFetch(`/api/conversations/${conversationId}`);
             if (response.ok) {
                 const data = await response.json();
                 const conversation = data.conversation;
 
                 // Set current conversation ID
                 setCurrentConversationId(conversation.id);
+                currentConversationIdRef.current = conversation.id;
 
                 // Set mode from conversation if available
                 if (conversation.mode) {
@@ -435,6 +459,7 @@ export default function Home() {
         const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
 
         setCurrentConversationId(null);
+        currentConversationIdRef.current = null;
         setMessages([
             {
                 id: 'init',
@@ -457,7 +482,7 @@ export default function Home() {
         if (!confirm('この会話を削除してもよろしいですか？')) return;
 
         try {
-            const response = await fetch(`/api/conversations/${conversationId}`, {
+            const response = await authedFetch(`/api/conversations/${conversationId}`, {
                 method: 'DELETE',
             });
 
@@ -478,10 +503,13 @@ export default function Home() {
 
     const pollVideoStatus = async (
         operationName: string,
-        messageId: string
+        messageId: string,
+        initialOperation?: any
     ): Promise<ContentPart[] | null> => {
         let pollAttempts = 0;
         let done = false;
+        let currentOperationName = operationName;
+        let operationDescriptor = initialOperation || { name: operationName };
 
         while (!done) {
             // Check for timeout
@@ -504,10 +532,13 @@ export default function Home() {
             pollAttempts++;
 
             try {
-                const statusResponse = await fetch('/api/gemini/video/status', {
+                const statusResponse = await authedFetch('/api/gemini/video/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ operationName }),
+                    body: JSON.stringify({
+                        operationName: currentOperationName,
+                        operation: operationDescriptor,
+                    }),
                 });
 
                 if (!statusResponse.ok) {
@@ -516,10 +547,15 @@ export default function Home() {
                 }
 
                 const statusData = await statusResponse.json();
-                const { operation } = statusData;
+                const { operation, operationName: returnedOperationName } = statusData;
+                if (returnedOperationName) {
+                    currentOperationName = returnedOperationName;
+                }
+                operationDescriptor = operation || operationDescriptor;
+                const operationPayload = operation || operationDescriptor;
 
                 // Update progress
-                const progress = operation.metadata?.progressPercentage || 0;
+                const progress = operationPayload?.metadata?.progressPercentage || 0;
                 const validatedProgress = Math.max(0, Math.min(100, progress));
                 setMessages(prev =>
                     prev.map(m =>
@@ -537,13 +573,13 @@ export default function Home() {
                     )
                 );
 
-                if (operation.done) {
+                if (operationPayload.done) {
                     done = true;
 
                     // Check for errors
-                    if (operation.error) {
+                    if (operationPayload.error) {
                         const apiErrorMessage =
-                            operation.error.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED;
+                            operationPayload.error.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED;
                         const formattedError = await formatErrorMessage(
                             `ビデオ生成エラー: ${apiErrorMessage}`
                         );
@@ -561,12 +597,12 @@ export default function Home() {
                     }
 
                     // Video is ready
-                    if (operation.response?.generatedVideos?.[0]?.video?.uri) {
-                        const downloadLink = operation.response.generatedVideos[0].video.uri;
+                    if (operationPayload.response?.generatedVideos?.[0]?.video?.uri) {
+                        const downloadLink = operationPayload.response.generatedVideos[0].video.uri;
                         // Use server-side proxy to download video without exposing API key
                         const videoUrl = `/api/gemini/video/download?uri=${encodeURIComponent(downloadLink)}`;
 
-                        const videoResponse = await fetch(videoUrl);
+                        const videoResponse = await authedFetch(videoUrl);
                         const videoBlob = await videoResponse.blob();
                         const videoDataUrl = URL.createObjectURL(videoBlob);
 
@@ -644,11 +680,13 @@ export default function Home() {
 
         // Create or get conversation for authenticated users
         // Pass the first message for auto-title generation
-        const isNewConversation = !currentConversationId;
-        await createOrGetConversation(isNewConversation ? prompt : undefined);
+        const isNewConversation = !currentConversationIdRef.current;
+        const activeConversationId =
+            (await createOrGetConversation(isNewConversation ? prompt : undefined)) ||
+            currentConversationIdRef.current;
 
         // Save user message
-        await saveMessage('USER', userParts);
+        await saveMessage('USER', userParts, activeConversationId);
 
         const loadingMessageId = Date.now().toString() + '-loading';
         setMessages(prev => [
@@ -662,7 +700,7 @@ export default function Home() {
 
             if (mode === 'image') {
                 // Call image generation API
-                const response = await fetch('/api/gemini/image', {
+                const response = await authedFetch('/api/gemini/image', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt, aspectRatio }),
@@ -712,7 +750,7 @@ export default function Home() {
                 await saveMessage('MODEL', imageParts);
             } else if (mode === 'video') {
                 // Call video generation API
-                const response = await fetch('/api/gemini/video', {
+                const response = await authedFetch('/api/gemini/video', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -761,7 +799,7 @@ export default function Home() {
                 if (!operationName) {
                     throw new Error('Operation name not found in video generation response');
                 }
-                const videoParts = await pollVideoStatus(operationName, loadingMessageId);
+                const videoParts = await pollVideoStatus(operationName, loadingMessageId, data.operation);
 
                 // Save model response (video) if successfully generated
                 if (videoParts) {
@@ -794,7 +832,7 @@ export default function Home() {
                     }))
                     .filter(m => m.parts.length > 0);
 
-                const response = await fetch('/api/gemini/chat', {
+                const response = await authedFetch('/api/gemini/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -885,7 +923,7 @@ export default function Home() {
         ]);
 
         try {
-            const response = await fetch('/api/gemini/image', {
+            const response = await authedFetch('/api/gemini/image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, originalImage: image }),

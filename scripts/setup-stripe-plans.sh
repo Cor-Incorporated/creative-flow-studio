@@ -34,7 +34,7 @@ echo "✅ PRO Product ID: $PRO_PRODUCT_ID"
 
 PRICE_PRO=$(stripe prices create \
   --product "$PRO_PRODUCT_ID" \
-  --unit-amount 300000 \
+  --unit-amount 3000 \
   --currency jpy \
   -d "recurring[interval]=month")
 
@@ -53,7 +53,7 @@ echo "✅ ENTERPRISE Product ID: $ENTERPRISE_PRODUCT_ID"
 
 PRICE_ENTERPRISE=$(stripe prices create \
   --product "$ENTERPRISE_PRODUCT_ID" \
-  --unit-amount 3000000 \
+  --unit-amount 30000 \
   --currency jpy \
   -d "recurring[interval]=month")
 

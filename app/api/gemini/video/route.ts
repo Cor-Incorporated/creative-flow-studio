@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
         const operation = await generateVideo(prompt, aspectRatio);
 
         // Validate operation object
-        if (!operation || !operation.name) {
+        const operationName = operation?.name;
+        if (!operationName) {
             throw new Error('Operation object not found in video generation response');
         }
 
@@ -99,9 +100,8 @@ export async function POST(request: NextRequest) {
             promptLength: prompt.length,
         });
 
-        // Return operation object (same as alpha implementation)
-        // Frontend will use operation.name for polling
-        return NextResponse.json({ operation });
+        // Return operation object + name for polling
+        return NextResponse.json({ operationName, operation });
     } catch (error: any) {
         console.error('Gemini Video API Error:', error);
 

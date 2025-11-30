@@ -78,7 +78,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 4. Get base URL for redirect
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const requestOrigin = request.headers.get('origin');
+        const appUrl = (requestOrigin && requestOrigin.startsWith('http')
+            ? requestOrigin
+            : process.env.NEXT_PUBLIC_APP_URL || 'https://blunaai.com'
+        ).replace(/\/$/, '');
 
         // 5. Get or create Stripe customer
         const stripeCustomerId = await getOrCreateStripeCustomer(

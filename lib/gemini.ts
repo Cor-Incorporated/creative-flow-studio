@@ -242,11 +242,40 @@ export const generateVideo = async (
         },
     });
 
-    return result;
+    const operationName =
+        typeof result === 'string'
+            ? result
+            : result?.name || (result as any)?.operation?.name;
+
+    if (!operationName) {
+        throw new Error('Video generation operation name missing');
+    }
+
+    return { name: operationName };
 };
 
 // Poll video generation status
 export const pollVideoOperation = async (operation: any) => {
-    const ai = getAiClient();
-    return await ai.operations.getVideosOperation({ operation: operation });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error(ERROR_MESSAGES.API_KEY_NOT_FOUND);
+    }
+
+    const operationName =
+        typeof operation === 'string'
+            ? operation
+            : operation?.name || operation?.operation?.name;
+
+    if (!operationName) {
+        throw new Error('Operation name not found for polling');
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
+    const response = await fetch(endpoint);
+
+    if (!response.ok) {
+        throw new Error(`Failed to poll video operation: ${response.statusText}`);
+    }
+
+    return await response.json();
 };

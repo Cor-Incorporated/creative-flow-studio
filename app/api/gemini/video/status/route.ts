@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
         }
 
         const operation = await pollVideoOperation(operationToPoll);
+        const responseOperationName = operationToPoll?.name || operation?.name || operationName || null;
 
-        return NextResponse.json({ operation });
+        return NextResponse.json({ operation, operationName: responseOperationName });
     } catch (error: any) {
         console.error('Gemini Video Status API Error:', error);
 
