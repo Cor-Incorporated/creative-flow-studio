@@ -30,6 +30,7 @@ resource "google_secret_manager_secret" "managed" {
       }
     }
   }
+
 }
 
 resource "google_secret_manager_secret_version" "current" {
@@ -38,7 +39,7 @@ resource "google_secret_manager_secret_version" "current" {
   secret      = google_secret_manager_secret.managed[each.key].id
   secret_data = each.value
 
-depends_on = [google_secret_manager_secret.managed]
+  depends_on = [google_secret_manager_secret.managed]
 }
 
 locals {
@@ -59,8 +60,8 @@ locals {
 resource "google_secret_manager_secret_iam_member" "accessors" {
   for_each = local.secret_accessor_bindings
 
-  project  = var.project_id
+  project   = var.project_id
   secret_id = each.value.secret_id
-  role     = "roles/secretmanager.secretAccessor"
-  member   = "serviceAccount:${each.value.member}"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${each.value.member}"
 }

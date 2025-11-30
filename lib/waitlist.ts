@@ -8,8 +8,8 @@
  * - MAX_PAID_USERS: 2000 (configurable in constants.ts)
  */
 
-import { prisma } from './prisma';
 import { MAX_PAID_USERS, WAITLIST_NOTIFICATION_EXPIRY_DAYS } from './constants';
+import { prisma } from './prisma';
 
 export type WaitlistStats = {
     paidUsersCount: number;
@@ -117,10 +117,20 @@ export async function addToWaitlist(
     email: string,
     name?: string
 ): Promise<{ success: boolean; position?: number; error?: string }> {
+    // Validate email format with stricter regex
+    // Allows: alphanumeric, dots, underscores, percent, plus, hyphens before @
+    // Domain must have at least one dot and valid TLD (2+ letters)
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+        return { success: false, error: 'INVALID_EMAIL' };
+    }
+
     // Check if already on waitlist
     const existing = await prisma.waitlist.findUnique({
         where: { email },
     });
+
+    let entry;
 
     if (existing) {
         if (existing.status === 'PENDING' || existing.status === 'NOTIFIED') {
@@ -128,7 +138,7 @@ export async function addToWaitlist(
         }
 
         // If previously cancelled/expired, allow re-registration
-        await prisma.waitlist.update({
+        entry = await prisma.waitlist.update({
             where: { email },
             data: {
                 status: 'PENDING',
@@ -137,7 +147,7 @@ export async function addToWaitlist(
             },
         });
     } else {
-        await prisma.waitlist.create({
+        entry = await prisma.waitlist.create({
             data: {
                 email,
                 name,
@@ -146,12 +156,12 @@ export async function addToWaitlist(
         });
     }
 
-    // Calculate position
+    // Calculate position using the entry's createdAt timestamp
     const position = await prisma.waitlist.count({
         where: {
             status: 'PENDING',
             createdAt: {
-                lte: new Date(),
+                lte: entry.createdAt,
             },
         },
     });
@@ -217,6 +227,8 @@ export async function cancelWaitlistRegistration(email: string): Promise<boolean
 
 /**
  * Get waitlist entries for admin
+ * Optimized to avoid N+1 queries by fetching all PENDING entries once
+ * and calculating positions in-memory
  */
 export async function getWaitlistEntries(options: {
     status?: 'PENDING' | 'NOTIFIED' | 'CONVERTED' | 'EXPIRED' | 'CANCELLED';
@@ -240,7 +252,7 @@ export async function getWaitlistEntries(options: {
 
     // Only fetch all PENDING entries if we need to calculate positions
     const needsPositionCalculation = !status || status === 'PENDING';
-    
+
     const [entries, total, allPendingEntries] = await Promise.all([
         prisma.waitlist.findMany({
             where,
@@ -307,8 +319,29 @@ export async function notifyNextInWaitlist(spotsAvailable: number): Promise<numb
         },
     });
 
-    // TODO: Send email notifications to users
-    // This would integrate with an email service like SendGrid, Resend, etc.
+    // TODO: Implement email notifications
+    // Integration required with email service (Resend, SendGrid, or AWS SES)
+    //
+    // Suggested implementation:
+    // 1. Add email service client (e.g., npm install resend)
+    // 2. Create email template for waitlist notification
+    // 3. Send emails with retry logic and delivery tracking
+    // 4. Consider using a job queue for bulk notifications
+    //
+    // Example with Resend:
+    // ```
+    // import { Resend } from 'resend';
+    // const resend = new Resend(process.env.RESEND_API_KEY);
+    // for (const entry of pendingEntries) {
+    //   await resend.emails.send({
+    //     from: 'noreply@creative-flow.studio',
+    //     to: entry.email,
+    //     subject: 'Your spot is ready!',
+    //     html: `<p>You can now upgrade to a paid plan...</p>`
+    //   });
+    // }
+    // ```
+    console.log(`Notified ${pendingEntries.length} users from waitlist (email integration pending)`);
 
     return pendingEntries.length;
 }

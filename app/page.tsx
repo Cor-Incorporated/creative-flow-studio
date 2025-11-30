@@ -635,7 +635,7 @@ export default function Home() {
             });
             return;
         }
-        
+
         setIsLoading(true);
 
         const userParts: ContentPart[] = [];
@@ -866,7 +866,7 @@ export default function Home() {
             });
             return;
         }
-        
+
         setIsLoading(true);
         addMessage({ role: 'user', parts: [{ text: `画像編集: 「${prompt}」` }] });
 
