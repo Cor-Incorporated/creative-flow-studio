@@ -181,7 +181,16 @@ variable "cloud_run_env_vars" {
 variable "cloud_run_secret_env_vars" {
   description = "Secret Manager を参照する環境変数 (ENV_NAME => secret_id)"
   type        = map(string)
-  default     = {}
+  default = {
+    DATABASE_URL              = "database-url"
+    NEXTAUTH_SECRET           = "nextauth-secret"
+    GOOGLE_CLIENT_ID          = "google-client-id"
+    GOOGLE_CLIENT_SECRET      = "google-client-secret"
+    SUPABASE_SERVICE_ROLE_KEY = "supabase-service-role"
+    STRIPE_SECRET_KEY         = "stripe-secret-key"
+    STRIPE_WEBHOOK_SECRET     = "stripe-webhook-secret"
+    GEMINI_API_KEY            = "gemini-api-key"
+  }
 }
 
 variable "secret_values" {
@@ -190,6 +199,6 @@ Secret Manager に投入する値のマップ。
 キーは `secrets` モジュールで定義した secret_id（例: database-url）。
 値は base64 ではなくプレーンテキスト。
 EOT
-  type    = map(string)
-  default = {}
+  type        = map(string)
+  default     = {}
 }
