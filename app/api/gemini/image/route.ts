@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { generateImage, editImage } from '@/lib/gemini';
-import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { ERROR_MESSAGES, VALID_IMAGE_ASPECT_RATIOS } from '@/lib/constants';
+import { editImage, generateImage } from '@/lib/gemini';
+import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage, PlanFeatures } from '@/lib/subscription';
 import type { AspectRatio, Media } from '@/types/app';
+import { getServerSession } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * POST /api/gemini/image
@@ -111,9 +111,9 @@ export async function POST(request: NextRequest) {
                 throw new Error('No content parts found in edit response');
             }
             for (const part of candidate.content.parts) {
-                if (part.inlineData) {
-                    const base64ImageBytes: string = part.inlineData.data;
-                    imageUrl = `data:image/png;base64,${base64ImageBytes}`;
+                const inlineData = part.inlineData;
+                if (inlineData?.data && typeof inlineData.data === 'string') {
+                    imageUrl = `data:image/png;base64,${inlineData.data}`;
                     break;
                 }
             }
