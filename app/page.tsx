@@ -9,12 +9,12 @@ import LandingPage from '@/components/LandingPage';
 import { SparklesIcon } from '@/components/icons';
 import { useToast } from '@/components/Toast';
 import {
-    DJ_SHACHO_INITIAL_MESSAGE,
-    DJ_SHACHO_SYSTEM_PROMPT,
-    DJ_SHACHO_TEMPERATURE,
     VIDEO_POLL_INTERVAL_MS,
     MAX_VIDEO_POLL_ATTEMPTS,
     ERROR_MESSAGES,
+    InfluencerId,
+    getInfluencerConfig,
+    INFLUENCER_TEMPERATURE,
 } from '@/lib/constants';
 
 export default function Home() {
@@ -33,7 +33,7 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [mode, setMode] = useState<GenerationMode>('chat');
     const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
-    const [isDjShachoMode, setIsDjShachoMode] = useState<boolean>(false);
+    const [selectedInfluencer, setSelectedInfluencer] = useState<InfluencerId>('none');
     const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
     const [conversations, setConversations] = useState<
         Array<{
@@ -47,11 +47,14 @@ export default function Home() {
     >([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
-    const isDjShachoModeRef = useRef(isDjShachoMode);
+    const selectedInfluencerRef = useRef(selectedInfluencer);
     const { showToast, ToastContainer } = useToast();
 
     // Update ref immediately during render to avoid race conditions
-    isDjShachoModeRef.current = isDjShachoMode;
+    selectedInfluencerRef.current = selectedInfluencer;
+
+    // Get current influencer config
+    const influencerConfig = getInfluencerConfig(selectedInfluencer);
 
     // Track blob URLs for cleanup to prevent memory leaks
     const blobUrlsRef = useRef<Set<string>>(new Set());
@@ -90,33 +93,22 @@ export default function Home() {
         loadConversations();
     }, [session]);
 
-    // DJ社長モード変更時に初期メッセージを更新
+    // インフルエンサーモード変更時に初期メッセージを更新
     useEffect(() => {
+        const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
+        const newConfig = getInfluencerConfig(selectedInfluencer);
+
         setMessages(prev => {
             // Only update if we're still showing the initial message (no conversation yet)
             if (prev.length === 1 && prev[0]?.id === 'init' && prev[0]?.parts?.[0]?.text) {
-                const currentText = prev[0].parts[0].text;
-                if (isDjShachoMode && currentText !== DJ_SHACHO_INITIAL_MESSAGE) {
-                    return [
-                        { id: 'init', role: 'model', parts: [{ text: DJ_SHACHO_INITIAL_MESSAGE }] },
-                    ];
-                } else if (!isDjShachoMode && currentText === DJ_SHACHO_INITIAL_MESSAGE) {
-                    return [
-                        {
-                            id: 'init',
-                            role: 'model',
-                            parts: [
-                                {
-                                    text: 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？',
-                                },
-                            ],
-                        },
-                    ];
-                }
+                const newMessage = newConfig?.initialMessage || defaultMessage;
+                return [
+                    { id: 'init', role: 'model', parts: [{ text: newMessage }] },
+                ];
             }
             return prev;
         });
-    }, [isDjShachoMode]);
+    }, [selectedInfluencer]);
 
     const addMessage = (message: Omit<Message, 'id'>) => {
         setMessages(prev => [...prev, { ...message, id: Date.now().toString() }]);
@@ -131,10 +123,13 @@ export default function Home() {
         });
     };
 
-    // エラーメッセージをDJ社長スタイルに変換
-    const convertToDjShachoStyle = async (errorMessage: string): Promise<string> => {
+    // エラーメッセージをインフルエンサースタイルに変換
+    const convertToInfluencerStyle = async (errorMessage: string): Promise<string> => {
+        const config = getInfluencerConfig(selectedInfluencerRef.current);
+        if (!config) return errorMessage;
+
         try {
-            const prompt = `以下のエラーメッセージをDJ社長（木元駿之介）のスタイルで説明してください。九州弁を使い、ハイテンションで、ポジティブに、でもエラーの内容は正確に伝えてください。\n\nエラーメッセージ: ${errorMessage}`;
+            const prompt = `以下のエラーメッセージを${config.name}のスタイルで説明してください。エラーの内容は正確に伝えつつ、${config.name}らしい口調で伝えてください。\n\nエラーメッセージ: ${errorMessage}`;
 
             const response = await fetch('/api/gemini/chat', {
                 method: 'POST',
@@ -142,8 +137,8 @@ export default function Home() {
                 body: JSON.stringify({
                     prompt,
                     mode: 'chat',
-                    systemInstruction: DJ_SHACHO_SYSTEM_PROMPT,
-                    temperature: DJ_SHACHO_TEMPERATURE,
+                    systemInstruction: config.systemPrompt,
+                    temperature: config.temperature,
                 }),
             });
 
@@ -162,7 +157,7 @@ export default function Home() {
     const handleApiError = async (
         error: any,
         context: string,
-        isDjShachoModeForError?: boolean
+        useInfluencerStyle?: boolean
     ) => {
         console.error(`Error in ${context}:`, error);
         let errorMessage = ERROR_MESSAGES.GENERIC_ERROR;
@@ -171,13 +166,13 @@ export default function Home() {
             errorMessage = error.message;
         }
 
-        // 画像・動画生成のエラーでDJ社長モードがONの場合、エラーメッセージをDJ社長スタイルに変換
-        if (isDjShachoModeForError && isDjShachoModeRef.current) {
+        // 画像・動画生成のエラーでインフルエンサーモードがONの場合、エラーメッセージをインフルエンサースタイルに変換
+        if (useInfluencerStyle && selectedInfluencerRef.current !== 'none') {
             try {
-                const djShachoErrorMessage = await convertToDjShachoStyle(errorMessage);
+                const styledErrorMessage = await convertToInfluencerStyle(errorMessage);
                 updateLastMessage(msg => ({
                     ...msg,
-                    parts: [{ isError: true, text: djShachoErrorMessage }],
+                    parts: [{ isError: true, text: styledErrorMessage }],
                 }));
             } catch {
                 updateLastMessage(msg => ({
@@ -194,9 +189,9 @@ export default function Home() {
     };
 
     const formatErrorMessage = async (errorMessage: string): Promise<string> => {
-        if (isDjShachoModeRef.current) {
+        if (selectedInfluencerRef.current !== 'none') {
             try {
-                return await convertToDjShachoStyle(errorMessage);
+                return await convertToInfluencerStyle(errorMessage);
             } catch {
                 return errorMessage;
             }
@@ -303,6 +298,9 @@ export default function Home() {
      */
     const startNewConversation = () => {
         // Reset to initial state
+        const config = getInfluencerConfig(selectedInfluencer);
+        const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
+
         setCurrentConversationId(null);
         setMessages([
             {
@@ -310,9 +308,7 @@ export default function Home() {
                 role: 'model',
                 parts: [
                     {
-                        text: isDjShachoMode
-                            ? DJ_SHACHO_INITIAL_MESSAGE
-                            : 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？',
+                        text: config?.initialMessage || defaultMessage,
                     },
                 ],
             },
@@ -526,8 +522,8 @@ export default function Home() {
         ]);
 
         try {
-            const systemInstruction = isDjShachoMode ? DJ_SHACHO_SYSTEM_PROMPT : undefined;
-            const temperature = isDjShachoMode ? DJ_SHACHO_TEMPERATURE : undefined;
+            const systemInstruction = influencerConfig?.systemPrompt || undefined;
+            const temperature = influencerConfig?.temperature || undefined;
 
             if (mode === 'image') {
                 // Call image generation API
@@ -890,7 +886,7 @@ export default function Home() {
                             key={msg.id}
                             message={msg}
                             onEditImage={handleEditImage}
-                            isDjShachoMode={isDjShachoMode}
+                            selectedInfluencer={selectedInfluencer}
                         />
                     ))}
                 </main>
@@ -902,8 +898,8 @@ export default function Home() {
                     setMode={setMode}
                     aspectRatio={aspectRatio}
                     setAspectRatio={setAspectRatio}
-                    isDjShachoMode={isDjShachoMode}
-                    setIsDjShachoMode={setIsDjShachoMode}
+                    selectedInfluencer={selectedInfluencer}
+                    setSelectedInfluencer={setSelectedInfluencer}
                 />
             </div>
 
