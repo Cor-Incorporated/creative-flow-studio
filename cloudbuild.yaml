@@ -5,8 +5,7 @@
 
 options:
     logging: CLOUD_LOGGING_ONLY
-    pool:
-        name: projects/${_PROJECT_ID}/locations/${_REGION}/workerPools/cloud-build-private-pool
+    machineType: E2_HIGHCPU_8
 
 tags:
     - creative-flow-studio
@@ -82,8 +81,8 @@ steps:
               # Cloud SQL Proxyをバックグラウンドで起動
               echo "🚀 Cloud SQL Proxyを起動しています..."
               echo "   インスタンス: ${_CLOUD_SQL_INSTANCE}"
-              echo "   プライベートIP接続を使用します"
-              ./cloud-sql-proxy ${_CLOUD_SQL_INSTANCE} --port=5432 --address=127.0.0.1 --private-ip > /tmp/cloud-sql-proxy.log 2>&1 &
+              echo "   パブリックIP接続を使用します"
+              ./cloud-sql-proxy ${_CLOUD_SQL_INSTANCE} --port=5432 --address=127.0.0.1 > /tmp/cloud-sql-proxy.log 2>&1 &
               PROXY_PID=$!
               
               # Proxyが起動するまで待機（最大30秒）
