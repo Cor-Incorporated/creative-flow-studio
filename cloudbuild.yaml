@@ -120,12 +120,20 @@ steps:
               # Prismaマイグレーションを実行（接続確認も兼ねる）
               echo "🔄 データベースマイグレーションを適用しています..."
               export DATABASE_URL="$$DB_URL_LOCAL"
-              MAX_RETRIES=30
-              RETRY_COUNT=0
+              
+              # 接続エラー用のリトライ設定
+              MAX_CONNECTION_RETRIES=10
+              CONNECTION_RETRY_COUNT=0
+              
+              # マイグレーションエラー用のリトライ設定（無限ループ防止）
+              MAX_MIGRATION_RETRIES=3
+              MIGRATION_RETRY_COUNT=0
               
               # set -eを一時的に無効化してエラーハンドリングを行う
               set +e
-              while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
+              
+              # 接続エラーのリトライループ
+              while [ $$CONNECTION_RETRY_COUNT -lt $$MAX_CONNECTION_RETRIES ]; do
                   # Prisma migrate deployを実行
                   ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
                   EXIT_CODE=$$?
@@ -138,65 +146,103 @@ steps:
                   
                   # 接続エラー（P1001）の場合はリトライ
                   if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
-                      RETRY_COUNT=$$((RETRY_COUNT + 1))
-                      echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
-                      if [ $$((RETRY_COUNT % 5)) -eq 0 ]; then
+                      CONNECTION_RETRY_COUNT=$$((CONNECTION_RETRY_COUNT + 1))
+                      echo "  接続エラー。試行 $$CONNECTION_RETRY_COUNT/$$MAX_CONNECTION_RETRIES..."
+                      if [ $$((CONNECTION_RETRY_COUNT % 5)) -eq 0 ]; then
                           echo "  エラー詳細: $$ERROR_OUTPUT"
                           echo "  Cloud SQL Proxyログ（最新10行）:"
                           tail -n 10 /tmp/cloud-sql-proxy.log || true
                       fi
                       sleep 2
-                  # スキーマが空でないエラー（P3005）の場合はbaselineを設定
-                  elif echo "$$ERROR_OUTPUT" | grep -q "P3005"; then
-                      echo "⚠️  データベースに既存のスキーマが存在します。baselineを設定します..."
-                      # 既存のマイグレーションを確認
-                      MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | head -1)
-                      if [ -n "$$MIGRATIONS" ]; then
-                          echo "  最初のマイグレーションをbaselineとして設定: $$MIGRATIONS"
-                          npx prisma migrate resolve --applied "$$MIGRATIONS" 2>&1 || true
-                          # 再度migrate deployを実行
-                          continue
-                      else
-                          echo "❌ マイグレーションファイルが見つかりません"
-                          set -e
-                          echo "$$ERROR_OUTPUT"
-                          exit 1
-                      fi
-                  # マイグレーションファイルが見つからないエラー（P3017）の場合は、存在しないマイグレーションをbaselineとして設定
-                  elif echo "$$ERROR_OUTPUT" | grep -q "P3017"; then
-                      echo "⚠️  データベースに存在するが、ソースコードに存在しないマイグレーションが見つかりました。"
-                      # エラーメッセージからマイグレーション名を抽出
-                      MISSING_MIGRATION=$(echo "$$ERROR_OUTPUT" | grep -oP "migration \K[^\s]+" | head -1)
-                      if [ -n "$$MISSING_MIGRATION" ]; then
-                          echo "  存在しないマイグレーションをbaselineとして設定: $$MISSING_MIGRATION"
-                          npx prisma migrate resolve --applied "$$MISSING_MIGRATION" 2>&1 || true
-                          # 再度migrate deployを実行
-                          continue
-                      else
-                          echo "❌ マイグレーション名を抽出できませんでした"
-                          set -e
-                          echo "$$ERROR_OUTPUT"
-                          exit 1
-                      fi
-                  else
-                      # 接続エラー以外の場合はエラーを表示して終了
-                      set -e
-                      echo "❌ マイグレーションエラー:"
-                      echo "$$ERROR_OUTPUT"
-                      echo ""
-                      echo "Cloud SQL Proxyログ:"
-                      cat /tmp/cloud-sql-proxy.log
-                      exit 1
+                      continue
                   fi
+                  
+                  # 接続エラー以外の場合は、マイグレーションエラーの処理に移る
+                  break
               done
-              set -e
               
-              if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
-                  echo "❌ データベース接続の確立に失敗しました（$$MAX_RETRIES回試行）"
+              # 接続リトライが上限に達した場合
+              if [ $$CONNECTION_RETRY_COUNT -eq $$MAX_CONNECTION_RETRIES ]; then
+                  set -e
+                  echo "❌ データベース接続の確立に失敗しました（$$MAX_CONNECTION_RETRIES回試行）"
                   echo "Cloud SQL Proxyログ:"
                   cat /tmp/cloud-sql-proxy.log
                   exit 1
               fi
+              
+              # マイグレーションエラーの処理（無限ループ防止のため最大3回まで）
+              if [ $$EXIT_CODE -ne 0 ]; then
+                  while [ $$MIGRATION_RETRY_COUNT -lt $$MAX_MIGRATION_RETRIES ]; do
+                      # スキーマが空でないエラー（P3005）の場合はbaselineを設定
+                      if echo "$$ERROR_OUTPUT" | grep -q "P3005"; then
+                          echo "⚠️  データベースに既存のスキーマが存在します。baselineを設定します..."
+                          MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | head -1)
+                          if [ -n "$$MIGRATIONS" ]; then
+                              echo "  最初のマイグレーションをbaselineとして設定: $$MIGRATIONS"
+                              npx prisma migrate resolve --applied "$$MIGRATIONS" 2>&1 || true
+                              MIGRATION_RETRY_COUNT=$$((MIGRATION_RETRY_COUNT + 1))
+                              # 再度migrate deployを実行
+                              ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
+                              EXIT_CODE=$$?
+                              if [ $$EXIT_CODE -eq 0 ]; then
+                                  echo "✅ マイグレーションが正常に完了しました"
+                                  set -e
+                                  break
+                              fi
+                              continue
+                          else
+                              set -e
+                              echo "❌ マイグレーションファイルが見つかりません"
+                              echo "$$ERROR_OUTPUT"
+                              exit 1
+                          fi
+                      # マイグレーションファイルが見つからないエラー（P3017）の場合は、存在しないマイグレーションをbaselineとして設定
+                      elif echo "$$ERROR_OUTPUT" | grep -q "P3017"; then
+                          echo "⚠️  データベースに存在するが、ソースコードに存在しないマイグレーションが見つかりました。"
+                          MISSING_MIGRATION=$(echo "$$ERROR_OUTPUT" | grep -oE "migration [0-9a-zA-Z_]+" | awk '{print $2}' | head -1)
+                          if [ -n "$$MISSING_MIGRATION" ]; then
+                              echo "  存在しないマイグレーションをbaselineとして設定: $$MISSING_MIGRATION"
+                              npx prisma migrate resolve --applied "$$MISSING_MIGRATION" 2>&1 || true
+                              MIGRATION_RETRY_COUNT=$$((MIGRATION_RETRY_COUNT + 1))
+                              # 再度migrate deployを実行
+                              ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
+                              EXIT_CODE=$$?
+                              if [ $$EXIT_CODE -eq 0 ]; then
+                                  echo "✅ マイグレーションが正常に完了しました"
+                                  set -e
+                                  break
+                              fi
+                              continue
+                          else
+                              set -e
+                              echo "❌ マイグレーション名を抽出できませんでした"
+                              echo "$$ERROR_OUTPUT"
+                              exit 1
+                          fi
+                      else
+                          # その他のエラー
+                          set -e
+                          echo "❌ マイグレーションエラー:"
+                          echo "$$ERROR_OUTPUT"
+                          echo ""
+                          echo "Cloud SQL Proxyログ:"
+                          cat /tmp/cloud-sql-proxy.log
+                          exit 1
+                      fi
+                  done
+                  
+                  # マイグレーションリトライが上限に達した場合
+                  if [ $$MIGRATION_RETRY_COUNT -eq $$MAX_MIGRATION_RETRIES ] && [ $$EXIT_CODE -ne 0 ]; then
+                      set -e
+                      echo "❌ マイグレーションの適用に失敗しました（$$MAX_MIGRATION_RETRIES回試行）"
+                      echo "エラー詳細: $$ERROR_OUTPUT"
+                      echo "Cloud SQL Proxyログ:"
+                      cat /tmp/cloud-sql-proxy.log
+                      exit 1
+                  fi
+              fi
+              
+              set -e
               
               # Proxyを停止
               echo "🛑 Cloud SQL Proxyを停止しています..."
