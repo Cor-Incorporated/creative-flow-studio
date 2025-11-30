@@ -101,13 +101,14 @@ export default function Home() {
         const checkUsageLimits = async () => {
             if (!session?.user) return;
 
+            // Set admin status from session (already available)
+            // @ts-ignore - role is added by NextAuth callbacks
+            setIsAdmin(session.user.role === 'ADMIN');
+
             try {
                 const response = await fetch('/api/usage');
                 if (response.ok) {
                     const data = await response.json();
-
-                    // Set admin status
-                    setIsAdmin(data.isAdmin === true);
 
                     if (data.isLimitReached) {
                         setUsageLimitInfo({

@@ -264,3 +264,50 @@ export const adminUsageQuerySchema = z.object({
 });
 
 export type AdminUsageQueryParams = z.infer<typeof adminUsageQuerySchema>;
+
+/**
+ * Schema for admin waitlist query parameters
+ * GET /api/admin/waitlist
+ */
+export const adminWaitlistQuerySchema = z.object({
+    status: z
+        .enum(['PENDING', 'NOTIFIED', 'CONVERTED', 'EXPIRED', 'CANCELLED'])
+        .nullish()
+        .transform(val => val ?? undefined),
+    limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .transform(val => Math.min(val, 100))
+        .nullish()
+        .default(50)
+        .transform(val => val ?? undefined),
+    offset: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .nullish()
+        .default(0)
+        .transform(val => val ?? undefined),
+});
+
+export type AdminWaitlistQueryParams = z.infer<typeof adminWaitlistQuerySchema>;
+
+/**
+ * Schema for admin waitlist POST request body
+ * POST /api/admin/waitlist
+ */
+export const adminWaitlistPostSchema = z.object({
+    action: z.enum(['notify', 'expire']),
+    count: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(1000)
+        .nullish()
+        .default(1)
+        .transform(val => val ?? 1),
+});
+
+export type AdminWaitlistPostRequest = z.infer<typeof adminWaitlistPostSchema>;

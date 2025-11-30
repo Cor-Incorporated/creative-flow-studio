@@ -137,8 +137,12 @@ export default function UsageLimitBanner({ limitInfo, onDismiss }: UsageLimitBan
                         </div>
                         <div className="mt-1 h-2 bg-yellow-200 rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-yellow-500 rounded-full"
-                                style={{ width: '100%' }}
+                                className="h-full bg-yellow-500 rounded-full transition-all duration-300"
+                                style={{
+                                    width: usage.limit
+                                        ? `${Math.min(100, (usage.current / usage.limit) * 100)}%`
+                                        : '0%',
+                                }}
                             />
                         </div>
                     </div>

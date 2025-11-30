@@ -7,6 +7,10 @@ import {
     notifyNextInWaitlist,
     expireOldNotifications,
 } from '@/lib/waitlist';
+import {
+    adminWaitlistQuerySchema,
+    adminWaitlistPostSchema,
+} from '@/lib/validators';
 
 /**
  * GET /api/admin/waitlist
@@ -39,21 +43,29 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
         }
 
-        // 2. Parse query parameters
+        // 2. Parse and validate query parameters
         const { searchParams } = new URL(request.url);
-        const status = searchParams.get('status') as
-            | 'PENDING'
-            | 'NOTIFIED'
-            | 'CONVERTED'
-            | 'EXPIRED'
-            | 'CANCELLED'
-            | undefined;
-        const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
-        const offset = parseInt(searchParams.get('offset') || '0');
+        const queryParams = {
+            status: searchParams.get('status') || undefined,
+            limit: searchParams.get('limit') || undefined,
+            offset: searchParams.get('offset') || undefined,
+        };
+        const validationResult = adminWaitlistQuerySchema.safeParse(queryParams);
+        if (!validationResult.success) {
+            return NextResponse.json(
+                { error: 'Invalid query parameters', details: validationResult.error.format() },
+                { status: 400 }
+            );
+        }
+        const { status, limit, offset } = validationResult.data;
+        // Convert null to undefined for getWaitlistEntries
+        const statusParam = status ?? undefined;
+        const limitParam = limit ?? undefined;
+        const offsetParam = offset ?? undefined;
 
         // 3. Get waitlist data
         const [{ entries, total }, stats] = await Promise.all([
-            getWaitlistEntries({ status, limit, offset }),
+            getWaitlistEntries({ status: statusParam, limit: limitParam, offset: offsetParam }),
             getWaitlistStats(),
         ]);
 
@@ -96,22 +108,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
         }
 
-        // 2. Parse request body
+        // 2. Parse and validate request body
         const body = await request.json();
-        const { action, count = 1 } = body;
-
-        if (!action || !['notify', 'expire'].includes(action)) {
+        const validationResult = adminWaitlistPostSchema.safeParse(body);
+        if (!validationResult.success) {
             return NextResponse.json(
-                { error: 'Invalid action. Must be "notify" or "expire"' },
+                { error: 'Invalid request body', details: validationResult.error.format() },
                 { status: 400 }
             );
         }
+        const { action, count } = validationResult.data;
+        // Ensure count is not null
+        const countValue = count ?? 1;
 
         let result: number;
 
         if (action === 'notify') {
             // Notify next users in waitlist
-            result = await notifyNextInWaitlist(count);
+            result = await notifyNextInWaitlist(countValue);
             return NextResponse.json({
                 success: true,
                 message: `${result} users notified`,
