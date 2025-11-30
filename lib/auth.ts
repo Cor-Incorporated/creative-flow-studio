@@ -1,10 +1,10 @@
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
-import { NextAuthOptions } from 'next-auth';
-import GoogleProvider from 'next-auth/providers/google';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from './prisma';
-import { comparePassword, hashPassword } from './password';
 import { Role } from '@prisma/client';
+import { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import { comparePassword, hashPassword } from './password';
+import { prisma } from './prisma';
 
 // Validate required environment variables
 if (!process.env.GOOGLE_CLIENT_ID) {
@@ -61,6 +61,16 @@ export const authOptions: NextAuthOptions = {
                             name: name || email.split('@')[0],
                         },
                     });
+
+                    // Create default FREE plan subscription for new user
+                    try {
+                        const { createDefaultFreeSubscription } = await import('./subscription');
+                        await createDefaultFreeSubscription(user.id);
+                    } catch (error: any) {
+                        console.error('Failed to create default subscription:', error);
+                        // Don't fail registration if subscription creation fails
+                        // User can still use the app, but may need to manually create subscription
+                    }
 
                     return {
                         id: user.id,
@@ -139,6 +149,19 @@ export const authOptions: NextAuthOptions = {
         },
     },
     callbacks: {
+        async signIn({ user, account, profile }) {
+            // For Google OAuth: Create default FREE subscription if user is new
+            if (account?.provider === 'google' && user?.id) {
+                try {
+                    const { createDefaultFreeSubscription } = await import('./subscription');
+                    await createDefaultFreeSubscription(user.id);
+                } catch (error: any) {
+                    console.error('Failed to create default subscription for Google OAuth user:', error);
+                    // Don't fail sign-in if subscription creation fails
+                }
+            }
+            return true;
+        },
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id;

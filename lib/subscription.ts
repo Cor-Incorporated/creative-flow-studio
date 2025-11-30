@@ -8,8 +8,8 @@
  * - Stripe Subscriptions: https://docs.stripe.com/billing/subscriptions
  */
 
+import type { Plan, Subscription } from '@prisma/client';
 import { prisma } from './prisma';
-import type { Subscription, Plan } from '@prisma/client';
 
 export type SubscriptionWithPlan = Subscription & {
     plan: Plan;
@@ -220,4 +220,57 @@ export function calculateUsagePercentage(
     }
 
     return Math.min(Math.round((current / limit) * 100), 100);
+}
+
+/**
+ * Create default FREE plan subscription for a new user
+ *
+ * This function is called automatically when a new user registers.
+ * It ensures every user has a subscription, even if they haven't purchased a plan yet.
+ *
+ * @param userId - User ID
+ * @returns Created subscription
+ * @throws Error if FREE plan not found or subscription already exists
+ */
+export async function createDefaultFreeSubscription(
+    userId: string
+): Promise<SubscriptionWithPlan> {
+    // Check if subscription already exists
+    const existing = await prisma.subscription.findUnique({
+        where: { userId },
+    });
+
+    if (existing) {
+        // Return existing subscription with plan
+        return await getUserSubscription(userId) as SubscriptionWithPlan;
+    }
+
+    // Find FREE plan by name
+    const freePlan = await prisma.plan.findUnique({
+        where: { name: 'FREE' },
+    });
+
+    if (!freePlan) {
+        throw new Error('FREE plan not found in database. Please run database migrations.');
+    }
+
+    // Set billing period (30 days from now)
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setDate(periodEnd.getDate() + 30);
+
+    // Create subscription
+    const subscription = await prisma.subscription.create({
+        data: {
+            userId,
+            planId: freePlan.id,
+            status: 'ACTIVE',
+            currentPeriodStart: now,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: false,
+        },
+        include: { plan: true },
+    });
+
+    return subscription;
 }
