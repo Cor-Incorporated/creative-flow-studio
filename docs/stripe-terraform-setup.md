@@ -52,25 +52,14 @@ secret_values = {
   # ... 既存の設定 ...
   
   # Stripeキー（.env.localから取得した値）
-  "stripe-secret-key"      = "sk_test_51SZEirPMiKkgsj8E1CkrSMWGYqRgLcSlKEtvQqv697Pohme39eSLtIRCZyrWXFenUV3Tl4kuQoE9bNevMwAFtkuh00JIayRXp6"
-  "stripe-webhook-secret"  = "whsec_9SzBHkdXLN3P106vx0v6bU7dYbBxYP1s"
-  "stripe-publishable-key" = "pk_test_51SZEirPMiKkgsj8EZDQq7xW4XNbv0YeGvTU0op1oL5lVvu60ndaFjl3pPvUUpn9qONOSFYbpqJfmco5okbuwcFcT00OyNooJJY"
+  # 注意: 実際のキーは.env.localから取得してください
+  "stripe-secret-key"      = "sk_test_CHANGE_ME_FROM_ENV_LOCAL"
+  "stripe-webhook-secret"  = "whsec_CHANGE_ME_FROM_ENV_LOCAL"
+  "stripe-publishable-key" = "pk_test_CHANGE_ME_FROM_ENV_LOCAL"
 }
 ```
 
-`cloud_run_env_vars`セクションも更新：
-
-```hcl
-cloud_run_env_vars = {
-  NEXTAUTH_URL                      = "https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app"
-  NEXT_PUBLIC_APP_URL               = "https://blunaai.com"
-  NEXT_PUBLIC_SUPABASE_URL          = "https://kppniwizumnnlhndjnlg.supabase.co"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY     = "YOUR_SUPABASE_ANON_KEY"
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_51SZEirPMiKkgsj8EZDQq7xW4XNbv0YeGvTU0op1oL5lVvu60ndaFjl3pPvUUpn9qONOSFYbpqJfmco5okbuwcFcT00OyNooJJY"
-}
-```
-
-**注意:** `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`は環境変数として直接設定されます（Secret Managerではない）。
+**重要:** `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`は`cloud_run_secret_env_vars`でSecret Managerから参照されます（直接設定ではありません）。
 
 ### 3. Terraformを適用
 
