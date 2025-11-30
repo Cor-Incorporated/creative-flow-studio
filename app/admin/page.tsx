@@ -411,12 +411,14 @@ export default async function AdminDashboardPage() {
                     <p className="text-red-700 mb-4">
                         ダッシュボードのデータを読み込めませんでした。
                     </p>
-                    <details className="text-sm text-red-600">
-                        <summary className="cursor-pointer font-medium">エラー詳細</summary>
-                        <pre className="mt-2 p-3 bg-red-100 rounded overflow-auto">
-                            {error.message || String(error)}
-                        </pre>
-                    </details>
+                    {process.env.NODE_ENV === 'development' && (
+                        <details className="text-sm text-red-600">
+                            <summary className="cursor-pointer font-medium">エラー詳細（開発環境のみ）</summary>
+                            <pre className="mt-2 p-3 bg-red-100 rounded overflow-auto">
+                                {error.message || String(error)}
+                            </pre>
+                        </details>
+                    )}
                     <div className="mt-4">
                         <a
                             href="/admin"

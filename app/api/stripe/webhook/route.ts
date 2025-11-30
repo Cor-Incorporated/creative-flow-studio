@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { stripe, getPlanIdFromStripeSubscription, isEventProcessed } from '@/lib/stripe';
-import { prisma } from '@/lib/prisma';
 import { MAX_PAID_USERS } from '@/lib/constants';
+import { prisma } from '@/lib/prisma';
+import { getPlanIdFromStripeSubscription, isEventProcessed, stripe } from '@/lib/stripe';
 import { addToWaitlist } from '@/lib/waitlist';
+import { headers } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 /**
@@ -73,9 +73,11 @@ export async function POST(request: NextRequest) {
         console.log(`Received Stripe webhook: ${event.type} (ID: ${event.id})`);
 
         switch (event.type) {
-            case 'checkout.session.completed':
-                await handleCheckoutSessionCompleted(event);
+            case 'checkout.session.completed': {
+                const response = await handleCheckoutSessionCompleted(event);
+                if (response) return response;
                 break;
+            }
 
             case 'invoice.paid':
                 await handleInvoicePaid(event);
@@ -121,7 +123,7 @@ export async function POST(request: NextRequest) {
  * - Event: https://docs.stripe.com/api/events/types#event_types-checkout.session.completed
  * - docs/stripe-integration-plan.md Section 2.2
  */
-async function handleCheckoutSessionCompleted(event: Stripe.Event) {
+async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<NextResponse | void> {
     const session = event.data.object as Stripe.Checkout.Session;
 
     // Check idempotency

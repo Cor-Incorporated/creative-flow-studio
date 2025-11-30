@@ -8,8 +8,8 @@
  * - MAX_PAID_USERS: 2000 (configurable in constants.ts)
  */
 
-import { prisma } from './prisma';
 import { MAX_PAID_USERS, WAITLIST_NOTIFICATION_EXPIRY_DAYS } from './constants';
+import { prisma } from './prisma';
 
 export type WaitlistStats = {
     paidUsersCount: number;
@@ -117,6 +117,12 @@ export async function addToWaitlist(
     email: string,
     name?: string
 ): Promise<{ success: boolean; position?: number; error?: string }> {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return { success: false, error: 'INVALID_EMAIL' };
+    }
+
     // Check if already on waitlist
     const existing = await prisma.waitlist.findUnique({
         where: { email },
