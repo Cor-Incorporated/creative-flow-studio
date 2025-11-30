@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Pricing Page
@@ -50,7 +50,7 @@ const PRICING_PLANS: PricingPlan[] = [
     {
         name: 'PRO',
         price: '¥3,000',
-        priceId: 'price_pro_monthly', // TODO: Replace with actual Stripe Price ID
+        priceId: undefined, // Fetched from database dynamically
         features: [
             'すべてFREE機能',
             'PROモード（思考プロセス表示）',
@@ -65,7 +65,7 @@ const PRICING_PLANS: PricingPlan[] = [
     {
         name: 'ENTERPRISE',
         price: '¥30,000',
-        priceId: 'price_enterprise_monthly', // TODO: Replace with actual Stripe Price ID
+        priceId: undefined, // Fetched from database dynamically
         features: [
             'すべてPRO機能',
             '動画生成（Veo 3.1）',
@@ -84,10 +84,31 @@ export default function PricingPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState<string | null>(null);
+    const [pricingPlans, setPricingPlans] = useState<PricingPlan[]>(PRICING_PLANS);
+
+    // Fetch Stripe Price IDs from database on mount
+    useEffect(() => {
+        async function fetchPriceIds() {
+            try {
+                const response = await fetch("/api/plans");
+                if (response.ok) {
+                    const plans = await response.json();
+                    const updatedPlans = PRICING_PLANS.map(basePlan => {
+                        const dbPlan = plans.find((p: any) => p.name === basePlan.name);
+                        return { ...basePlan, priceId: dbPlan?.stripePriceId || undefined };
+                    });
+                    setPricingPlans(updatedPlans);
+                }
+            } catch (error) {
+                console.error("Failed to fetch price IDs:", error);
+            }
+        }
+        fetchPriceIds();
+    }, []);
 
     const handleSubscribe = async (priceId: string | undefined, planName: string) => {
-        if (!priceId) {
-            alert('このプランは準備中です');
+        if (!priceId || (typeof priceId === "string" && priceId.includes("CHANGE_ME"))) {
+            alert("このプランは現在準備中です。しばらくお待ちください。");
             return;
         }
 
@@ -157,7 +178,7 @@ export default function PricingPage() {
 
                 {/* Pricing Cards */}
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mb-10 sm:mb-16">
-                    {PRICING_PLANS.map(plan => (
+                    {pricingPlans.map(plan => (
                         <div
                             key={plan.name}
                             className={`relative rounded-2xl p-8 ${
