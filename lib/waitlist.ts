@@ -238,7 +238,10 @@ export async function getWaitlistEntries(options: {
 
     const where = status ? { status } : {};
 
-    const [entries, total] = await Promise.all([
+    // Only fetch all PENDING entries if we need to calculate positions
+    const needsPositionCalculation = !status || status === 'PENDING';
+    
+    const [entries, total, allPendingEntries] = await Promise.all([
         prisma.waitlist.findMany({
             where,
             orderBy: { createdAt: 'asc' },
@@ -246,23 +249,34 @@ export async function getWaitlistEntries(options: {
             skip: offset,
         }),
         prisma.waitlist.count({ where }),
+        // Get all PENDING entries once to calculate positions in-memory (only if needed)
+        needsPositionCalculation
+            ? prisma.waitlist.findMany({
+                  where: { status: 'PENDING' },
+                  select: { id: true, createdAt: true },
+                  orderBy: { createdAt: 'asc' },
+              })
+            : Promise.resolve([]),
     ]);
 
-    // Calculate positions for PENDING entries
-    const entriesWithPosition = await Promise.all(
-        entries.map(async (entry) => {
-            let position: number | null = null;
-            if (entry.status === 'PENDING') {
-                position = await prisma.waitlist.count({
-                    where: {
-                        status: 'PENDING',
-                        createdAt: { lte: entry.createdAt },
-                    },
-                });
-            }
-            return { ...entry, position };
-        })
-    );
+    // Calculate positions in-memory for PENDING entries
+    const entriesWithPosition = entries.map((entry) => {
+        let position: number | null = null;
+        if (entry.status === 'PENDING' && allPendingEntries.length > 0) {
+            // Find position in the sorted array of all pending entries
+            const index = allPendingEntries.findIndex((e) => e.id === entry.id);
+            position = index >= 0 ? index + 1 : null;
+        }
+        return {
+            id: entry.id,
+            email: entry.email,
+            name: entry.name,
+            status: entry.status,
+            position,
+            notifiedAt: entry.notifiedAt,
+            createdAt: entry.createdAt,
+        };
+    });
 
     return { entries: entriesWithPosition, total };
 }
@@ -285,7 +299,7 @@ export async function notifyNextInWaitlist(spotsAvailable: number): Promise<numb
     // Update status to NOTIFIED
     await prisma.waitlist.updateMany({
         where: {
-            id: { in: pendingEntries.map((e) => e.id) },
+            id: { in: pendingEntries.map((e: { id: string }) => e.id) },
         },
         data: {
             status: 'NOTIFIED',

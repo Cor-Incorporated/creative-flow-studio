@@ -229,14 +229,13 @@ model AuditLog {
 // ============================================
 
 model Waitlist {
-    id        String         @id @default(cuid())
-    email     String         @unique
-    name      String?
-    status    WaitlistStatus @default(PENDING)
-    position  Int?           // Queue position (calculated)
-    notifiedAt DateTime?     // When user was notified of availability
-    createdAt DateTime       @default(now())
-    updatedAt DateTime       @updatedAt
+    id         String         @id @default(cuid())
+    email      String         @unique
+    name       String?
+    status     WaitlistStatus @default(PENDING)
+    notifiedAt DateTime?      // When user was notified of availability
+    createdAt  DateTime       @default(now())
+    updatedAt  DateTime       @updatedAt
 
     @@index([status, createdAt])
     @@map("waitlist")
