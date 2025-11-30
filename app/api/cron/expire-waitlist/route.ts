@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { expireOldNotifications } from '@/lib/waitlist';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/cron/expire-waitlist
@@ -28,15 +28,28 @@ import { expireOldNotifications } from '@/lib/waitlist';
 export async function GET(request: NextRequest) {
     try {
         // Verify cron secret to prevent unauthorized access
-        // Require authentication in ALL environments
         const isVercelCron = !!request.headers.get('x-vercel-cron');
         const cronSecret = process.env.CRON_SECRET;
         const providedSecret = request.headers.get('x-cron-secret');
+        const isProduction = process.env.NODE_ENV === 'production';
 
-        // Allow either Vercel's internal header OR valid secret
-        if (!isVercelCron && (!cronSecret || providedSecret !== cronSecret)) {
-            console.error('Unauthorized cron request - invalid or missing secret');
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // In production, require authentication
+        if (isProduction) {
+            // Allow either Vercel's internal header OR valid secret
+            if (!isVercelCron && (!cronSecret || providedSecret !== cronSecret)) {
+                console.error('Unauthorized cron request - invalid or missing secret');
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            }
+        } else {
+            // In development, allow without secret for testing, but warn if secret is not configured
+            if (!isVercelCron && cronSecret && providedSecret !== cronSecret) {
+                console.error('Unauthorized cron request - invalid secret');
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            }
+            // If CRON_SECRET is not set in dev, allow but warn
+            if (!isVercelCron && !cronSecret) {
+                console.warn('CRON_SECRET not configured in development - allowing request for testing. Set CRON_SECRET for production-like testing.');
+            }
         }
 
         // Expire old notifications
