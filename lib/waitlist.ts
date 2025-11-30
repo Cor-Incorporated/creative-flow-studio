@@ -217,6 +217,8 @@ export async function cancelWaitlistRegistration(email: string): Promise<boolean
 
 /**
  * Get waitlist entries for admin
+ * Optimized to avoid N+1 queries by fetching all PENDING entries once
+ * and calculating positions in-memory
  */
 export async function getWaitlistEntries(options: {
     status?: 'PENDING' | 'NOTIFIED' | 'CONVERTED' | 'EXPIRED' | 'CANCELLED';
@@ -240,7 +242,7 @@ export async function getWaitlistEntries(options: {
 
     // Only fetch all PENDING entries if we need to calculate positions
     const needsPositionCalculation = !status || status === 'PENDING';
-    
+
     const [entries, total, allPendingEntries] = await Promise.all([
         prisma.waitlist.findMany({
             where,
@@ -307,8 +309,29 @@ export async function notifyNextInWaitlist(spotsAvailable: number): Promise<numb
         },
     });
 
-    // TODO: Send email notifications to users
-    // This would integrate with an email service like SendGrid, Resend, etc.
+    // TODO: Implement email notifications
+    // Integration required with email service (Resend, SendGrid, or AWS SES)
+    //
+    // Suggested implementation:
+    // 1. Add email service client (e.g., npm install resend)
+    // 2. Create email template for waitlist notification
+    // 3. Send emails with retry logic and delivery tracking
+    // 4. Consider using a job queue for bulk notifications
+    //
+    // Example with Resend:
+    // ```
+    // import { Resend } from 'resend';
+    // const resend = new Resend(process.env.RESEND_API_KEY);
+    // for (const entry of pendingEntries) {
+    //   await resend.emails.send({
+    //     from: 'noreply@creative-flow.studio',
+    //     to: entry.email,
+    //     subject: 'Your spot is ready!',
+    //     html: `<p>You can now upgrade to a paid plan...</p>`
+    //   });
+    // }
+    // ```
+    console.log(`Notified ${pendingEntries.length} users from waitlist (email integration pending)`);
 
     return pendingEntries.length;
 }
