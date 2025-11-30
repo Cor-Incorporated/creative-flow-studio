@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe, getPlanIdFromStripeSubscription, isEventProcessed } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
+import { MAX_PAID_USERS } from '@/lib/constants';
 import Stripe from 'stripe';
 
 /**
@@ -148,22 +149,60 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
         // Get plan ID from Stripe subscription
         const planId = await getPlanIdFromStripeSubscription(stripeSubscriptionId);
 
-        // Create or update subscription
-        await prisma.subscription.upsert({
-            where: { userId },
-            update: {
-                stripeCustomerId,
-                stripeSubscriptionId,
-                status: 'ACTIVE',
-                planId,
-            },
-            create: {
-                userId,
-                planId,
-                stripeCustomerId,
-                stripeSubscriptionId,
-                status: 'ACTIVE',
-            },
+        // Get the plan to check if it's a paid plan
+        const plan = await prisma.plan.findUnique({
+            where: { id: planId },
+            select: { name: true },
+        });
+
+        const isPaidPlan = plan && plan.name !== 'FREE';
+
+        // Use transaction to prevent race condition when capacity is limited
+        await prisma.$transaction(async (tx) => {
+            // Check if user already has a subscription (plan change, not new signup)
+            const existingSubscription = await tx.subscription.findUnique({
+                where: { userId },
+                include: { plan: true },
+            });
+
+            const isExistingPaidUser = existingSubscription && existingSubscription.plan.name !== 'FREE';
+
+            // Only check capacity for NEW paid users (not existing paid users changing plans)
+            if (isPaidPlan && !isExistingPaidUser) {
+                // Count current paid users within transaction
+                const paidUsersCount = await tx.subscription.count({
+                    where: {
+                        status: 'ACTIVE',
+                        plan: { name: { not: 'FREE' } },
+                        user: { role: { not: 'ADMIN' } },
+                    },
+                });
+
+                if (paidUsersCount >= MAX_PAID_USERS) {
+                    // Capacity reached - this shouldn't happen if checkout check worked
+                    // but this is a safety net for race conditions
+                    console.error(`Capacity exceeded during checkout completion for user ${userId}`);
+                    throw new Error('CAPACITY_EXCEEDED');
+                }
+            }
+
+            // Create or update subscription within transaction
+            await tx.subscription.upsert({
+                where: { userId },
+                update: {
+                    stripeCustomerId,
+                    stripeSubscriptionId,
+                    status: 'ACTIVE',
+                    planId,
+                },
+                create: {
+                    userId,
+                    planId,
+                    stripeCustomerId,
+                    stripeSubscriptionId,
+                    status: 'ACTIVE',
+                },
+            });
         });
 
         // Record payment event

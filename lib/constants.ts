@@ -16,6 +16,12 @@ export const MAX_PAID_USERS = 2000;
  */
 export const WAITLIST_NOTIFICATION_EXPIRY_DAYS = 7;
 
+/**
+ * Support email address for enterprise users
+ * Used in UsageLimitBanner and other support-related UI
+ */
+export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@creative-flow.studio';
+
 // ============================================
 // API Limits and Validation
 // ============================================
