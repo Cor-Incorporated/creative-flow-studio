@@ -8,6 +8,12 @@ on:
       - "infra/**"
       - ".github/workflows/terraform-deploy.yml"
   workflow_dispatch:
+    inputs:
+      force_apply:
+        description: 'Force apply even if no infra changes'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
   PROJECT_ID: dataanalyticsclinic
