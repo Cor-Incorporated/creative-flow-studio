@@ -20,22 +20,22 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 
 ### ✅ Completed Features
 
-| Feature | Status | Tests |
-|---------|--------|-------|
-| Environment Setup (Next.js 14, Prisma, Tailwind v4) | ✅ | - |
-| Authentication (NextAuth.js + Google OAuth + Email/Password) | ✅ | - |
-| Gemini API (Chat/Pro/Search/Image/Video) | ✅ | 18 |
-| Conversation Persistence (CRUD + Messages) | ✅ | 33 |
-| Stripe Integration (Checkout/Portal/Webhooks) | ✅ | 37 |
-| Subscription Utilities | ✅ | 23 |
-| Admin Dashboard (RBAC + Users/Usage) | ✅ | 48 |
-| Shared API Utilities | ✅ | 14 |
-| Validators | ✅ | 9 |
-| Landing Page & Auth UX (Toast notifications) | ✅ | - |
-| Influencer Mode (DJ Shacho, HIKAKIN風) | ✅ | - |
-| Chat Sidebar (New chat, History, Delete) | ✅ | - |
-| Password Visibility Toggle | ✅ | - |
-| Mobile Responsive Design | ✅ | - |
+| Feature                                                      | Status | Tests |
+|--------------------------------------------------------------|--------|-------|
+| Environment Setup (Next.js 14, Prisma, Tailwind v4)          | ✅      | -     |
+| Authentication (NextAuth.js + Google OAuth + Email/Password) | ✅      | -     |
+| Gemini API (Chat/Pro/Search/Image/Video)                     | ✅      | 18    |
+| Conversation Persistence (CRUD + Messages)                   | ✅      | 33    |
+| Stripe Integration (Checkout/Portal/Webhooks)                | ✅      | 37    |
+| Subscription Utilities                                       | ✅      | 23    |
+| Admin Dashboard (RBAC + Users/Usage)                         | ✅      | 48    |
+| Shared API Utilities                                         | ✅      | 14    |
+| Validators                                                   | ✅      | 9     |
+| Landing Page & Auth UX (Toast notifications)                 | ✅      | -     |
+| Influencer Mode (DJ Shacho, HIKAKIN風)                       | ✅      | -     |
+| Chat Sidebar (New chat, History, Delete)                     | ✅      | -     |
+| Password Visibility Toggle                                   | ✅      | -     |
+| Mobile Responsive Design                                     | ✅      | -     |
 
 **Total Tests**: 185 passing ✅
 
@@ -115,25 +115,25 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 
 ### API Routes
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/auth/*` | * | NextAuth.js |
-| `/api/conversations` | GET, POST | List/Create conversations |
-| `/api/conversations/[id]` | GET, PATCH, DELETE | Conversation CRUD |
-| `/api/conversations/[id]/messages` | POST | Add message |
-| `/api/stripe/checkout` | POST | Create checkout session |
-| `/api/stripe/portal` | POST | Customer portal |
-| `/api/stripe/webhook` | POST | Stripe webhooks |
-| `/api/stripe/subscription` | GET | Subscription data |
-| `/api/gemini/chat` | POST | Chat/Pro/Search |
-| `/api/gemini/image` | POST | Image generation/editing |
-| `/api/gemini/video` | POST | Video generation |
-| `/api/gemini/video/status` | POST | Polling |
-| `/api/gemini/video/download` | GET | Secure download |
-| `/api/admin/users` | GET | List users (ADMIN) |
-| `/api/admin/users/[id]` | PATCH | Update role (ADMIN) |
-| `/api/admin/usage` | GET | Usage logs (ADMIN) |
-| `/api/admin/stats` | GET | System stats (ADMIN) |
+| Route                              | Method             | Description               |
+|------------------------------------|--------------------|---------------------------|
+| `/api/auth/*`                      | *                  | NextAuth.js               |
+| `/api/conversations`               | GET, POST          | List/Create conversations |
+| `/api/conversations/[id]`          | GET, PATCH, DELETE | Conversation CRUD         |
+| `/api/conversations/[id]/messages` | POST               | Add message               |
+| `/api/stripe/checkout`             | POST               | Create checkout session   |
+| `/api/stripe/portal`               | POST               | Customer portal           |
+| `/api/stripe/webhook`              | POST               | Stripe webhooks           |
+| `/api/stripe/subscription`         | GET                | Subscription data         |
+| `/api/gemini/chat`                 | POST               | Chat/Pro/Search           |
+| `/api/gemini/image`                | POST               | Image generation/editing  |
+| `/api/gemini/video`                | POST               | Video generation          |
+| `/api/gemini/video/status`         | POST               | Polling                   |
+| `/api/gemini/video/download`       | GET                | Secure download           |
+| `/api/admin/users`                 | GET                | List users (ADMIN)        |
+| `/api/admin/users/[id]`            | PATCH              | Update role (ADMIN)       |
+| `/api/admin/usage`                 | GET                | Usage logs (ADMIN)        |
+| `/api/admin/stats`                 | GET                | System stats (ADMIN)      |
 
 ---
 
@@ -149,11 +149,11 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 
 ### Usage Limits
 
-| Plan | Features | Limit |
-|------|----------|-------|
-| FREE | Chat/Search | 100 req/month |
-| PRO | Chat/Pro/Search/Image | 1000 req/month |
-| ENTERPRISE | All + Video | Unlimited |
+| Plan       | Features              | Limit          |
+|------------|-----------------------|----------------|
+| FREE       | Chat/Search           | 100 req/month  |
+| PRO        | Chat/Pro/Search/Image | 1000 req/month |
+| ENTERPRISE | All + Video           | Unlimited      |
 
 HTTP Status Codes:
 - 401 Unauthorized - No session
@@ -246,11 +246,11 @@ Selectable AI persona mode that applies different influencer speaking styles.
 
 **Available Personas:**
 
-| ID | Name | Description |
-|----|------|-------------|
-| `dj_shacho` | DJ社長 | Repezen Foxx leader, 九州弁, high-energy |
-| `hikakin` | HIKAKIN風 | Top YouTuber style, friendly, polite |
-| `none` | OFF | Default AI assistant |
+| ID          | Name      | Description                              |
+|-------------|-----------|------------------------------------------|
+| `dj_shacho` | DJ社長    | Repezen Foxx leader, 九州弁, high-energy |
+| `hikakin`   | HIKAKIN風 | Top YouTuber style, friendly, polite     |
+| `none`      | OFF       | Default AI assistant                     |
 
 **Implementation:**
 - Dropdown selector in `ChatInput` component

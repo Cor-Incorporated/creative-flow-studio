@@ -290,15 +290,15 @@ npm run test:e2e -- --project=chromium
 
 本番環境では、環境変数は **Secret Manager** に格納し、Cloud Run に注入します。
 
-| Secret Manager キー | 環境変数名 | 説明 |
-| --- | --- | --- |
-| `database-url` | `DATABASE_URL` | Cloud SQL 接続文字列 |
-| `nextauth-secret` | `NEXTAUTH_SECRET` | NextAuth.js セッション暗号化キー |
-| `google-client-id` | `GOOGLE_CLIENT_ID` | Google OAuth クライアントID |
-| `google-client-secret` | `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット |
-| `stripe-secret-key` | `STRIPE_SECRET_KEY` | Stripe シークレットキー |
+| Secret Manager キー       | 環境変数名              | 説明                          |
+|-------------------------|-------------------------|-------------------------------|
+| `database-url`          | `DATABASE_URL`          | Cloud SQL 接続文字列          |
+| `nextauth-secret`       | `NEXTAUTH_SECRET`       | NextAuth.js セッション暗号化キー     |
+| `google-client-id`      | `GOOGLE_CLIENT_ID`      | Google OAuth クライアントID         |
+| `google-client-secret`  | `GOOGLE_CLIENT_SECRET`  | Google OAuth クライアントシークレット     |
+| `stripe-secret-key`     | `STRIPE_SECRET_KEY`     | Stripe シークレットキー               |
 | `stripe-webhook-secret` | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット |
-| `gemini-api-key` | `GEMINI_API_KEY` | Google Gemini API キー |
+| `gemini-api-key`        | `GEMINI_API_KEY`        | Google Gemini API キー          |
 
 **非機密の環境変数**（Cloud Run に直接設定）:
 
