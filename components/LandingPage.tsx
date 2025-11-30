@@ -1,28 +1,23 @@
 'use client';
 
 import React from 'react';
-import { signIn } from 'next-auth/react';
 import { SparklesIcon } from './icons';
 import Link from 'next/link';
 
 /**
  * Landing Page Component
- * 
+ *
  * Displays a hero section with login/signup CTA for unauthenticated users.
  * Shows after authentication is complete.
- * 
+ *
  * Features:
  * - Hero section with value proposition
- * - Google OAuth login button
+ * - Login/Register options (Google OAuth + Email/Password)
  * - Pricing page link
  * - Feature highlights
  */
 
 export default function LandingPage() {
-    const handleGoogleSignIn = () => {
-        signIn('google', { callbackUrl: window.location.href });
-    };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
             {/* Header */}
@@ -40,12 +35,12 @@ export default function LandingPage() {
                             >
                                 料金プラン
                             </Link>
-                            <button
-                                onClick={handleGoogleSignIn}
+                            <Link
+                                href="/auth/signin"
                                 className="px-6 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                             >
-                                Googleでログイン
-                            </button>
+                                ログイン
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -62,12 +57,12 @@ export default function LandingPage() {
                         チャット、画像生成、動画生成を一つのプラットフォームで。
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={handleGoogleSignIn}
+                        <Link
+                            href="/auth/signin"
                             className="px-8 py-4 text-lg font-semibold bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-lg"
                         >
-                            Googleで始める
-                        </button>
+                            無料で始める
+                        </Link>
                         <Link
                             href="/pricing"
                             className="px-8 py-4 text-lg font-semibold bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
@@ -153,12 +148,12 @@ export default function LandingPage() {
                         FREE プランから始めて、必要に応じてアップグレードできます
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={handleGoogleSignIn}
+                        <Link
+                            href="/auth/signin"
                             className="px-8 py-4 text-lg font-semibold bg-white text-blue-600 hover:bg-gray-100 rounded-lg transition-colors"
                         >
-                            Googleでログイン
-                        </button>
+                            アカウント作成
+                        </Link>
                         <Link
                             href="/pricing"
                             className="px-8 py-4 text-lg font-semibold bg-transparent border-2 border-white text-white hover:bg-white/10 rounded-lg transition-colors"

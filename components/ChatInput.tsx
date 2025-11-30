@@ -10,6 +10,8 @@ import {
     ALLOWED_IMAGE_TYPES,
     ALLOWED_VIDEO_TYPES,
     ERROR_MESSAGES,
+    INFLUENCERS,
+    InfluencerId,
 } from '@/lib/constants';
 
 interface ChatInputProps {
@@ -19,8 +21,8 @@ interface ChatInputProps {
     setMode: (mode: GenerationMode) => void;
     aspectRatio: AspectRatio;
     setAspectRatio: (ratio: AspectRatio) => void;
-    isDjShachoMode: boolean;
-    setIsDjShachoMode: (isDjShachoMode: boolean) => void;
+    selectedInfluencer: InfluencerId;
+    setSelectedInfluencer: (influencer: InfluencerId) => void;
 }
 
 const ModeButton: React.FC<{
@@ -66,8 +68,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     setMode,
     aspectRatio,
     setAspectRatio,
-    isDjShachoMode,
-    setIsDjShachoMode,
+    selectedInfluencer,
+    setSelectedInfluencer,
 }) => {
     const [prompt, setPrompt] = useState('');
     const [uploadedMedia, setUploadedMedia] = useState<Media | null>(null);
@@ -182,26 +184,25 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     動画
                 </ModeButton>
             </div>
-            <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-gray-400 mr-2">DJ社長モード:</span>
-                <button
-                    onClick={() => setIsDjShachoMode(!isDjShachoMode)}
-                    aria-label="DJ社長モード切り替え"
-                    aria-pressed={isDjShachoMode}
-                    role="switch"
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        isDjShachoMode ? 'bg-blue-600' : 'bg-gray-700'
-                    }`}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-sm font-semibold text-gray-400 mr-2">インフルエンサーモード:</span>
+                <select
+                    value={selectedInfluencer}
+                    onChange={(e) => setSelectedInfluencer(e.target.value as InfluencerId)}
+                    className="px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-700 text-gray-100 border border-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
                 >
-                    <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            isDjShachoMode ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                    />
-                </button>
-                <span className={`text-sm ${isDjShachoMode ? 'text-blue-400' : 'text-gray-400'}`}>
-                    {isDjShachoMode ? 'ON' : 'OFF'}
-                </span>
+                    <option value="none">OFF</option>
+                    {Object.values(INFLUENCERS).map((influencer) => (
+                        <option key={influencer.id} value={influencer.id}>
+                            {influencer.name}
+                        </option>
+                    ))}
+                </select>
+                {selectedInfluencer !== 'none' && (
+                    <span className="text-xs text-gray-400">
+                        {INFLUENCERS[selectedInfluencer]?.description}
+                    </span>
+                )}
             </div>
             {validationError && (
                 <div className="mb-2 p-2 bg-red-900/50 border border-red-500 rounded-md text-red-200 text-sm">
