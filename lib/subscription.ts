@@ -74,11 +74,12 @@ export async function getMonthlyUsageCount(userId: string): Promise<number> {
 
 /**
  * Check subscription limits for a specific action
+ * ADMIN users bypass all limits and have access to all features
  *
  * @param userId - User ID
  * @param action - Action type (e.g., 'image_generation', 'video_generation', 'pro_mode')
  * @returns Object with allowed status, plan details, and usage count
- * @throws Error if subscription is invalid or limits exceeded
+ * @throws Error if subscription is invalid or limits exceeded (unless user is ADMIN)
  */
 export async function checkSubscriptionLimits(
     userId: string,
@@ -89,6 +90,27 @@ export async function checkSubscriptionLimits(
     usageCount: number;
     limit: number | null;
 }> {
+    // Check if user is ADMIN - admins bypass all limits
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+    });
+
+    if (user?.role === 'ADMIN') {
+        // Admin users have unlimited access to all features
+        // Return a dummy plan with all features enabled
+        const adminPlan = await prisma.plan.findFirst({
+            where: { name: 'ENTERPRISE' },
+        });
+
+        return {
+            allowed: true,
+            plan: adminPlan || ({} as Plan),
+            usageCount: 0,
+            limit: null, // Unlimited for admins
+        };
+    }
+
     const subscription = await getUserSubscription(userId);
 
     if (!subscription) {

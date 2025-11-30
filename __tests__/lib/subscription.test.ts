@@ -23,6 +23,12 @@ vi.mock('@/lib/prisma', () => ({
         usageLog: {
             count: vi.fn(),
         },
+        user: {
+            findUnique: vi.fn(),
+        },
+        plan: {
+            findFirst: vi.fn(),
+        },
     },
 }));
 
@@ -146,6 +152,8 @@ describe('subscription utilities', () => {
                 },
             };
 
+            // Mock user as non-admin
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'USER' });
             (prisma.subscription.findUnique as any).mockResolvedValue(mockSubscription);
             (prisma.usageLog.count as any).mockResolvedValue(350);
 
@@ -156,7 +164,31 @@ describe('subscription utilities', () => {
             expect(result.limit).toBe(1000);
         });
 
+        it('should bypass limits for ADMIN users', async () => {
+            const mockAdminPlan = {
+                id: 'plan-enterprise',
+                name: 'ENTERPRISE',
+                monthlyPrice: 3000000,
+                features: {},
+                maxRequestsPerMonth: 3000,
+                maxFileSize: 500000000,
+            };
+
+            // Mock user as ADMIN
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'ADMIN' });
+            (prisma.plan.findFirst as any).mockResolvedValue(mockAdminPlan);
+
+            const result = await checkSubscriptionLimits('admin-user', 'video_generation');
+
+            expect(result.allowed).toBe(true);
+            expect(result.usageCount).toBe(0);
+            expect(result.limit).toBeNull(); // Unlimited for admins
+            expect(prisma.subscription.findUnique).not.toHaveBeenCalled();
+        });
+
         it('should throw error if subscription not found', async () => {
+            // Mock user as non-admin
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'USER' });
             (prisma.subscription.findUnique as any).mockResolvedValue(null);
 
             await expect(checkSubscriptionLimits('user-1', 'chat')).rejects.toThrow(
@@ -165,6 +197,8 @@ describe('subscription utilities', () => {
         });
 
         it('should throw error if subscription is not active', async () => {
+            // Mock user as non-admin
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'USER' });
             (prisma.subscription.findUnique as any).mockResolvedValue({
                 status: 'CANCELED',
                 plan: { features: {} },
@@ -176,6 +210,8 @@ describe('subscription utilities', () => {
         });
 
         it('should throw error if feature not allowed', async () => {
+            // Mock user as non-admin
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'USER' });
             (prisma.subscription.findUnique as any).mockResolvedValue({
                 status: 'ACTIVE',
                 plan: {
@@ -192,6 +228,8 @@ describe('subscription utilities', () => {
         });
 
         it('should throw error if monthly limit exceeded', async () => {
+            // Mock user as non-admin
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'USER' });
             (prisma.subscription.findUnique as any).mockResolvedValue({
                 status: 'ACTIVE',
                 plan: {
@@ -210,6 +248,8 @@ describe('subscription utilities', () => {
         });
 
         it('should allow unlimited usage for null limit', async () => {
+            // Mock user as non-admin
+            (prisma.user.findUnique as any).mockResolvedValue({ role: 'USER' });
             (prisma.subscription.findUnique as any).mockResolvedValue({
                 status: 'ACTIVE',
                 plan: {
