@@ -1,22 +1,21 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { Message, GenerationMode, AspectRatio, Media, ContentPart } from '@/types/app';
 import ChatInput from '@/components/ChatInput';
 import ChatMessage from '@/components/ChatMessage';
-import LandingPage from '@/components/LandingPage';
-import UsageLimitBanner, { UsageLimitInfo } from '@/components/UsageLimitBanner';
 import { SparklesIcon } from '@/components/icons';
+import LandingPage from '@/components/LandingPage';
 import { useToast } from '@/components/Toast';
+import UsageLimitBanner, { UsageLimitInfo } from '@/components/UsageLimitBanner';
 import {
-    VIDEO_POLL_INTERVAL_MS,
-    MAX_VIDEO_POLL_ATTEMPTS,
     ERROR_MESSAGES,
-    InfluencerId,
     getInfluencerConfig,
-    INFLUENCER_TEMPERATURE,
+    InfluencerId,
+    MAX_VIDEO_POLL_ATTEMPTS,
+    VIDEO_POLL_INTERVAL_MS
 } from '@/lib/constants';
+import { AspectRatio, ContentPart, GenerationMode, Media, Message } from '@/types/app';
+import { signIn, signOut, useSession } from 'next-auth/react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function Home() {
     const { data: session, status } = useSession();

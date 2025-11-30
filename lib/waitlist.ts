@@ -8,8 +8,8 @@
  * - MAX_PAID_USERS: 2000 (configurable in constants.ts)
  */
 
-import { prisma } from './prisma';
 import { MAX_PAID_USERS, WAITLIST_NOTIFICATION_EXPIRY_DAYS } from './constants';
+import { prisma } from './prisma';
 
 export type WaitlistStats = {
     paidUsersCount: number;
