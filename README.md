@@ -34,6 +34,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 - **フレームワーク**: Next.js 14 + TypeScript
 - **インフラ**: Google Cloud Platform (Cloud Run, Cloud SQL, etc.)
 - **ステータス**: 開発完了（Cloud Run auth設定待ち） - 185 tests passing
+- **最新更新**: 2025-12-01 - パスワード表示トグル、モバイルレスポンシブ対応、料金プラン更新
 - **詳細**: 以下のセクションを参照
 
 ---

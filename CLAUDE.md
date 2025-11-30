@@ -16,7 +16,7 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 
 ---
 
-## Current Status (2025-11-30)
+## Current Status (2025-12-01)
 
 ### ✅ Completed Features
 
@@ -34,6 +34,8 @@ Creative Flow Studio is a multimodal AI SaaS application that integrates multipl
 | Landing Page & Auth UX (Toast notifications) | ✅ | - |
 | Influencer Mode (DJ Shacho, HIKAKIN風) | ✅ | - |
 | Chat Sidebar (New chat, History, Delete) | ✅ | - |
+| Password Visibility Toggle | ✅ | - |
+| Mobile Responsive Design | ✅ | - |
 
 **Total Tests**: 185 passing ✅
 
@@ -332,6 +334,17 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
   - Updated ChatInput, ChatMessage, and page.tsx components
 - Added Admin Dashboard documentation (`docs/admin-dashboard.md`)
 - Updated CLAUDE.md with new features
+- Added password visibility toggle (EyeIcon/EyeSlashIcon in signin page)
+- Improved mobile responsive design across all pages
+- Added iOS zoom prevention (font-size: 16px)
+- Added safe-area-inset support for notched devices
+- Enhanced ChatInput with auto-resize functionality
+- Updated pricing plans based on Google Gemini API costs:
+  - FREE: ¥0/month, 50 requests/month
+  - PRO: ¥3,000/month, 500 requests/month
+  - ENTERPRISE: ¥30,000/month, 3,000 requests/month + 50 videos/month
+- Added "Back to Chat" button on pricing page
+- Updated prisma/seed.sql with new plan data
 
 **Pending for Cursor:**
 

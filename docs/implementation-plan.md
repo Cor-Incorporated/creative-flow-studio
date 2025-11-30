@@ -1,6 +1,6 @@
 # Creative Flow Studio 実装計画
 
-最終更新: 2025-11-30
+最終更新: 2025-12-01
 ステータス: **コア機能完了** - Cloud Run 認証設定待ち
 
 ---
@@ -64,6 +64,11 @@
 - ✅ Toast 通知システム
 - ✅ Tailwind v4 移行
 - ✅ SVG favicon
+- ✅ パスワード表示/非表示トグル機能
+- ✅ モバイルレスポンシブ対応（全ページ）
+- ✅ iOSズーム防止（font-size: 16px）
+- ✅ ノッチ付きデバイス対応（safe-area-inset）
+- ✅ ChatInput自動リサイズ機能
 
 ---
 
