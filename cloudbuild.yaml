@@ -111,33 +111,39 @@ steps:
               MAX_RETRIES=60
               RETRY_COUNT=0
               
+              # set -eを一時的に無効化してエラーハンドリングを行う
+              set +e
               while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-                  # Prisma migrate deployを実行（エラーをキャプチャ）
-                  ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1) || {
-                      EXIT_CODE=$$?
-                      # 接続エラー（P1001）の場合はリトライ
-                      if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
-                          RETRY_COUNT=$$((RETRY_COUNT + 1))
-                          if [ $$((RETRY_COUNT % 5)) -eq 0 ]; then
-                              echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
-                              echo "  エラー詳細: $$ERROR_OUTPUT"
-                          fi
-                          sleep 1
-                          continue
-                      else
-                          # 接続エラー以外の場合はエラーを表示して終了
-                          echo "❌ マイグレーションエラー:"
-                          echo "$$ERROR_OUTPUT"
-                          echo ""
-                          echo "Cloud SQL Proxyログ:"
-                          cat /tmp/cloud-sql-proxy.log
-                          exit 1
+                  # Prisma migrate deployを実行
+                  ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
+                  EXIT_CODE=$$?
+                  
+                  if [ $$EXIT_CODE -eq 0 ]; then
+                      echo "✅ マイグレーションが正常に完了しました"
+                      set -e
+                      break
+                  fi
+                  
+                  # 接続エラー（P1001）の場合はリトライ
+                  if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
+                      RETRY_COUNT=$$((RETRY_COUNT + 1))
+                      if [ $$((RETRY_COUNT % 5)) -eq 0 ]; then
+                          echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                          echo "  エラー詳細: $$ERROR_OUTPUT"
                       fi
-                  }
-                  # 成功した場合
-                  echo "✅ マイグレーションが正常に完了しました"
-                  break
+                      sleep 1
+                  else
+                      # 接続エラー以外の場合はエラーを表示して終了
+                      set -e
+                      echo "❌ マイグレーションエラー:"
+                      echo "$$ERROR_OUTPUT"
+                      echo ""
+                      echo "Cloud SQL Proxyログ:"
+                      cat /tmp/cloud-sql-proxy.log
+                      exit 1
+                  fi
               done
+              set -e
               
               if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
                   echo "❌ データベース接続の確立に失敗しました（$$MAX_RETRIES回試行）"
