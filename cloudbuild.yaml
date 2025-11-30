@@ -112,43 +112,42 @@ steps:
               RETRY_COUNT=0
               CONNECTED=false
               
+              # Prismaマイグレーションを実行（接続確認も兼ねる）
+              echo "🔄 データベースマイグレーションを適用しています..."
+              MAX_RETRIES=60
+              RETRY_COUNT=0
+              
               while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
-                  # Prisma migrate deployを試行して接続を確認
-                  if npx prisma migrate deploy --skip-seed > /dev/null 2>&1; then
-                      echo "✅ データベース接続が確立され、マイグレーションが完了しました"
-                      CONNECTED=true
+                  # Prisma migrate deployを実行
+                  ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
+                  EXIT_CODE=$$?
+                  
+                  if [ $$EXIT_CODE -eq 0 ]; then
+                      echo "✅ マイグレーションが正常に完了しました"
                       break
                   fi
-                  # 接続エラーかどうかを確認（P1001エラーは接続エラー）
-                  ERROR_OUTPUT=$(npx prisma migrate deploy --skip-seed 2>&1 || true)
+                  
+                  # 接続エラー（P1001）の場合はリトライ
                   if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
-                      # 接続エラーの場合、リトライ
                       RETRY_COUNT=$$((RETRY_COUNT + 1))
                       if [ $$((RETRY_COUNT % 5)) -eq 0 ]; then
-                          echo "  試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                          echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
                       fi
                       sleep 1
                   else
-                      # 接続エラー以外の場合は成功とみなす（マイグレーションが既に適用済みなど）
-                      echo "✅ データベース接続が確立されました"
-                      CONNECTED=true
-                      break
+                      # 接続エラー以外の場合はエラーを表示して終了
+                      echo "❌ マイグレーションエラー:"
+                      echo "$$ERROR_OUTPUT"
+                      cat /tmp/cloud-sql-proxy.log
+                      exit 1
                   fi
               done
               
-              if [ "$$CONNECTED" != "true" ]; then
+              if [ $$RETRY_COUNT -eq $$MAX_RETRIES ]; then
                   echo "❌ データベース接続の確立に失敗しました（$$MAX_RETRIES回試行）"
                   echo "Cloud SQL Proxyログ:"
                   cat /tmp/cloud-sql-proxy.log
-                  echo ""
-                  echo "接続テスト:"
-                  npx prisma migrate deploy --skip-seed || true
                   exit 1
-              fi
-              
-              # 接続が確立されている場合、マイグレーションは既に実行済み
-              if [ "$$CONNECTED" = "true" ]; then
-                  echo "✅ マイグレーションは既に適用済みです"
               fi
               
               # Proxyを停止
