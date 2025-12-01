@@ -3,7 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-    title: 'BlunaAI',
+    title: 'BulnaAI',
     description: 'Multimodal AI application powered by Google Gemini',
 };
 

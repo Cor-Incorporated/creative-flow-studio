@@ -31,7 +31,7 @@ function AuthErrorContent() {
                 {/* Header */}
                 <div className="flex items-center justify-center gap-2 mb-4">
                     <SparklesIcon className="w-10 h-10 text-blue-400" />
-                    <h1 className="text-3xl font-bold text-white">クリエイティブフロースタジオ</h1>
+                    <h1 className="text-3xl font-bold text-white">BulnaAI</h1>
                 </div>
 
                 {/* Error Icon */}

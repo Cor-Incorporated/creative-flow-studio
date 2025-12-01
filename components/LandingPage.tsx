@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-import { SparklesIcon } from './icons';
 import Link from 'next/link';
+import { SparklesIcon } from './icons';
 
 /**
  * Landing Page Component
@@ -26,7 +25,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                             <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 flex-shrink-0" />
-                            <h1 className="text-lg sm:text-2xl font-bold truncate">クリエイティブフロースタジオ</h1>
+                            <h1 className="text-lg sm:text-2xl font-bold truncate">BulnaAI</h1>
                         </div>
                         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                             <Link

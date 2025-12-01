@@ -38,9 +38,9 @@ function getStripeClient(): Stripe {
         apiVersion: '2024-11-20.acacia',
         typescript: true,
         appInfo: {
-            name: 'BlunaAI',
+            name: 'BulnaAI',
             version: '1.0.0',
-            url: 'https://creative-flow-studio.com',
+            url: 'https://bulnaai.com',
         },
     });
 }
