@@ -149,45 +149,56 @@ jobs:
       - name: "Terraform Apply with Fresh Plan"
         working-directory: infra/envs/dev
         run: |
-          # Reusable retry function with exponential backoff
-          terraform_with_retry() {
-            local command="$1"
+          # Retry function with exponential backoff and conditional plan regeneration
+          # Only regenerates plan when error indicates staleness
+          terraform_apply_with_retry() {
             local max_retries="${{ env.MAX_RETRIES }}"
             local base_delay="${{ env.RETRY_BASE_DELAY }}"
             local retry_count=0
 
             while [ $retry_count -lt $max_retries ]; do
-              echo "Executing: terraform $command (Attempt $((retry_count + 1))/$max_retries)"
+              echo "Executing: terraform apply (Attempt $((retry_count + 1))/$max_retries)"
 
-              if eval "terraform $command"; then
-                echo "Terraform $command succeeded"
+              # Capture both stdout and stderr for error analysis
+              local output
+              local exit_code
+              output=$(terraform apply -lock-timeout=5m -auto-approve tfplan 2>&1) && exit_code=0 || exit_code=$?
+
+              echo "$output"
+
+              if [ $exit_code -eq 0 ]; then
+                echo "Terraform apply succeeded"
                 return 0
               fi
 
-              local exit_code=$?
               retry_count=$((retry_count + 1))
 
               if [ $retry_count -lt $max_retries ]; then
                 # Exponential backoff: base_delay * 2^(retry_count-1)
-                delay=$((base_delay * (1 << (retry_count - 1))))
-                echo "Terraform $command failed (exit code: $exit_code). Retrying in ${delay} seconds... (Attempt $retry_count/$max_retries)"
+                local delay=$((base_delay * (1 << (retry_count - 1))))
+                echo "Terraform apply failed (exit code: $exit_code). Retrying in ${delay} seconds... (Attempt $retry_count/$max_retries)"
                 sleep "$delay"
 
-                # Regenerate plan if state became stale
-                echo "Regenerating plan to ensure freshness..."
-                if ! terraform plan -lock-timeout=5m -out=tfplan; then
-                  echo "Failed to regenerate plan"
-                  return 1
+                # Only regenerate plan if error indicates staleness
+                if echo "$output" | grep -qE "(Saved plan is stale|state was changed by another operation)"; then
+                  echo "Detected stale plan error. Regenerating plan..."
+                  if ! terraform plan -lock-timeout=5m -out=tfplan; then
+                    echo "Failed to regenerate plan"
+                    return 1
+                  fi
+                  echo "Plan regenerated successfully"
+                else
+                  echo "Error is not related to stale plan. Retrying with existing plan..."
                 fi
               else
-                echo "Terraform $command failed after $max_retries attempts"
+                echo "Terraform apply failed after $max_retries attempts"
                 return 1
               fi
             done
           }
 
-          # Run terraform apply with lock timeout
-          terraform_with_retry "apply -lock-timeout=5m -auto-approve tfplan"
+          # Run terraform apply with retry logic
+          terraform_apply_with_retry
 
       - name: "Verify Cloud Run Service"
         working-directory: infra/envs/dev
