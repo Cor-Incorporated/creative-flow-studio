@@ -1,6 +1,6 @@
 # Infra Stack
 
-このディレクトリは GCP 上で Creative Flow Studio の Next.js フルスタック環境を構築する Terraform 定義を格納します。基本方針は以下の通りです。
+このディレクトリは GCP 上で BlunaAI の Next.js フルスタック環境を構築する Terraform 定義を格納します。基本方針は以下の通りです。
 
 - **バックエンド**: GCS バケット `dataanalyticsclinic-terraform-state` に remote state を保存。
 - **環境**: まずは `envs/dev` を Cloud Run ステージング（ブランチ `dev`）向けに構築。将来的に `prod` などを追加する想定。

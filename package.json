@@ -2,7 +2,7 @@
     "name": "creative-flow-studio",
     "version": "1.0.0",
     "private": true,
-    "description": "Creative Flow Studio - Next.js Full-Stack SaaS with Google Gemini AI",
+    "description": "BlunaAI - Next.js Full-Stack SaaS with Google Gemini AI",
     "scripts": {
         "dev": "next dev -p 3000",
         "build": "prisma generate && next build",

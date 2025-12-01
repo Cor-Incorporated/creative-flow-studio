@@ -1,6 +1,6 @@
-# Creative Flow Studio - Alpha Version
+# BlunaAI - Alpha Version
 
-このディレクトリには、React + Vite で構築されたα版のCreative Flow Studioが含まれています。
+このディレクトリには、React + Vite で構築されたα版のBlunaAIが含まれています。
 
 ## 概要
 

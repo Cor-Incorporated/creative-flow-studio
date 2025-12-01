@@ -70,6 +70,89 @@ export default function Home() {
     const authedFetch = (input: RequestInfo | URL, init: RequestInit = {}) =>
         fetch(input, { credentials: 'include', ...init });
 
+    const normalizeFileResourceName = (value?: string | null) => {
+        if (!value) return null;
+        const trimmed = value.trim().replace(/^\/+/, '');
+        const filesIndex = trimmed.indexOf('files/');
+        const base = filesIndex >= 0 ? trimmed.slice(filesIndex) : trimmed;
+        if (base.startsWith('files/')) {
+            return base;
+        }
+        if (/^[A-Za-z0-9_-]+$/.test(base)) {
+            return `files/${base}`;
+        }
+        return null;
+    };
+
+    const scanForVideoReference = (root: any) => {
+        if (!root || typeof root !== 'object') {
+            return null;
+        }
+
+        const stack: any[] = [root];
+        const visited = new Set<any>();
+        let uri: string | null = null;
+        let file: string | null = null;
+        let mimeType: string | null = null;
+
+        const looksLikeUri = (value: string) =>
+            value.startsWith('http://') || value.startsWith('https://') || value.startsWith('gs://');
+
+        while (stack.length > 0 && (!uri || !file || !mimeType)) {
+            const current = stack.pop();
+            if (!current || typeof current !== 'object') continue;
+            if (visited.has(current)) continue;
+            visited.add(current);
+
+            if (Array.isArray(current)) {
+                for (const item of current) {
+                    stack.push(item);
+                }
+                continue;
+            }
+
+            for (const [key, value] of Object.entries(current)) {
+                if (typeof value === 'string') {
+                    const lowerKey = key.toLowerCase();
+
+                    if (!mimeType && (lowerKey.includes('mime') || lowerKey.includes('contenttype'))) {
+                        mimeType = value;
+                    }
+
+                    if (!uri && (lowerKey.includes('uri') || lowerKey.includes('url') || looksLikeUri(value))) {
+                        if (looksLikeUri(value)) {
+                            uri = value;
+                        } else if (!file) {
+                            const normalized = normalizeFileResourceName(value);
+                            if (normalized) {
+                                file = normalized;
+                            }
+                        }
+                    }
+
+                    if (!file && (lowerKey === 'name' || lowerKey.includes('file'))) {
+                        const normalized = normalizeFileResourceName(value);
+                        if (normalized) {
+                            file = normalized;
+                        }
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    stack.push(value);
+                }
+            }
+        }
+
+        if (!uri && !file) {
+            return null;
+        }
+
+        return {
+            uri,
+            file,
+            mimeType: mimeType || undefined,
+        };
+    };
+
     const getGeneratedVideoDownloadTarget = (operationPayload: any) => {
         if (!operationPayload) {
             return null;
@@ -79,43 +162,42 @@ export default function Home() {
             operationPayload.response ||
             operationPayload.result ||
             operationPayload.operation?.response ||
-            null;
+            operationPayload;
 
-        if (!responsePayload) {
-            return null;
+        const candidateLists = [
+            responsePayload?.generatedVideos,
+            responsePayload?.videos,
+            responsePayload?.generated_videos,
+        ].filter((list): list is any[] => Array.isArray(list) && list.length > 0);
+
+        for (const list of candidateLists) {
+            const firstEntry = list[0];
+            const videoRecord = firstEntry?.video || firstEntry;
+            const uri =
+                videoRecord?.uri ||
+                videoRecord?.videoUri ||
+                videoRecord?.gcsUri ||
+                firstEntry?.uri ||
+                firstEntry?.gcsUri ||
+                null;
+            const file =
+                normalizeFileResourceName(
+                    videoRecord?.name ||
+                        videoRecord?.file ||
+                        firstEntry?.file ||
+                        firstEntry?.name ||
+                        videoRecord?.uri ||
+                        firstEntry?.uri ||
+                        null
+                ) || null;
+            const mimeType = videoRecord?.mimeType || firstEntry?.mimeType || undefined;
+
+            if (uri || file) {
+                return { uri, file, mimeType: mimeType || 'video/mp4' };
+            }
         }
 
-        const videoLists = [
-            responsePayload.generatedVideos,
-            responsePayload.videos,
-            responsePayload.generated_videos,
-        ].find(list => Array.isArray(list) && list.length > 0);
-
-        if (!videoLists) {
-            return null;
-        }
-
-        const firstEntry = videoLists[0];
-        const videoRecord = firstEntry?.video || firstEntry;
-        const uri =
-            videoRecord?.uri ||
-            videoRecord?.videoUri ||
-            videoRecord?.gcsUri ||
-            firstEntry?.uri ||
-            firstEntry?.gcsUri ||
-            null;
-        const file =
-            videoRecord?.name ||
-            videoRecord?.file ||
-            firstEntry?.file ||
-            null;
-        const mimeType = videoRecord?.mimeType || firstEntry?.mimeType || 'video/mp4';
-
-        if (!uri && !file) {
-            return null;
-        }
-
-        return { uri, file, mimeType };
+        return scanForVideoReference(responsePayload);
     };
 
     // Cleanup all blob URLs on unmount

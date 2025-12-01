@@ -2,7 +2,7 @@
 
 ## 概要
 
-Creative Flow Studio では、Stripe の Price ID を Plan テーブルの `stripePriceId` カラムに設定することで、Webhook 経由でサブスクリプションを自動的に Plan にマッピングします。
+BlunaAI では、Stripe の Price ID を Plan テーブルの `stripePriceId` カラムに設定することで、Webhook 経由でサブスクリプションを自動的に Plan にマッピングします。
 
 ## 設定手順
 

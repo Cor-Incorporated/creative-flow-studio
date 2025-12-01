@@ -54,7 +54,7 @@ open https://console.cloud.google.com/apis/credentials?project=dataanalyticsclin
    - **外部**（一般ユーザー向け）を推奨
    - **内部**（Google Workspace組織内のみ）は組織アカウントが必要
 3. 必要な情報を入力：
-   - **アプリ名**: `Creative Flow Studio`
+   - **アプリ名**: `BlunaAI`
    - **ユーザーサポートメール**: あなたのメールアドレス
    - **開発者の連絡先情報**: あなたのメールアドレス
 4. **「保存して次へ」** をクリック

@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントでは、Creative Flow Studio の本番環境を Terraform で管理するための手順を説明します。
+このドキュメントでは、BlunaAI の本番環境を Terraform で管理するための手順を説明します。
 
 ## 前提条件
 

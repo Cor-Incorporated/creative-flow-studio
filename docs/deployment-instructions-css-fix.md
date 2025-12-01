@@ -78,7 +78,7 @@
 #### 3. `app/icon.svg` - Next.js 14推奨方式でfaviconを追加
 
 **追加内容**:
-- SVG形式のアイコンファイル（Creative Flow Studioのロゴ）
+- SVG形式のアイコンファイル（BlunaAIのロゴ）
 - Next.js 14は `app/icon.svg` を自動的にfavicon（.ico）に変換
 
 **根拠**:
@@ -163,7 +163,7 @@ gcloud builds submit \
 #### 4.2 Faviconの確認
 
 1. ブラウザのタブを確認
-2. Creative Flow Studio のアイコンが表示されていることを確認
+2. BlunaAI のアイコンが表示されていることを確認
 3. ブラウザの開発者ツール（Network タブ）で `/favicon.ico` が 404 エラーを返していないことを確認
 
 #### 4.3 ブラウザ開発者ツールでの確認

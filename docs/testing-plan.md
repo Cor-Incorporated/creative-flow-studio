@@ -1,4 +1,4 @@
-# Testing Plan - Creative Flow Studio
+# Testing Plan - BlunaAI
 
 ## 概要
 

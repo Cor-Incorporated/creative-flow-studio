@@ -1,4 +1,4 @@
-# Creative Flow Studio 実装計画
+# BlunaAI 実装計画
 
 最終更新: 2025-12-01
 ステータス: **コア機能完了** - Cloud Run 認証設定待ち

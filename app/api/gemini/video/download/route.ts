@@ -45,6 +45,19 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
+        const normalizeFileParam = (value: string) => {
+            const trimmed = value.trim().replace(/^\/+/, '');
+            const filesIndex = trimmed.indexOf('files/');
+            const base = filesIndex >= 0 ? trimmed.slice(filesIndex) : trimmed;
+            if (base.startsWith('files/')) {
+                return base;
+            }
+            if (/^[A-Za-z0-9_-]+$/.test(base)) {
+                return `files/${base}`;
+            }
+            return trimmed;
+        };
+
         const resolveVideoUrl = () => {
             if (videoUri) {
                 const hasProtocol = videoUri.startsWith('http://') || videoUri.startsWith('https://');
@@ -59,9 +72,7 @@ export async function GET(request: NextRequest) {
             }
 
             if (fileName) {
-                const normalizedName = fileName.startsWith('files/')
-                    ? fileName.replace(/^\/+/, '')
-                    : `files/${fileName.replace(/^\/+/, '')}`;
+                const normalizedName = normalizeFileParam(fileName);
                 return `https://generativelanguage.googleapis.com/v1beta/${normalizedName}:download?key=${apiKey}`;
             }
 
