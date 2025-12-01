@@ -16,7 +16,18 @@ resource "google_sql_database_instance" "this" {
     ip_configuration {
       ipv4_enabled    = var.ipv4_enabled
       private_network = var.private_network
-      require_ssl     = true
+      # SSL mode recommended over deprecated require_ssl
+      ssl_mode        = "ENCRYPTED_ONLY"
+
+      # Allow Cloud Build to access Cloud SQL via public IP
+      # Cloud Build uses dynamic IPs, so we need to allow Google Cloud's ranges
+      dynamic "authorized_networks" {
+        for_each = var.ipv4_enabled ? var.authorized_networks : []
+        content {
+          name  = authorized_networks.value.name
+          value = authorized_networks.value.value
+        }
+      }
     }
   }
 
@@ -31,7 +42,8 @@ resource "google_sql_database" "app" {
 
 resource "random_password" "db" {
   length  = 24
-  special = true
+  # Disable special characters to avoid URL encoding issues in DATABASE_URL
+  special = false
 }
 
 resource "google_sql_user" "app" {

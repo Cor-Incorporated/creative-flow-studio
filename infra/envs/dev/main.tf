@@ -50,6 +50,15 @@ module "cloud_sql" {
   private_network     = module.network.network_self_link
   deletion_protection = false
 
+  # Enable public IP for Cloud Build migrations (dev environment only)
+  ipv4_enabled = true
+  authorized_networks = [
+    {
+      name  = "cloud-build"
+      value = "0.0.0.0/0" # Cloud Build uses dynamic IPs; restrict in prod
+    }
+  ]
+
   depends_on = [
     google_service_networking_connection.private_vpc_connection
   ]

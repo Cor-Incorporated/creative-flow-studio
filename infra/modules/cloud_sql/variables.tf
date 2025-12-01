@@ -79,3 +79,12 @@ variable "ipv4_enabled" {
   description = "パブリックIPアドレスを有効化するか（ローカル開発やマイグレーション用）"
   default     = false
 }
+
+variable "authorized_networks" {
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  description = "パブリックIP経由で接続を許可するネットワーク（Cloud Build等）"
+  default     = []
+}

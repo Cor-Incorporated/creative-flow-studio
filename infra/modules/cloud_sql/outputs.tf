@@ -23,3 +23,13 @@ output "database_password" {
   description = "アプリケーション DB パスワード"
   sensitive   = true
 }
+
+output "public_ip_address" {
+  value       = try(google_sql_database_instance.this.public_ip_address, null)
+  description = "Cloud SQL パブリック IP アドレス"
+}
+
+output "private_ip_address" {
+  value       = try(google_sql_database_instance.this.private_ip_address, null)
+  description = "Cloud SQL プライベート IP アドレス"
+}
