@@ -40,7 +40,7 @@ function getStripeClient(): Stripe {
         appInfo: {
             name: 'BulnaAI',
             version: '1.0.0',
-            url: 'https://bulnaai.com',
+            url: process.env.NEXT_PUBLIC_APP_URL || 'https://bulnaai.com',
         },
     });
 }
