@@ -174,6 +174,42 @@ steps:
               # Prismaマイグレーションを実行
               echo "🔄 データベースマイグレーションを適用しています..."
 
+              # まず、データベースの状態を確認（テーブルが存在するか）
+              echo "📊 データベースの状態を確認しています..."
+              DB_CHECK_OUTPUT=$(npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users';" 2>&1 || echo "ERROR")
+              
+              # データベースが空の場合（usersテーブルが存在しない）
+              if echo "$$DB_CHECK_OUTPUT" | grep -qE "(relation.*does not exist|ERROR|0)"; then
+                  echo "⚠️  データベースが空の状態です。初期スキーマを適用します..."
+                  echo "   prisma db push を使用してスキーマを適用します..."
+                  
+                  # prisma db pushでスキーマを適用（開発環境用だが、空のDBには有効）
+                  PUSH_OUTPUT=$(npx prisma db push --accept-data-loss --skip-generate 2>&1)
+                  PUSH_EXIT_CODE=$$?
+                  
+                  if [ $$PUSH_EXIT_CODE -eq 0 ]; then
+                      echo "✅ 初期スキーマの適用が完了しました"
+                      echo "🔄 マイグレーション履歴を初期化します..."
+                      
+                      # マイグレーション履歴を初期化（全てのマイグレーションをbaselineとして設定）
+                      ALL_MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | sort)
+                      for MIGRATION in $$ALL_MIGRATIONS; do
+                          echo "   baselineとして設定: $$MIGRATION"
+                          npx prisma migrate resolve --applied "$$MIGRATION" 2>&1 || true
+                      done
+                      
+                      echo "✅ マイグレーション履歴の初期化が完了しました"
+                      exit 0
+                  else
+                      echo "❌ スキーマの適用に失敗しました:"
+                      echo "$$PUSH_OUTPUT"
+                      exit 1
+                  fi
+              fi
+
+              # データベースに既存のテーブルがある場合、通常のマイグレーションを実行
+              echo "📊 既存のデータベースにマイグレーションを適用します..."
+
               # 接続エラー用のリトライ設定
               MAX_RETRIES=5
               RETRY_COUNT=0
@@ -203,6 +239,29 @@ steps:
                       if [ -n "$$FIRST_MIGRATION" ]; then
                           npx prisma migrate resolve --applied "$$FIRST_MIGRATION" 2>&1 || true
                           continue
+                      fi
+                  fi
+
+                  # P3018: マイグレーション失敗（テーブルが存在しないなど）
+                  if echo "$$ERROR_OUTPUT" | grep -q "P3018"; then
+                      echo "⚠️  マイグレーション失敗を検出しました。データベースの状態を確認します..."
+                      if echo "$$ERROR_OUTPUT" | grep -q "does not exist"; then
+                          echo "   テーブルが存在しないため、初期スキーマを適用します..."
+                          PUSH_OUTPUT=$(npx prisma db push --accept-data-loss --skip-generate 2>&1)
+                          if [ $$? -eq 0 ]; then
+                              echo "✅ 初期スキーマの適用が完了しました"
+                              # 全てのマイグレーションをbaselineとして設定
+                              ALL_MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | sort)
+                              for MIGRATION in $$ALL_MIGRATIONS; do
+                                  npx prisma migrate resolve --applied "$$MIGRATION" 2>&1 || true
+                              done
+                              echo "✅ マイグレーション履歴の初期化が完了しました"
+                              exit 0
+                          else
+                              echo "❌ スキーマの適用に失敗しました"
+                              echo "$$PUSH_OUTPUT"
+                              exit 1
+                          fi
                       fi
                   fi
 
