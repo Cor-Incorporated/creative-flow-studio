@@ -64,7 +64,7 @@ Secret Manager に格納し、Cloud Run の環境変数として注入する項�
 
 | Secret Manager キー名   | 環境変数名                  | 説明                                        | 例                                                                  |
 | ----------------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
-| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列                    | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列（Unix socket）     | `postgresql://user:pass@localhost/db?host=/cloudsql/project%3Aregion%3Ainstance`<br/>**注意**: コロンを`%3A`にエンコード必須 |
 | `nextauth-secret`       | `NEXTAUTH_SECRET`           | NextAuth.js のセッション暗号化キー          | `openssl rand -base64 32`                                           |
 | `google-client-id`      | `GOOGLE_CLIENT_ID`          | Google OAuth クライアントID                 | Google Cloud Console から取得                                       |
 | `google-client-secret`  | `GOOGLE_CLIENT_SECRET`      | Google OAuth クライアントシークレット       | Google Cloud Console から取得                                       |
