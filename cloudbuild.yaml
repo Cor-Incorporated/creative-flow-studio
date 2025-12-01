@@ -174,13 +174,13 @@ steps:
               # Prismaマイグレーションを実行
               echo "🔄 データベースマイグレーションを適用しています..."
 
-              # まず、データベースの状態を確認（テーブルが存在するか）
-              echo "📊 データベースの状態を確認しています..."
-              DB_CHECK_OUTPUT=$(npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users';" 2>&1 || echo "ERROR")
+              # まず、マイグレーション状態を確認
+              echo "📊 マイグレーション状態を確認しています..."
+              MIGRATE_STATUS_OUTPUT=$(npx prisma migrate status 2>&1 || echo "ERROR")
               
-              # データベースが空の場合（usersテーブルが存在しない）
-              if echo "$$DB_CHECK_OUTPUT" | grep -qE "(relation.*does not exist|ERROR|0)"; then
-                  echo "⚠️  データベースが空の状態です。初期スキーマを適用します..."
+              # データベースが空の場合（_prisma_migrationsテーブルが存在しない、またはマイグレーション履歴がない）
+              if echo "$$MIGRATE_STATUS_OUTPUT" | grep -qE "(Database schema is empty|following migration have not yet been applied|ERROR)"; then
+                  echo "⚠️  データベースが空の状態、またはマイグレーション履歴がありません。初期スキーマを適用します..."
                   echo "   prisma db push を使用してスキーマを適用します..."
                   
                   # prisma db pushでスキーマを適用（開発環境用だが、空のDBには有効）
