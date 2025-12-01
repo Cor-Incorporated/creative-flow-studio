@@ -57,3 +57,6 @@ gcloud builds triggers run creative-flow-dev-trigger \
 
 - Cloud BuildのトリガーはGitHubリポジトリがCloud Buildに接続されている必要があります
 - 接続されていない場合は、GitHubリポジトリのSettings → Integrations → Google Cloud Buildで接続してください
+
+
+

@@ -113,3 +113,6 @@ gcloud run services list \
 - プロジェクト: `dataanalyticsclinic`
 - リージョン: `asia-northeast1`
 - サービス名: `creative-flow-studio-dev`
+
+
+

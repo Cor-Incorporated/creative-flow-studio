@@ -148,3 +148,6 @@ Prisma のドキュメントによると、Unix ソケット経由で PostgreSQL
 DATABASE_URL の形式を修正し、Prisma が正しく Unix ソケット経由で Cloud SQL に接続できるようになりました。これにより、Google ログイン時の OAuth コールバックエラーが解決されるはずです。
 
 **次のステップ**: ブラウザで Google ログインを再度試して、正常に動作することを確認してください。
+
+
+

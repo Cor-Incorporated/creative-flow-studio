@@ -167,3 +167,6 @@ echo ""
 echo "確認:"
 echo "  PRO: $PRO_PRICE_ID"
 echo "  ENTERPRISE: $ENTERPRISE_PRICE_ID"
+
+
+

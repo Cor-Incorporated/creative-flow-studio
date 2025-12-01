@@ -11,3 +11,6 @@ WHERE email = 'company@cor-jp.com';
 SELECT id, email, name, role, "createdAt", "updatedAt"
 FROM "users"
 WHERE email = 'company@cor-jp.com';
+
+
+

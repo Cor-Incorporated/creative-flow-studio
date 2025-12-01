@@ -45,3 +45,6 @@ gcloud builds triggers run "$TRIGGER_NAME" \
 echo "✅ Cloud Buildが開始されました"
 echo "📊 ビルドの進捗を確認:"
 echo "   gcloud builds list --project=$PROJECT_ID --region=$REGION --limit=1"
+
+
+

@@ -33,3 +33,6 @@ echo ""
 echo "✅ インポートが完了しました"
 echo ""
 echo "次のステップ: terraform plan で変更内容を確認"
+
+
+

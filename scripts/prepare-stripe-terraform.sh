@@ -60,3 +60,6 @@ echo "2. terraform plan で変更内容を確認"
 echo "3. terraform apply で適用"
 echo ""
 echo "⚠️  注意: terraform applyを実行すると、Secret Managerの既存の値が上書きされます"
+
+
+

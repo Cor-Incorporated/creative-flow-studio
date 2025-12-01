@@ -229,3 +229,6 @@ https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app
 ⏳ Google OAuth リダイレクト URI の設定確認が必要（手動）
 
 **次のアクション**: Google Cloud Console で OAuth リダイレクト URI を確認・設定してください。
+
+
+

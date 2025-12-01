@@ -39,3 +39,6 @@ terraform apply
 - `secret_values`からStripeキーを削除したため、Terraformは既存のSecret Managerの値を上書きしません
 - 既存のSecret Managerの値が保持されます
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`は`cloud_run_secret_env_vars`でSecret Managerから参照されます
+
+
+

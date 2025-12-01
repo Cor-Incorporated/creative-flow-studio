@@ -63,3 +63,6 @@ echo "✅ Secret Managerへの設定が完了しました！"
 echo ""
 echo "次のステップ:"
 echo "  ./scripts/update-cloud-run-stripe.sh"
+
+
+

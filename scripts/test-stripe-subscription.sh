@@ -251,3 +251,6 @@ echo "確認方法:"
 echo "  1. アプリにログイン: https://blunaai.com"
 echo "  2. ダッシュボードでプランが正しく表示されているか確認"
 echo "  3. Stripe Dashboardでサブスクリプションを確認: https://dashboard.stripe.com/test/subscriptions"
+
+
+

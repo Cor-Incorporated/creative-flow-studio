@@ -26,3 +26,6 @@ echo "本番ドメイン: https://blunaai.com"
 echo ""
 echo "次のステップ:"
 echo "  プランの契約・切り替えをテスト: ./scripts/test-stripe-subscription.sh"
+
+
+
