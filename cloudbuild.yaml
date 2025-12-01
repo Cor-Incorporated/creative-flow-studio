@@ -283,6 +283,8 @@ steps:
       env:
           - 'NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}'
           - 'NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
+          # Set dummy DATABASE_URL for Docker build time
+          - 'DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy'
       secretEnv:
           - NEXTAUTH_SECRET
           - GOOGLE_CLIENT_ID
@@ -302,6 +304,7 @@ steps:
                 --build-arg GOOGLE_CLIENT_SECRET=$$GOOGLE_CLIENT_SECRET \
                 --build-arg NEXTAUTH_SECRET=$$NEXTAUTH_SECRET \
                 --build-arg GEMINI_API_KEY=$$GEMINI_API_KEY \
+                --build-arg DATABASE_URL="$$DATABASE_URL" \
                 -t asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA} \
                 -f Dockerfile \
                 .
