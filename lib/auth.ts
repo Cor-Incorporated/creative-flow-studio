@@ -19,6 +19,9 @@ if (!process.env.NEXTAUTH_SECRET) {
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
+    // Allow NextAuth to work with multiple domains (Cloud Run URL and custom domain)
+    // This enables dynamic host detection from request headers
+    trustHost: true,
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,
