@@ -67,6 +67,61 @@ steps:
       entrypoint: npx
       args: ['prisma', 'generate']
 
+    - id: 'Check Cloud SQL instance exists'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+
+              echo "🔍 Cloud SQLインスタンスの存在を確認しています..."
+              INSTANCE_NAME=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f3)
+              PROJECT_ID=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f1)
+
+              if gcloud sql instances describe "$$INSTANCE_NAME" --project="$$PROJECT_ID" > /dev/null 2>&1; then
+                  echo "✅ Cloud SQLインスタンスが見つかりました: $$INSTANCE_NAME"
+                  echo "true" > /workspace/.cloud_sql_exists
+              else
+                  echo "⚠️  Cloud SQLインスタンスが見つかりません: $$INSTANCE_NAME"
+                  echo "   マイグレーションステップをスキップします。"
+                  echo "   Terraformでインフラを先にデプロイしてください。"
+                  echo "false" > /workspace/.cloud_sql_exists
+              fi
+      waitFor: ['Generate Prisma client']
+
+    - id: 'Get Cloud SQL public IP'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+
+              # Cloud SQLインスタンスの存在確認
+              if [ -f /workspace/.cloud_sql_exists ] && [ "$(cat /workspace/.cloud_sql_exists)" = "false" ]; then
+                  echo "⏭️  Cloud SQLインスタンスが存在しないため、スキップします。"
+                  exit 0
+              fi
+
+              echo "🔍 Cloud SQLのパブリックIPを取得しています..."
+              INSTANCE_NAME=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f3)
+              PROJECT_ID=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f1)
+
+              PUBLIC_IP=$(gcloud sql instances describe "$$INSTANCE_NAME" \
+                  --project="$$PROJECT_ID" \
+                  --format="value(ipAddresses[0].ipAddress)" 2>/dev/null || echo "")
+
+              if [ -z "$$PUBLIC_IP" ]; then
+                  echo "⚠️  パブリックIPが見つかりません。Terraformでipv4_enabled=trueを設定してください。"
+                  echo "false" > /workspace/.cloud_sql_has_public_ip
+              else
+                  echo "✅ パブリックIP: $$PUBLIC_IP"
+                  echo "$$PUBLIC_IP" > /workspace/.cloud_sql_public_ip
+                  echo "true" > /workspace/.cloud_sql_has_public_ip
+              fi
+      waitFor: ['Check Cloud SQL instance exists']
+
     - id: 'Apply database migrations'
       name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
       entrypoint: 'bash'
@@ -74,191 +129,95 @@ steps:
           - '-c'
           - |
               set -euo pipefail
-              
+
               # DATABASE_URLを取得（Secret Managerから直接取得してDESTROYEDバージョンを回避）
               echo "🔑 データベース接続情報を取得しています..."
               if [ -z "$$DATABASE_URL" ]; then
                   echo "❌ DATABASE_URL環境変数が設定されていません"
                   exit 1
               fi
-              DB_URL=$$DATABASE_URL
-              echo "  元のDATABASE_URL: $$DB_URL"
-              
-              # Cloud SQL Proxy v2をダウンロード
-              echo "📥 Cloud SQL Proxy v2をダウンロードしています..."
-              curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.19.0/cloud-sql-proxy.linux.amd64
-              chmod +x cloud-sql-proxy
-              
-              # Cloud SQL Proxyをバックグラウンドで起動
-              echo "🚀 Cloud SQL Proxyを起動しています..."
-              echo "   インスタンス: ${_CLOUD_SQL_INSTANCE}"
-              echo "   パブリックIP接続を使用します"
-              ./cloud-sql-proxy ${_CLOUD_SQL_INSTANCE} --port=5432 --address=127.0.0.1 > /tmp/cloud-sql-proxy.log 2>&1 &
-              PROXY_PID=$!
-              
-              # Proxyが起動するまで待機（最大30秒）
-              echo "⏳ Cloud SQL Proxyの起動を待機しています..."
-              for i in {1..30}; do
-                  if ps -p $$PROXY_PID > /dev/null 2>&1; then
-                      # ポート5432がリッスンしているか確認（timeoutコマンドを使用）
-                      if timeout 1 bash -c "echo > /dev/tcp/127.0.0.1/5432" 2>/dev/null; then
-                          echo "✅ Cloud SQL Proxyが起動しました (PID: $$PROXY_PID, 試行: $$i/30)"
-                          break
-                      fi
-                  else
-                      echo "❌ Cloud SQL Proxyの起動に失敗しました"
-                      cat /tmp/cloud-sql-proxy.log
-                      exit 1
-                  fi
-                  if [ $$i -eq 30 ]; then
-                      echo "❌ Cloud SQL Proxyの起動がタイムアウトしました"
-                      cat /tmp/cloud-sql-proxy.log
-                      exit 1
-                  fi
-                  sleep 1
-              done
-              
-              # Unix socket形式からTCP形式に変換
-              # postgresql://user:pass@/db?host=/cloudsql/... -> postgresql://user:pass@127.0.0.1:5432/db
-              DB_URL_LOCAL=$(echo "$$DB_URL" | sed 's|host=/cloudsql/[^?]*||' | sed 's|@/|@127.0.0.1:5432/|')
-              echo "  変換後のDATABASE_URL: $$DB_URL_LOCAL"
-              
-              # Prismaマイグレーションを実行（接続確認も兼ねる）
+
+              # Cloud SQLインスタンスの存在確認
+              if [ -f /workspace/.cloud_sql_exists ] && [ "$(cat /workspace/.cloud_sql_exists)" = "false" ]; then
+                  echo "⏭️  Cloud SQLインスタンスが存在しないため、マイグレーションをスキップします。"
+                  exit 0
+              fi
+
+              # パブリックIPの確認
+              if [ -f /workspace/.cloud_sql_has_public_ip ] && [ "$(cat /workspace/.cloud_sql_has_public_ip)" = "false" ]; then
+                  echo "⚠️  Cloud SQLにパブリックIPがないため、マイグレーションをスキップします。"
+                  echo "   Cloud Runデプロイ後、Unix socket経由でマイグレーションを実行してください。"
+                  exit 0
+              fi
+
+              PUBLIC_IP=$(cat /workspace/.cloud_sql_public_ip)
+              echo "🔗 Cloud SQL パブリックIP経由で接続します: $$PUBLIC_IP"
+
+              # DATABASE_URLからユーザー名、パスワード、DB名を抽出して新しいURLを構築
+              # 元の形式: postgresql://user:pass@/db?host=/cloudsql/...
+              DB_URL="$$DATABASE_URL"
+
+              # ユーザー名を抽出
+              DB_USER=$(echo "$$DB_URL" | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+              # パスワードを抽出（@/より前の:以降）
+              DB_PASS=$(echo "$$DB_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+              # DB名を抽出（@/と?の間）
+              DB_NAME=$(echo "$$DB_URL" | sed -n 's|.*@/\([^?]*\)?.*|\1|p')
+
+              echo "  ユーザー: $$DB_USER"
+              echo "  DB名: $$DB_NAME"
+
+              # パブリックIP経由のDATABASE_URLを構築（SSL必須）
+              export DATABASE_URL="postgresql://$$DB_USER:$$DB_PASS@$$PUBLIC_IP:5432/$$DB_NAME?sslmode=require"
+              echo "  接続先: postgresql://$$DB_USER:****@$$PUBLIC_IP:5432/$$DB_NAME?sslmode=require"
+
+              # Prismaマイグレーションを実行
               echo "🔄 データベースマイグレーションを適用しています..."
-              export DATABASE_URL="$$DB_URL_LOCAL"
-              
+
               # 接続エラー用のリトライ設定
-              MAX_CONNECTION_RETRIES=10
-              CONNECTION_RETRY_COUNT=0
-              
-              # マイグレーションエラー用のリトライ設定（無限ループ防止）
-              MAX_MIGRATION_RETRIES=3
-              MIGRATION_RETRY_COUNT=0
-              
-              # set -eを一時的に無効化してエラーハンドリングを行う
+              MAX_RETRIES=5
+              RETRY_COUNT=0
+
               set +e
-              
-              # 接続エラーのリトライループ
-              while [ $$CONNECTION_RETRY_COUNT -lt $$MAX_CONNECTION_RETRIES ]; do
-                  # Prisma migrate deployを実行
+              while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
                   ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
                   EXIT_CODE=$$?
-                  
+
                   if [ $$EXIT_CODE -eq 0 ]; then
                       echo "✅ マイグレーションが正常に完了しました"
-                      set -e
-                      break
+                      exit 0
                   fi
-                  
-                  # 接続エラー（P1001）の場合はリトライ
-                  if echo "$$ERROR_OUTPUT" | grep -q "P1001"; then
-                      CONNECTION_RETRY_COUNT=$$((CONNECTION_RETRY_COUNT + 1))
-                      echo "  接続エラー。試行 $$CONNECTION_RETRY_COUNT/$$MAX_CONNECTION_RETRIES..."
-                      if [ $$((CONNECTION_RETRY_COUNT % 5)) -eq 0 ]; then
-                          echo "  エラー詳細: $$ERROR_OUTPUT"
-                          echo "  Cloud SQL Proxyログ（最新10行）:"
-                          tail -n 10 /tmp/cloud-sql-proxy.log || true
-                      fi
-                      sleep 2
+
+                  # 接続エラーの場合はリトライ
+                  if echo "$$ERROR_OUTPUT" | grep -qE "(P1001|P1002|ECONNREFUSED|timeout)"; then
+                      RETRY_COUNT=$$((RETRY_COUNT + 1))
+                      echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                      sleep 3
                       continue
                   fi
-                  
-                  # 接続エラー以外の場合は、マイグレーションエラーの処理に移る
-                  break
-              done
-              
-              # 接続リトライが上限に達した場合
-              if [ $$CONNECTION_RETRY_COUNT -eq $$MAX_CONNECTION_RETRIES ]; then
-                  set -e
-                  echo "❌ データベース接続の確立に失敗しました（$$MAX_CONNECTION_RETRIES回試行）"
-                  echo "Cloud SQL Proxyログ:"
-                  cat /tmp/cloud-sql-proxy.log
-                  exit 1
-              fi
-              
-              # マイグレーションエラーの処理（無限ループ防止のため最大3回まで）
-              if [ $$EXIT_CODE -ne 0 ]; then
-                  while [ $$MIGRATION_RETRY_COUNT -lt $$MAX_MIGRATION_RETRIES ]; do
-                      # スキーマが空でないエラー（P3005）の場合はbaselineを設定
-                      if echo "$$ERROR_OUTPUT" | grep -q "P3005"; then
-                          echo "⚠️  データベースに既存のスキーマが存在します。baselineを設定します..."
-                          MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | head -1)
-                          if [ -n "$$MIGRATIONS" ]; then
-                              echo "  最初のマイグレーションをbaselineとして設定: $$MIGRATIONS"
-                              npx prisma migrate resolve --applied "$$MIGRATIONS" 2>&1 || true
-                              MIGRATION_RETRY_COUNT=$$((MIGRATION_RETRY_COUNT + 1))
-                              # 再度migrate deployを実行
-                              ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
-                              EXIT_CODE=$$?
-                              if [ $$EXIT_CODE -eq 0 ]; then
-                                  echo "✅ マイグレーションが正常に完了しました"
-                                  set -e
-                                  break
-                              fi
-                              continue
-                          else
-                              set -e
-                              echo "❌ マイグレーションファイルが見つかりません"
-                              echo "$$ERROR_OUTPUT"
-                              exit 1
-                          fi
-                      # マイグレーションファイルが見つからないエラー（P3017）の場合は、存在しないマイグレーションをbaselineとして設定
-                      elif echo "$$ERROR_OUTPUT" | grep -q "P3017"; then
-                          echo "⚠️  データベースに存在するが、ソースコードに存在しないマイグレーションが見つかりました。"
-                          MISSING_MIGRATION=$(echo "$$ERROR_OUTPUT" | grep -oE "migration [0-9a-zA-Z_]+" | awk '{print $2}' | head -1)
-                          if [ -n "$$MISSING_MIGRATION" ]; then
-                              echo "  存在しないマイグレーションをbaselineとして設定: $$MISSING_MIGRATION"
-                              npx prisma migrate resolve --applied "$$MISSING_MIGRATION" 2>&1 || true
-                              MIGRATION_RETRY_COUNT=$$((MIGRATION_RETRY_COUNT + 1))
-                              # 再度migrate deployを実行
-                              ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
-                              EXIT_CODE=$$?
-                              if [ $$EXIT_CODE -eq 0 ]; then
-                                  echo "✅ マイグレーションが正常に完了しました"
-                                  set -e
-                                  break
-                              fi
-                              continue
-                          else
-                              set -e
-                              echo "❌ マイグレーション名を抽出できませんでした"
-                              echo "$$ERROR_OUTPUT"
-                              exit 1
-                          fi
-                      else
-                          # その他のエラー
-                          set -e
-                          echo "❌ マイグレーションエラー:"
-                          echo "$$ERROR_OUTPUT"
-                          echo ""
-                          echo "Cloud SQL Proxyログ:"
-                          cat /tmp/cloud-sql-proxy.log
-                          exit 1
+
+                  # P3005: 既存スキーマがある場合はbaselineを設定
+                  if echo "$$ERROR_OUTPUT" | grep -q "P3005"; then
+                      echo "⚠️  既存のスキーマが存在します。baselineを設定します..."
+                      FIRST_MIGRATION=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | head -1)
+                      if [ -n "$$FIRST_MIGRATION" ]; then
+                          npx prisma migrate resolve --applied "$$FIRST_MIGRATION" 2>&1 || true
+                          continue
                       fi
-                  done
-                  
-                  # マイグレーションリトライが上限に達した場合
-                  if [ $$MIGRATION_RETRY_COUNT -eq $$MAX_MIGRATION_RETRIES ] && [ $$EXIT_CODE -ne 0 ]; then
-                      set -e
-                      echo "❌ マイグレーションの適用に失敗しました（$$MAX_MIGRATION_RETRIES回試行）"
-                      echo "エラー詳細: $$ERROR_OUTPUT"
-                      echo "Cloud SQL Proxyログ:"
-                      cat /tmp/cloud-sql-proxy.log
-                      exit 1
                   fi
-              fi
-              
+
+                  # その他のエラー
+                  echo "❌ マイグレーションエラー:"
+                  echo "$$ERROR_OUTPUT"
+                  exit 1
+              done
               set -e
-              
-              # Proxyを停止
-              echo "🛑 Cloud SQL Proxyを停止しています..."
-              kill $$PROXY_PID 2>/dev/null || true
-              wait $$PROXY_PID 2>/dev/null || true
-              
-              echo "✅ マイグレーションが正常に完了しました"
+
+              echo "❌ マイグレーションに失敗しました（$$MAX_RETRIES回試行）"
+              exit 1
       secretEnv:
           - DATABASE_URL
-      waitFor: ['Generate Prisma client']
+      waitFor: ['Get Cloud SQL public IP']
 
     - id: 'Build Next.js app'
       name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
