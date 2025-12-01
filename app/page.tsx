@@ -70,6 +70,54 @@ export default function Home() {
     const authedFetch = (input: RequestInfo | URL, init: RequestInit = {}) =>
         fetch(input, { credentials: 'include', ...init });
 
+    const getGeneratedVideoDownloadTarget = (operationPayload: any) => {
+        if (!operationPayload) {
+            return null;
+        }
+
+        const responsePayload =
+            operationPayload.response ||
+            operationPayload.result ||
+            operationPayload.operation?.response ||
+            null;
+
+        if (!responsePayload) {
+            return null;
+        }
+
+        const videoLists = [
+            responsePayload.generatedVideos,
+            responsePayload.videos,
+            responsePayload.generated_videos,
+        ].find(list => Array.isArray(list) && list.length > 0);
+
+        if (!videoLists) {
+            return null;
+        }
+
+        const firstEntry = videoLists[0];
+        const videoRecord = firstEntry?.video || firstEntry;
+        const uri =
+            videoRecord?.uri ||
+            videoRecord?.videoUri ||
+            videoRecord?.gcsUri ||
+            firstEntry?.uri ||
+            firstEntry?.gcsUri ||
+            null;
+        const file =
+            videoRecord?.name ||
+            videoRecord?.file ||
+            firstEntry?.file ||
+            null;
+        const mimeType = videoRecord?.mimeType || firstEntry?.mimeType || 'video/mp4';
+
+        if (!uri && !file) {
+            return null;
+        }
+
+        return { uri, file, mimeType };
+    };
+
     // Cleanup all blob URLs on unmount
     useEffect(() => {
         return () => {
@@ -596,13 +644,35 @@ export default function Home() {
                         return null;
                     }
 
-                    // Video is ready
-                    if (operationPayload.response?.generatedVideos?.[0]?.video?.uri) {
-                        const downloadLink = operationPayload.response.generatedVideos[0].video.uri;
-                        // Use server-side proxy to download video without exposing API key
-                        const videoUrl = `/api/gemini/video/download?uri=${encodeURIComponent(downloadLink)}`;
+                    try {
+                        const downloadTarget = getGeneratedVideoDownloadTarget(operationPayload);
+                        if (!downloadTarget) {
+                            throw new Error('生成された動画のURIを取得できませんでした。');
+                        }
+
+                        const params = new URLSearchParams();
+                        if (downloadTarget.uri) {
+                            params.append('uri', downloadTarget.uri);
+                        }
+                        if (downloadTarget.file) {
+                            params.append('file', downloadTarget.file);
+                        }
+                        if (downloadTarget.mimeType) {
+                            params.append('mimeType', downloadTarget.mimeType);
+                        }
+                        const query = params.toString();
+                        const videoUrl = query
+                            ? `/api/gemini/video/download?${query}`
+                            : '/api/gemini/video/download';
 
                         const videoResponse = await authedFetch(videoUrl);
+                        if (!videoResponse.ok) {
+                            const errorPayload = await videoResponse.json().catch(() => null);
+                            throw new Error(
+                                errorPayload?.error || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
+                            );
+                        }
+
                         const videoBlob = await videoResponse.blob();
                         const videoDataUrl = URL.createObjectURL(videoBlob);
 
@@ -614,7 +684,7 @@ export default function Home() {
                                 media: {
                                     type: 'video',
                                     url: videoDataUrl,
-                                    mimeType: 'video/mp4',
+                                    mimeType: downloadTarget.mimeType || 'video/mp4',
                                 },
                             },
                         ];
@@ -632,9 +702,11 @@ export default function Home() {
 
                         // Return video parts for saving
                         return videoParts;
-                    } else {
+                    } catch (downloadError: any) {
                         const formattedError = await formatErrorMessage(
-                            ERROR_MESSAGES.VIDEO_GENERATION_FAILED
+                            `ビデオ生成エラー: ${
+                                downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
+                            }`
                         );
                         setMessages(prev =>
                             prev.map(m =>

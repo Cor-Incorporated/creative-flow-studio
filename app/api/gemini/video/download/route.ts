@@ -28,9 +28,14 @@ export async function GET(request: NextRequest) {
 
         const searchParams = request.nextUrl.searchParams;
         const videoUri = searchParams.get('uri');
+        const fileName = searchParams.get('file');
+        const hintedMimeType = searchParams.get('mimeType') || undefined;
 
-        if (!videoUri) {
-            return NextResponse.json({ error: 'Video URI is required' }, { status: 400 });
+        if (!videoUri && !fileName) {
+            return NextResponse.json(
+                { error: 'Video URI or file identifier is required' },
+                { status: 400 }
+            );
         }
 
         // Get API key from server-side environment variable
@@ -40,9 +45,38 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
         }
 
-        // Fetch video from Gemini API with API key
-        const videoUrl = `${videoUri}&key=${apiKey}`;
-        const videoResponse = await fetch(videoUrl);
+        const resolveVideoUrl = () => {
+            if (videoUri) {
+                const hasProtocol = videoUri.startsWith('http://') || videoUri.startsWith('https://');
+                const baseUrl = hasProtocol
+                    ? videoUri
+                    : `https://generativelanguage.googleapis.com/v1beta/${videoUri.replace(/^\/+/, '')}`;
+                const separator = baseUrl.includes('?') ? '&' : '?';
+                if (baseUrl.includes('key=')) {
+                    return baseUrl;
+                }
+                return `${baseUrl}${separator}key=${apiKey}`;
+            }
+
+            if (fileName) {
+                const normalizedName = fileName.startsWith('files/')
+                    ? fileName.replace(/^\/+/, '')
+                    : `files/${fileName.replace(/^\/+/, '')}`;
+                return `https://generativelanguage.googleapis.com/v1beta/${normalizedName}:download?key=${apiKey}`;
+            }
+
+            return null;
+        };
+
+        const upstreamUrl = resolveVideoUrl();
+        if (!upstreamUrl) {
+            return NextResponse.json(
+                { error: 'Unable to resolve download URL for video asset' },
+                { status: 400 }
+            );
+        }
+
+        const videoResponse = await fetch(upstreamUrl);
 
         if (!videoResponse.ok) {
             console.error('Failed to fetch video from Gemini:', videoResponse.statusText);
@@ -52,15 +86,15 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Get video data as blob
-        const videoBlob = await videoResponse.blob();
+        const videoBuffer = await videoResponse.arrayBuffer();
 
         // Return video as response with proper content type
-        return new NextResponse(videoBlob, {
+        return new NextResponse(videoBuffer, {
             status: 200,
             headers: {
-                'Content-Type': videoResponse.headers.get('Content-Type') || 'video/mp4',
-                'Content-Length': videoBlob.size.toString(),
+                'Content-Type':
+                    videoResponse.headers.get('Content-Type') || hintedMimeType || 'video/mp4',
+                'Content-Length': videoBuffer.byteLength.toString(),
                 'Cache-Control': 'public, max-age=31536000, immutable',
             },
         });
