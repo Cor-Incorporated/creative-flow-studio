@@ -103,7 +103,7 @@ variable "cloud_build_service_agent_email" {
 variable "cloud_run_service_name" {
   description = "Cloud Run サービス名"
   type        = string
-  default     = "creative-flow-studio"
+  default     = "creative-flow-studio-dev"
 }
 
 variable "artifact_repo_id" {
