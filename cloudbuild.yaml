@@ -263,8 +263,9 @@ steps:
       env:
           - 'NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}'
           - 'NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
-          # NOTE: DATABASE_URL is NOT set during build - it's only set at runtime in Cloud Run
-          # This prevents Next.js from hardcoding the DATABASE_URL during build
+          # Set dummy DATABASE_URL for build time (Prisma Client generation)
+          # The real DATABASE_URL is set at runtime in Cloud Run via Secret Manager
+          - 'DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy'
       secretEnv:
           - NEXTAUTH_SECRET
           - GOOGLE_CLIENT_ID
