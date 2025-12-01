@@ -110,6 +110,56 @@ jobs:
             -backend-config="bucket=${{ env.TERRAFORM_STATE_BUCKET }}" \
             -backend-config="prefix=terraform/dev/state"
 
+      - name: "Import Existing Cloud Run Resources (if not in state)"
+        working-directory: infra/envs/dev
+        run: |
+          # Check if Cloud Run service exists in state
+          SERVICE_NAME="creative-flow-studio-dev"
+          SERVICE_RESOURCE="module.cloud_run.google_cloud_run_v2_service.this"
+          IAM_RESOURCE="module.cloud_run.google_cloud_run_v2_service_iam_member.unauth[0]"
+
+          echo "=== Checking Cloud Run Service ==="
+          echo "Checking if $SERVICE_NAME is already in Terraform state..."
+
+          if terraform state show "$SERVICE_RESOURCE" > /dev/null 2>&1; then
+            echo "✅ $SERVICE_NAME already exists in Terraform state. Skipping import."
+          else
+            echo "⚠️  $SERVICE_NAME not found in Terraform state."
+            echo "Checking if service exists in GCP..."
+
+            if gcloud run services describe "$SERVICE_NAME" \
+                --region="${{ env.REGION }}" \
+                --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1; then
+              echo "📥 Service exists in GCP. Importing to Terraform state..."
+              terraform import -lock-timeout=5m \
+                "$SERVICE_RESOURCE" \
+                "projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/services/$SERVICE_NAME"
+              echo "✅ Import successful"
+            else
+              echo "ℹ️  Service does not exist in GCP. Will be created by Terraform."
+            fi
+          fi
+
+          echo ""
+          echo "=== Checking Cloud Run IAM Binding ==="
+          # Check and import IAM binding (allUsers invoker)
+          if terraform state show "$IAM_RESOURCE" > /dev/null 2>&1; then
+            echo "✅ IAM binding already exists in Terraform state. Skipping import."
+          else
+            echo "⚠️  IAM binding not found in Terraform state."
+            # Check if the service exists (needed for IAM import)
+            if gcloud run services describe "$SERVICE_NAME" \
+                --region="${{ env.REGION }}" \
+                --project="${{ env.PROJECT_ID }}" > /dev/null 2>&1; then
+              echo "📥 Importing IAM binding to Terraform state..."
+              # IAM import format: projects/PROJECT/locations/REGION/services/SERVICE roles/run.invoker allUsers
+              terraform import -lock-timeout=5m \
+                "$IAM_RESOURCE" \
+                "projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/services/$SERVICE_NAME roles/run.invoker allUsers" || \
+                echo "⚠️  IAM import failed (may not exist yet). Will be created by Terraform."
+            fi
+          fi
+
       - name: "Terraform Plan with Retry"
         id: plan
         working-directory: infra/envs/dev
