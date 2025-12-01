@@ -3,7 +3,14 @@ resource "google_compute_network" "this" {
   project                 = var.project_id
   auto_create_subnetworks = false
   routing_mode            = "GLOBAL"
-  description             = "BlunaAI ${var.environment} VPC"
+  # Note: Keep original description to avoid VPC recreation
+  # Changing description forces replacement which breaks dependent resources
+  description             = "Creative Flow Studio ${var.environment} VPC"
+
+  lifecycle {
+    # Prevent accidental recreation due to description changes
+    ignore_changes = [description]
+  }
 }
 
 resource "google_compute_subnetwork" "primary" {

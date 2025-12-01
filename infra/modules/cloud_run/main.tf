@@ -3,7 +3,8 @@ resource "google_artifact_registry_repository" "this" {
   location      = var.region
   repository_id = var.artifact_repo_id
   format        = var.artifact_repo_format
-  description   = "BlunaAI container images"
+  # Note: Keep original description for consistency
+  description   = "Creative Flow Studio container images"
 }
 
 resource "google_cloud_run_v2_service" "this" {
