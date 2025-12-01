@@ -19,6 +19,9 @@ if (!process.env.NEXTAUTH_SECRET) {
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
+    // Enable dynamic host detection for multi-domain support (Cloud Run + custom domain)
+    // This allows NextAuth to work with both blunaai.com and *.run.app URLs
+    trustHost: true,
     providers: [
         GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,

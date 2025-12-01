@@ -31,8 +31,10 @@ cloud_run_ingress         = "INGRESS_TRAFFIC_ALL"
 cloud_run_allow_unauthenticated = true
 
 cloud_run_env_vars = {
-  NEXTAUTH_URL                      = "http://localhost:3000"
-  NEXT_PUBLIC_APP_URL               = "http://localhost:3000"
+  # IMPORTANT: NEXTAUTH_URL must match your production domain for OAuth to work correctly
+  # This URL is used for OAuth redirect URI resolution
+  NEXTAUTH_URL                      = "https://blunaai.com"
+  NEXT_PUBLIC_APP_URL               = "https://blunaai.com"
   NEXT_PUBLIC_SUPABASE_URL          = "https://your-project.supabase.co"
   NEXT_PUBLIC_SUPABASE_ANON_KEY     = "SUPABASE_ANON_KEY_PLACEHOLDER"
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_CHANGE_ME_FROM_STRIPE_DASHBOARD"
