@@ -65,6 +65,29 @@ steps:
       entrypoint: npx
       args: ['prisma', 'generate']
 
+    - id: 'Check Cloud SQL instance exists'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+
+              echo "🔍 Cloud SQLインスタンスの存在を確認しています..."
+              INSTANCE_NAME=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f3)
+              PROJECT_ID=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f1)
+
+              if gcloud sql instances describe "$$INSTANCE_NAME" --project="$$PROJECT_ID" > /dev/null 2>&1; then
+                  echo "✅ Cloud SQLインスタンスが見つかりました: $$INSTANCE_NAME"
+                  echo "true" > /workspace/.cloud_sql_exists
+              else
+                  echo "⚠️  Cloud SQLインスタンスが見つかりません: $$INSTANCE_NAME"
+                  echo "   マイグレーションステップをスキップします。"
+                  echo "   Terraformでインフラを先にデプロイしてください。"
+                  echo "false" > /workspace/.cloud_sql_exists
+              fi
+      waitFor: ['Generate Prisma client']
+
     - id: 'Apply database migrations'
       name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
       entrypoint: 'bash'
@@ -72,12 +95,18 @@ steps:
           - '-c'
           - |
               set -euo pipefail
-              
+
+              # Cloud SQLインスタンスの存在確認
+              if [ -f /workspace/.cloud_sql_exists ] && [ "$(cat /workspace/.cloud_sql_exists)" = "false" ]; then
+                  echo "⏭️  Cloud SQLインスタンスが存在しないため、マイグレーションをスキップします。"
+                  exit 0
+              fi
+
               # Cloud SQL Proxy v2をダウンロード
               echo "📥 Cloud SQL Proxy v2をダウンロードしています..."
               curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.19.0/cloud-sql-proxy.linux.amd64
               chmod +x cloud-sql-proxy
-              
+
               # Cloud SQL Proxyをバックグラウンドで起動
               echo "🚀 Cloud SQL Proxyを起動しています..."
               echo "   インスタンス: ${_CLOUD_SQL_INSTANCE}"
@@ -252,7 +281,7 @@ steps:
               echo "✅ マイグレーションが正常に完了しました"
       secretEnv:
           - DATABASE_URL
-      waitFor: ['Generate Prisma client']
+      waitFor: ['Check Cloud SQL instance exists']
 
     - id: 'Build Next.js app'
       name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
