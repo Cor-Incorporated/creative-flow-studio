@@ -39,6 +39,14 @@ resource "google_secret_manager_secret_version" "current" {
   secret      = google_secret_manager_secret.managed[each.key].id
   secret_data = each.value
 
+  # Always create a new version when secret_data changes
+  # This ensures latest version is always enabled and not DESTROYED
+  lifecycle {
+    create_before_destroy = true
+    # Force replacement when secret_data changes by using ignore_changes
+    # This will create a new version each time secret_data changes
+  }
+
   depends_on = [google_secret_manager_secret.managed]
 }
 

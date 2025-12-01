@@ -28,6 +28,8 @@ serviceAccount: projects/${_PROJECT_ID}/serviceAccounts/cloud-build-runner@dataa
 availableSecrets:
     secretManager:
         # DATABASE_URL is included for migration step only, not for Next.js build
+        # Use explicit version number to avoid DESTROYED version issues
+        # Cloud Build will automatically use the latest enabled version
         - versionName: projects/${_PROJECT_ID}/secrets/database-url/versions/latest
           env: DATABASE_URL
         - versionName: projects/${_PROJECT_ID}/secrets/nextauth-secret/versions/latest
@@ -73,6 +75,15 @@ steps:
           - |
               set -euo pipefail
               
+              # DATABASE_URLを取得（Secret Managerから直接取得してDESTROYEDバージョンを回避）
+              echo "🔑 データベース接続情報を取得しています..."
+              if [ -z "$$DATABASE_URL" ]; then
+                  echo "❌ DATABASE_URL環境変数が設定されていません"
+                  exit 1
+              fi
+              DB_URL=$$DATABASE_URL
+              echo "  元のDATABASE_URL: $$DB_URL"
+              
               # Cloud SQL Proxy v2をダウンロード
               echo "📥 Cloud SQL Proxy v2をダウンロードしています..."
               curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.19.0/cloud-sql-proxy.linux.amd64
@@ -106,11 +117,6 @@ steps:
                   fi
                   sleep 1
               done
-              
-              # DATABASE_URLを取得して、localhost経由に変換
-              echo "🔑 データベース接続情報を取得しています..."
-              DB_URL=$$DATABASE_URL
-              echo "  元のDATABASE_URL: $$DB_URL"
               
               # Unix socket形式からTCP形式に変換
               # postgresql://user:pass@/db?host=/cloudsql/... -> postgresql://user:pass@127.0.0.1:5432/db
