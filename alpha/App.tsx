@@ -1,34 +1,32 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-    GoogleGenAI,
-    GenerateContentResponse,
-    ContentPart as GeminiContentPart,
+    GenerateContentResponse
 } from '@google/genai';
-import {
-    Message,
-    GenerationMode,
-    AspectRatio,
-    Media,
-    ContentPart as AppContentPart,
-} from './types';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import ApiKeyModal from './components/ApiKeyModal';
 import ChatInput from './components/ChatInput';
 import ChatMessage from './components/ChatMessage';
-import ApiKeyModal from './components/ApiKeyModal';
 import { SparklesIcon } from './components/icons';
+import {
+    DJ_SHACHO_TEMPERATURE,
+    ERROR_MESSAGES,
+    MAX_VIDEO_POLL_ATTEMPTS,
+    VIDEO_POLL_INTERVAL_MS,
+} from './constants';
 import * as geminiService from './services/geminiService';
-import { fileToBase64, dataUrlToBase64 } from './utils/fileUtils';
 import {
     DJ_SHACHO_INITIAL_MESSAGE,
     DJ_SHACHO_SYSTEM_PROMPT,
 } from './services/prompts/djShachoPrompt';
 import {
-    DJ_SHACHO_TEMPERATURE,
-    VIDEO_POLL_INTERVAL_MS,
-    MAX_VIDEO_POLL_ATTEMPTS,
-    ERROR_MESSAGES,
-} from './constants';
+    ContentPart as AppContentPart,
+    AspectRatio,
+    GenerationMode,
+    Media,
+    Message,
+} from './types';
 import type { GeminiResponse } from './types/gemini';
 import { extractTextFromResponse } from './types/gemini';
+import { dataUrlToBase64 } from './utils/fileUtils';
 
 // Fix: Use a named interface 'AIStudio' to resolve declaration conflicts.
 declare global {
@@ -536,7 +534,7 @@ const App: React.FC = () => {
             <header className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                     <SparklesIcon className="w-6 h-6 text-blue-400" />
-                    <h1 className="text-xl font-bold">クリエイティブフロースタジオ</h1>
+                    <h1 className="text-xl font-bold">BulnaAI</h1>
                 </div>
                 <div className="relative">
                     <div className="w-32 h-2 bg-gray-700 rounded-full">

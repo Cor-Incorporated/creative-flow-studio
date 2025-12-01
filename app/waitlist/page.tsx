@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { MAX_PAID_USERS } from '@/lib/constants';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 type WaitlistStats = {
     paidUsersCount: number;
@@ -82,7 +82,7 @@ export default function WaitlistPage() {
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-block">
                         <h1 className="text-3xl font-bold text-white mb-2">
-                            BlunaAI
+                            BulnaAI
                         </h1>
                     </Link>
                     <p className="text-gray-400">

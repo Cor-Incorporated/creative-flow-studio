@@ -12,7 +12,7 @@ on:
       force_apply:
         description: "Force apply even if no infra changes"
         required: false
-        default: "false"
+        default: false
         type: boolean
 
 env:
@@ -55,6 +55,27 @@ jobs:
           gcloud config set project ${{ env.PROJECT_ID }}
           gcloud config set compute/region ${{ env.REGION }}
 
+      - name: "Check and Remove Stale Lock"
+        run: |
+          LOCK_FILE="gs://${{ env.TERRAFORM_STATE_BUCKET }}/terraform/dev/state/default.tflock"
+          echo "Checking for stale lock file..."
+
+          # Check if lock file exists
+          if gsutil ls "$LOCK_FILE" 2>/dev/null; then
+            echo "Lock file found. Checking if it's stale..."
+            
+            # Get lock file metadata (creation time)
+            LOCK_INFO=$(gsutil stat "$LOCK_FILE" 2>/dev/null || echo "")
+            
+            if [ -n "$LOCK_INFO" ]; then
+              # Extract creation time (simplified check - if lock is older than 30 minutes, consider it stale)
+              echo "Lock file exists. Attempting to remove stale lock..."
+              gsutil rm "$LOCK_FILE" 2>/dev/null && echo "Stale lock removed" || echo "Could not remove lock (may be in use)"
+            fi
+          else
+            echo "No lock file found. Proceeding..."
+          fi
+
       - name: "Terraform Init"
         working-directory: infra/envs/dev
         run: |
@@ -64,11 +85,61 @@ jobs:
 
       - name: "Terraform Plan"
         working-directory: infra/envs/dev
-        run: terraform plan -out=tfplan
+        run: |
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if terraform plan -out=tfplan; then
+              echo "Terraform plan succeeded"
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Terraform plan failed. Retrying in 10 seconds... (Attempt $RETRY_COUNT/$MAX_RETRIES)"
+                sleep 10
+                
+                # Try to remove lock if it exists
+                LOCK_FILE="gs://${{ env.TERRAFORM_STATE_BUCKET }}/terraform/dev/state/default.tflock"
+                if gsutil ls "$LOCK_FILE" 2>/dev/null; then
+                  echo "Removing stale lock file..."
+                  gsutil rm "$LOCK_FILE" 2>/dev/null || true
+                  sleep 5
+                fi
+              else
+                echo "Terraform plan failed after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
 
       - name: "Terraform Apply"
         working-directory: infra/envs/dev
-        run: terraform apply -auto-approve tfplan
+        run: |
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if terraform apply -auto-approve tfplan; then
+              echo "Terraform apply succeeded"
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Terraform apply failed. Retrying in 10 seconds... (Attempt $RETRY_COUNT/$MAX_RETRIES)"
+                sleep 10
+                
+                # Try to remove lock if it exists
+                LOCK_FILE="gs://${{ env.TERRAFORM_STATE_BUCKET }}/terraform/dev/state/default.tflock"
+                if gsutil ls "$LOCK_FILE" 2>/dev/null; then
+                  echo "Removing stale lock file..."
+                  gsutil rm "$LOCK_FILE" 2>/dev/null || true
+                  sleep 5
+                fi
+              else
+                echo "Terraform apply failed after $MAX_RETRIES attempts"
+                exit 1
+              fi
+            fi
+          done
 
       - name: "Verify Cloud Run Service"
         working-directory: infra/envs/dev

@@ -25,7 +25,7 @@ export default function Home() {
             role: 'model',
             parts: [
                 {
-                    text: 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？',
+                    text: 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？',
                 },
             ],
         },
@@ -279,7 +279,7 @@ export default function Home() {
 
     // インフルエンサーモード変更時に初期メッセージを更新
     useEffect(() => {
-        const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
+        const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
         const newConfig = getInfluencerConfig(selectedInfluencer);
 
         setMessages(prev => {
@@ -561,7 +561,7 @@ export default function Home() {
                 // If no messages, show initial greeting
                 if (loadedMessages.length === 0) {
                     const config = getInfluencerConfig(selectedInfluencer);
-                    const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
+                    const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
                     setMessages([
                         {
                             id: 'init',
@@ -586,7 +586,7 @@ export default function Home() {
     const startNewConversation = () => {
         // Reset to initial state
         const config = getInfluencerConfig(selectedInfluencer);
-        const defaultMessage = 'クリエイティブフロースタジオへようこそ！今日はどのようなご用件でしょうか？';
+        const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
 
         setCurrentConversationId(null);
         currentConversationIdRef.current = null;
@@ -1274,7 +1274,7 @@ export default function Home() {
                             </svg>
                         </button>
                         <SparklesIcon className="w-6 h-6 text-blue-400 flex-shrink-0" />
-                        <h1 className="text-base md:text-xl font-bold truncate">クリエイティブフロースタジオ</h1>
+                        <h1 className="text-base md:text-xl font-bold truncate">BulnaAI</h1>
                     </div>
                     <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
                         {/* Login/Logout Button */}
