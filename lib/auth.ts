@@ -36,6 +36,11 @@ export const authOptions: NextAuthOptions = {
         GoogleProvider({
             clientId: GOOGLE_CLIENT_ID,
             clientSecret: GOOGLE_CLIENT_SECRET,
+            // Allow linking Google OAuth to an existing user with the same email.
+            // This prevents OAuthAccountNotLinked when a user originally registered with credentials.
+            //
+            // Safety: We only allow sign-in if Google reports the email is verified.
+            allowDangerousEmailAccountLinking: true,
         }),
         CredentialsProvider({
             name: 'credentials',
@@ -163,6 +168,17 @@ export const authOptions: NextAuthOptions = {
     },
     callbacks: {
         async signIn({ user, account, profile }) {
+            // Safety check for OAuth email verification
+            if (account?.provider === 'google') {
+                const emailVerified = (profile as any)?.email_verified;
+                if (emailVerified !== true) {
+                    console.error('Google OAuth sign-in blocked: email not verified', {
+                        email: (profile as any)?.email,
+                    });
+                    return false;
+                }
+            }
+
             // For Google OAuth: Create default FREE subscription if user is new
             if (account?.provider === 'google' && user?.id) {
                 try {
