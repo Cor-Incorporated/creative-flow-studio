@@ -29,13 +29,19 @@ export async function middleware(request: NextRequest) {
     if (canonicalBaseUrl) {
         try {
             const canonical = new URL(canonicalBaseUrl);
-            const currentHost = request.nextUrl.host;
-            const canonicalHost = canonical.host;
+            // IMPORTANT:
+            // - Use hostname (without port) for comparisons because some platforms/proxies
+            //   may report internal ports (e.g. :8080) in request.nextUrl.host.
+            // - Never redirect users to :8080 on a public domain.
+            const currentHostname = request.nextUrl.hostname;
+            const canonicalHostname = canonical.hostname;
 
-            if (canonicalHost && currentHost && canonicalHost !== currentHost) {
+            if (canonicalHostname && currentHostname && canonicalHostname !== currentHostname) {
                 const url = request.nextUrl.clone();
-                url.host = canonicalHost;
                 url.protocol = canonical.protocol;
+                url.hostname = canonical.hostname;
+                // Explicitly clear port to avoid leaking internal port (e.g. 8080) to the client.
+                url.port = canonical.port;
                 return NextResponse.redirect(url, 308);
             }
         } catch {
