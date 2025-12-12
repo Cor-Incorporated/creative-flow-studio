@@ -125,8 +125,11 @@ module "cloud_run" {
   secret_env_vars       = local.cloud_run_secret_env
   cloud_sql_instances   = [module.cloud_sql.instance_connection_name]
   vpc_connector         = local.vpc_connector
-  vpc_egress            = "ALL_TRAFFIC"
-  labels                = local.labels
+  # Cloud SQL connectivity requires the Cloud SQL connector IP (not in RFC1918).
+  # Using ALL_TRAFFIC can force connector traffic through the VPC and break Cloud SQL.
+  # Prefer private-ranges-only to keep Google-managed service traffic reachable.
+  vpc_egress = "PRIVATE_RANGES_ONLY"
+  labels     = local.labels
 
   depends_on = [module.secrets]
 }

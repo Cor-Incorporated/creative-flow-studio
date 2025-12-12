@@ -328,6 +328,7 @@ steps:
           - '--service-account=${_SERVICE_ACCOUNT}'
           - '--platform=managed'
           - '--vpc-connector=${_VPC_CONNECTOR}'
+          - '--vpc-egress=private-ranges-only'
           - '--set-cloudsql-instances=${_CLOUD_SQL_INSTANCE}'
           - '--ingress=all'
           - '--allow-unauthenticated'
