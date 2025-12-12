@@ -16,6 +16,16 @@ vi.mock('next-auth', () => ({
 // Mock subscription utilities
 vi.mock('@/lib/subscription', () => ({
     checkSubscriptionLimits: vi.fn(),
+    getMonthlyUsageCount: vi.fn().mockResolvedValue(0),
+    getUserSubscription: vi.fn().mockResolvedValue({
+        plan: {
+            name: 'ENTERPRISE',
+            features: {
+                maxRequestsPerMonth: null,
+            },
+        },
+        currentPeriodEnd: new Date('2030-01-01T00:00:00.000Z'),
+    }),
     logUsage: vi.fn(),
 }));
 
@@ -129,7 +139,8 @@ describe('POST /api/gemini/video', () => {
             'video_generation',
             expect.objectContaining({
                 aspectRatio: '9:16',
-                resourceType: 'veo-3.1-fast',
+                resourceType: 'veo-3.1-fast-generate-preview',
+                promptLength: 'A cat playing piano'.length,
             })
         );
     });

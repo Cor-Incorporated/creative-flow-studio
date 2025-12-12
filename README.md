@@ -28,7 +28,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 - **ステータス**: α版として維持中
 - **詳細**: [alpha/README.md](alpha/README.md)
 
-### dev ブランチ - 次世代版（Next.js Full-Stack SaaS）
+### develop ブランチ - 次世代版（Next.js Full-Stack SaaS）
 
 - **場所**: ルートディレクトリ（α版は `alpha/` に移動）
 - **フレームワーク**: Next.js 14 + TypeScript
@@ -39,7 +39,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 
 ---
 
-## 🚀 次世代版（dev ブランチ）- セットアップ
+## 🚀 次世代版（develop ブランチ）- セットアップ
 
 ### 必要環境
 
@@ -54,7 +54,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
     ```bash
     git clone https://github.com/Cor-Incorporated/creative-flow-studio.git
     cd creative-flow-studio
-    git checkout dev
+    git checkout develop
     ```
 
 2. **依存関係のインストール**

@@ -16,6 +16,16 @@ vi.mock('next-auth', () => ({
 // Mock subscription utilities
 vi.mock('@/lib/subscription', () => ({
     checkSubscriptionLimits: vi.fn(),
+    getMonthlyUsageCount: vi.fn().mockResolvedValue(0),
+    getUserSubscription: vi.fn().mockResolvedValue({
+        plan: {
+            name: 'PRO',
+            features: {
+                maxRequestsPerMonth: 1000,
+            },
+        },
+        currentPeriodEnd: new Date('2030-01-01T00:00:00.000Z'),
+    }),
     logUsage: vi.fn(),
 }));
 

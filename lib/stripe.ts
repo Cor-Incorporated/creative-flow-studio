@@ -112,11 +112,19 @@ export async function getOrCreateStripeCustomer(
 export function formatPrice(amountInCents: number, currency: string = 'jpy'): string {
     const amount = amountInCents / 100;
 
-    return new Intl.NumberFormat('ja-JP', {
+    const formatted = new Intl.NumberFormat('ja-JP', {
         style: 'currency',
         currency: currency.toUpperCase(),
         minimumFractionDigits: 0,
     }).format(amount);
+
+    // Some environments render JPY currency symbol as fullwidth '￥' (U+FFE5).
+    // Normalize to ASCII '¥' (U+00A5) for stable display/tests.
+    if (currency.toLowerCase() === 'jpy') {
+        return formatted.replace(/\uFFE5/g, '\u00A5');
+    }
+
+    return formatted;
 }
 
 /**

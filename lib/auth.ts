@@ -6,16 +6,27 @@ import GoogleProvider from 'next-auth/providers/google';
 import { comparePassword, hashPassword } from './password';
 import { prisma } from './prisma';
 
-// Validate required environment variables
-if (!process.env.GOOGLE_CLIENT_ID) {
-    throw new Error('Missing required environment variable: GOOGLE_CLIENT_ID');
+function isBuildTime(): boolean {
+    // Next.js sets NEXT_PHASE during build (e.g. "phase-production-build").
+    // We intentionally do NOT fail the build when runtime-only secrets are absent.
+    return process.env.NEXT_PHASE === 'phase-production-build';
 }
-if (!process.env.GOOGLE_CLIENT_SECRET) {
-    throw new Error('Missing required environment variable: GOOGLE_CLIENT_SECRET');
+
+function requireEnv(name: string): string {
+    const value = process.env[name];
+    if (value && value.length > 0) {
+        return value;
+    }
+    if (isBuildTime()) {
+        // Build-time placeholder. Runtime must still provide real values.
+        return `__MISSING_${name}__`;
+    }
+    throw new Error(`Missing required environment variable: ${name}`);
 }
-if (!process.env.NEXTAUTH_SECRET) {
-    throw new Error('Missing required environment variable: NEXTAUTH_SECRET');
-}
+
+const GOOGLE_CLIENT_ID = requireEnv('GOOGLE_CLIENT_ID');
+const GOOGLE_CLIENT_SECRET = requireEnv('GOOGLE_CLIENT_SECRET');
+const NEXTAUTH_SECRET = requireEnv('NEXTAUTH_SECRET');
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
@@ -23,8 +34,8 @@ export const authOptions: NextAuthOptions = {
     // This works with both blunaai.com and *.run.app URLs without NEXTAUTH_URL env var
     providers: [
         GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            clientId: GOOGLE_CLIENT_ID,
+            clientSecret: GOOGLE_CLIENT_SECRET,
         }),
         CredentialsProvider({
             name: 'credentials',
@@ -187,4 +198,5 @@ export const authOptions: NextAuthOptions = {
         },
     },
     debug: process.env.NODE_ENV === 'development',
+    secret: NEXTAUTH_SECRET,
 };

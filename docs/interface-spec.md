@@ -688,8 +688,8 @@ npm run start
 
 **トリガー条件:**
 
-- ブランチ: `dev`（初期開発時）、後に `main` へマージ
-- 変更検知: dev ブランチへの push
+- ブランチ: `develop`
+- 変更検知: develop ブランチへの push
 
 **ビルドステップ（cloudbuild.yaml）:**
 
@@ -792,7 +792,7 @@ Cloud Build デフォルト SA (`667780715339@cloudbuild.gserviceaccount.com`) �
 3. マージ後、Cloud Build 自動トリガー
 4. 本番 Cloud Run へデプロイ
 
-**注意:** 現在のリポジトリでは `dev` ブランチを使用していますが、将来的に `develop` へリネームすることを推奨します。
+**注意:** 以前は `dev` ブランチを使用していましたが、現在は `develop` ブランチに統一されています。
 
 ---
 

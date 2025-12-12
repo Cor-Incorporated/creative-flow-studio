@@ -16,20 +16,22 @@ vi.mock('next-auth', () => ({
 // Mock subscription utilities
 vi.mock('@/lib/subscription', () => ({
     checkSubscriptionLimits: vi.fn(),
+    getMonthlyUsageCount: vi.fn().mockResolvedValue(0),
+    getUserSubscription: vi.fn().mockResolvedValue({
+        plan: {
+            name: 'PRO',
+            features: {
+                maxRequestsPerMonth: 1000,
+            },
+        },
+        currentPeriodEnd: new Date('2030-01-01T00:00:00.000Z'),
+    }),
     logUsage: vi.fn(),
 }));
 
 // Mock Gemini functions
 vi.mock('@/lib/gemini', () => ({
-    generateImage: vi.fn().mockResolvedValue({
-        generatedImages: [
-            {
-                image: {
-                    imageBytes: 'base64ImageData',
-                },
-            },
-        ],
-    }),
+    generateImage: vi.fn().mockResolvedValue('data:image/png;base64,base64ImageData'),
     editImage: vi.fn().mockResolvedValue({
         candidates: [
             {
