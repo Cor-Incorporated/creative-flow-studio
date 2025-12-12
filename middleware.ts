@@ -14,6 +14,35 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 
 export async function middleware(request: NextRequest) {
+    // ------------------------------------------------------------
+    // Canonical host redirect (prevents NextAuth state-cookie mismatch)
+    //
+    // Symptom: OAuthCallbackError "State cookie was missing."
+    // Root cause: user starts OAuth flow on the Cloud Run default domain (*.run.app),
+    // but Google redirects back to NEXTAUTH_URL (custom domain). The OAuth state cookie
+    // is scoped to the origin where sign-in started, so the callback cannot find it.
+    //
+    // Fix: Always redirect traffic to the canonical host (NEXTAUTH_URL) before any
+    // auth flow starts, so sign-in and callback share the same origin.
+    // ------------------------------------------------------------
+    const canonicalBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+    if (canonicalBaseUrl) {
+        try {
+            const canonical = new URL(canonicalBaseUrl);
+            const currentHost = request.nextUrl.host;
+            const canonicalHost = canonical.host;
+
+            if (canonicalHost && currentHost && canonicalHost !== currentHost) {
+                const url = request.nextUrl.clone();
+                url.host = canonicalHost;
+                url.protocol = canonical.protocol;
+                return NextResponse.redirect(url, 308);
+            }
+        } catch {
+            // Ignore invalid canonical URL; do not block requests.
+        }
+    }
+
     const { pathname } = request.nextUrl;
 
     // Admin route protection
