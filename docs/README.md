@@ -20,6 +20,8 @@
 ### Infrastructure & Deployment
 | Document | Description |
 |----------|-------------|
+| **[DATABASE_URL_SETUP_GUIDE.md](./DATABASE_URL_SETUP_GUIDE.md)** | ⭐ 必読：正しいDATABASE_URL設定（検証済み） |
+| **[LESSONS_LEARNED_DATABASE_CONNECTION.md](./LESSONS_LEARNED_DATABASE_CONNECTION.md)** | データベース接続トラブルシューティング |
 | [cicd-current-status.md](./cicd-current-status.md) | CI/CD pipeline status |
 | [cloud-sql-connection-guide.md](./cloud-sql-connection-guide.md) | Database connection setup |
 | [terraform-production-setup.md](./terraform-production-setup.md) | Terraform configuration |

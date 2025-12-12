@@ -2,7 +2,7 @@
 
 ## Current Status (2025-11-30)
 
-**Branch**: `feature/admin-dashboard-final` (dev base)
+**Branch**: `develop` (Cloud Run dev base)
 **Tests**: 185 passing ✅
 **Phase**: All core features complete, pending Cloud Run auth setup
 
@@ -57,8 +57,8 @@
 ## Branch Strategy
 
 - **main**: Alpha版 (React + Vite)、Vercel デプロイ
-- **dev**: Next.js 14 フルスタック SaaS 開発ブランチ
-- **feature/admin-dashboard-final**: 現在の作業ブランチ
+- **develop**: Next.js 14 フルスタック SaaS 開発ブランチ（Cloud Run / Cloud Build）
+- **feature/***: 機能開発ブランチ（develop にマージ）
 
 ---
 
