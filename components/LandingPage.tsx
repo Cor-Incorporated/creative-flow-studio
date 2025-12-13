@@ -63,6 +63,12 @@ export default function LandingPage() {
                             無料で始める
                         </Link>
                         <Link
+                            href="/auth/register"
+                            className="px-8 py-4 text-lg font-semibold bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+                        >
+                            メールで登録
+                        </Link>
+                        <Link
                             href="/pricing"
                             className="px-8 py-4 text-lg font-semibold bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
                         >
@@ -165,5 +171,6 @@ export default function LandingPage() {
         </div>
     );
 }
+
 
 

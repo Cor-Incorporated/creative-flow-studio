@@ -13,9 +13,14 @@ const errorMessages: Record<string, string> = {
     OAuthCreateAccount: 'OAuthアカウントの作成中にエラーが発生しました。',
     EmailCreateAccount: 'メールアカウントの作成中にエラーが発生しました。',
     Callback: '認証コールバック中にエラーが発生しました。',
-    OAuthAccountNotLinked: 'このメールアドレスは別の認証方法で登録されています。最初に使用した方法でログインしてください。',
+    OAuthAccountNotLinked:
+        'このメールアドレスは別の認証方法で登録されています。最初に登録した方法でログインしてください（メールで登録した場合はメール/パスワード、Googleで登録した場合はGoogleログイン）。',
     EmailSignin: 'メール認証の送信に失敗しました。',
     CredentialsSignin: 'メールアドレスまたはパスワードが正しくありません。',
+    EmailNormalizationConflict:
+        'このメールアドレスは既に別ユーザーで使用されています。別の認証方法でログインしている可能性があります。サポートにお問い合わせください。',
+    SubscriptionInitFailed:
+        '初期設定に失敗しました。時間をおいて再度お試しください。改善しない場合はサポートにお問い合わせください。',
     SessionRequired: 'この操作を行うにはログインが必要です。',
     Default: '認証中にエラーが発生しました。',
 };

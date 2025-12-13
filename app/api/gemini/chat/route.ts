@@ -10,6 +10,7 @@ import {
 import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { ERROR_MESSAGES } from '@/lib/constants';
 import type { GenerationMode, Media } from '@/types/app';
+import { createRequestId, jsonError } from '@/lib/api-utils';
 
 /**
  * POST /api/gemini/chat
@@ -23,11 +24,12 @@ import type { GenerationMode, Media } from '@/types/app';
  */
 
 export async function POST(request: NextRequest) {
+    const requestId = createRequestId();
     try {
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return jsonError({ message: 'Unauthorized', status: 401, code: 'UNAUTHORIZED', requestId });
         }
 
         const body = await request.json();
@@ -48,13 +50,18 @@ export async function POST(request: NextRequest) {
         } = body;
 
         if (!prompt) {
-            return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+            return jsonError({
+                message: 'Prompt is required',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         // 2. Subscription limits check
         try {
             // Determine action based on mode
-            let action: 'chat' | 'pro_mode' | 'chat' = 'chat';
+            let action: 'chat' | 'pro_mode' = 'chat';
             if (mode === 'pro') {
                 action = 'pro_mode';
             }
@@ -63,7 +70,12 @@ export async function POST(request: NextRequest) {
         } catch (error: any) {
             // Feature not allowed in plan (e.g., Pro mode in FREE plan)
             if (error.message.includes('not available in current plan')) {
-                return NextResponse.json({ error: error.message }, { status: 403 });
+                return jsonError({
+                    message: error.message,
+                    status: 403,
+                    code: 'FORBIDDEN_PLAN',
+                    requestId,
+                });
             }
 
             // Monthly limit exceeded - return detailed info
@@ -77,6 +89,7 @@ export async function POST(request: NextRequest) {
                     {
                         error: error.message,
                         code: 'RATE_LIMIT_EXCEEDED',
+                        requestId,
                         planName: subscription?.plan.name || 'FREE',
                         usage: {
                             current: usageCount,
@@ -87,6 +100,7 @@ export async function POST(request: NextRequest) {
                     {
                         status: 429,
                         headers: {
+                            'X-Request-Id': requestId,
                             'Retry-After': '86400', // 24 hours in seconds
                         },
                     }
@@ -94,7 +108,12 @@ export async function POST(request: NextRequest) {
             }
 
             // Other subscription errors
-            return NextResponse.json({ error: error.message }, { status: 403 });
+            return jsonError({
+                message: error.message,
+                status: 403,
+                code: 'FORBIDDEN_PLAN',
+                requestId,
+            });
         }
 
         // 3. Generate response
@@ -152,12 +171,20 @@ export async function POST(request: NextRequest) {
 
         // Handle specific error cases
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
+            return jsonError({
+                message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
+                status: 401,
+                code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
         }
 
-        return NextResponse.json(
-            { error: ERROR_MESSAGES.GENERIC_ERROR, details: error.message },
-            { status: 500 }
-        );
+        return jsonError({
+            message: ERROR_MESSAGES.GENERIC_ERROR,
+            status: 500,
+            code: 'UPSTREAM_ERROR',
+            details: error.message,
+            requestId,
+        });
     }
 }

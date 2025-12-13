@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PATCH } from '@/app/api/admin/users/[id]/route';
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 
 // Mock dependencies
-vi.mock('next-auth');
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(),
+}));
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         user: {
@@ -19,8 +18,15 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 describe('PATCH /api/admin/users/[id]', () => {
-    beforeEach(() => {
+    let PATCH: typeof import('@/app/api/admin/users/[id]/route').PATCH;
+    let getServerSession: any;
+    let prisma: any;
+
+    beforeEach(async () => {
         vi.clearAllMocks();
+        ({ PATCH } = await import('@/app/api/admin/users/[id]/route'));
+        ({ getServerSession } = await import('next-auth'));
+        ({ prisma } = await import('@/lib/prisma'));
     });
 
     it('should return 401 for unauthenticated requests', async () => {

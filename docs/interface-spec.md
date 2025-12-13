@@ -20,6 +20,35 @@
 
 ---
 
+## 0.1 Error Handling Contract（UI/UXのための必須契約）
+
+### 0.1.1 APIエラー（App Router API Routes）
+
+APIは、クライアントが安定してエラー表示できるよう **構造化エラー**を返す。
+
+- **必須フィールド**:
+  - `error`: ユーザー向け短文
+  - `code`: 安定したエラーコード
+  - `requestId`: 問い合わせ/ログ突合用ID
+- **必須ヘッダー**:
+  - `X-Request-Id`: `requestId` と一致
+
+（実装は `lib/api-utils.ts` の `jsonError()` を利用）
+
+### 0.1.2 認証エラー（NextAuth）
+
+NextAuthの認証エラーは `/auth/error?error=<CODE>` に遷移し、UIは `CODE` に応じた日本語メッセージを表示する。
+
+- `OAuthAccountNotLinked`: 「最初に登録した方法（メール/Google）でログイン」へ誘導する
+- `EmailNormalizationConflict`: サポート問い合わせ導線（データ衝突の可能性）
+- `SubscriptionInitFailed`: 時間をおいて再試行 + サポート問い合わせ
+
+### 0.1.3 UI表示ルール
+
+- APIエラーは **Toast + 必要に応じてインライン表示**でユーザーに提示する  
+- `requestId` がある場合は文末に **「サポートID: <requestId>」**として表示する  
+- `UNAUTHORIZED` / `FORBIDDEN_PLAN` / `RATE_LIMIT_EXCEEDED` は **行動導線（再ログイン/料金プラン）**を必ず付ける
+
 ## 1. 環境変数仕様
 
 ### 1.1 Next.js アプリケーション側で必要な環境変数

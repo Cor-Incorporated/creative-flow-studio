@@ -1,59 +1,105 @@
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { pbkdf2, randomBytes, timingSafeEqual } from 'crypto';
+import { promisify } from 'util';
+
+const pbkdf2Async = promisify(pbkdf2);
 
 const SALT_LENGTH = 16;
-const ITERATIONS = 100000;
+// NOTE: Keep legacy compatibility for existing hashes produced before iteration bumps.
+const LEGACY_ITERATIONS = 100000;
+// OWASP has increased PBKDF2 recommendations over time; we store params in the hash to allow future bumps.
+const DEFAULT_ITERATIONS = 600000;
 const KEY_LENGTH = 64;
 const DIGEST = 'sha512';
 
 /**
  * Hash a password using PBKDF2
- * Format: salt:hash (both hex encoded)
+ * Format (v1): pbkdf2$sha512$<iterations>$<saltHex>$<hashHex>
+ * Legacy format: salt:hash (both hex encoded) uses LEGACY_ITERATIONS
  */
 export async function hashPassword(password: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const salt = randomBytes(SALT_LENGTH).toString('hex');
+    const salt = randomBytes(SALT_LENGTH).toString('hex');
+    const derivedKey = (await pbkdf2Async(
+        password,
+        salt,
+        DEFAULT_ITERATIONS,
+        KEY_LENGTH,
+        DIGEST
+    )) as Buffer;
+    return `pbkdf2$${DIGEST}$${DEFAULT_ITERATIONS}$${salt}$${derivedKey.toString('hex')}`;
+}
 
-        // Use Node.js crypto.pbkdf2 for password hashing
-        const crypto = require('crypto');
-        crypto.pbkdf2(password, salt, ITERATIONS, KEY_LENGTH, DIGEST, (err: Error | null, derivedKey: Buffer) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve(`${salt}:${derivedKey.toString('hex')}`);
-        });
-    });
+type ParsedHash =
+    | { kind: 'v1'; algo: 'pbkdf2'; digest: string; iterations: number; saltHex: string; hashHex: string }
+    | { kind: 'legacy'; algo: 'pbkdf2'; digest: string; iterations: number; saltHex: string; hashHex: string }
+    | { kind: 'invalid' };
+
+function parseHashedPassword(hashedPassword: string): ParsedHash {
+    if (!hashedPassword || typeof hashedPassword !== 'string') return { kind: 'invalid' };
+
+    // v1: pbkdf2$sha512$<iter>$<salt>$<hash>
+    if (hashedPassword.startsWith('pbkdf2$')) {
+        const parts = hashedPassword.split('$');
+        if (parts.length !== 5) return { kind: 'invalid' };
+        const [, digest, iterRaw, saltHex, hashHex] = parts;
+        const iterations = Number(iterRaw);
+        if (!digest || !Number.isFinite(iterations) || iterations <= 0 || !saltHex || !hashHex) {
+            return { kind: 'invalid' };
+        }
+        return {
+            kind: 'v1',
+            algo: 'pbkdf2',
+            digest,
+            iterations,
+            saltHex,
+            hashHex,
+        };
+    }
+
+    // legacy: salt:hash
+    const [saltHex, hashHex] = hashedPassword.split(':');
+    if (!saltHex || !hashHex) return { kind: 'invalid' };
+    return {
+        kind: 'legacy',
+        algo: 'pbkdf2',
+        digest: DIGEST,
+        iterations: LEGACY_ITERATIONS,
+        saltHex,
+        hashHex,
+    };
 }
 
 /**
  * Compare a plain text password with a hashed password
  */
 export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-        const [salt, hash] = hashedPassword.split(':');
+    const parsed = parseHashedPassword(hashedPassword);
 
-        if (!salt || !hash) {
-            resolve(false);
-            return;
-        }
+    if (parsed.kind === 'invalid') {
+        return false;
+    }
 
-        const crypto = require('crypto');
-        crypto.pbkdf2(password, salt, ITERATIONS, KEY_LENGTH, DIGEST, (err: Error | null, derivedKey: Buffer) => {
-            if (err) {
-                reject(err);
-                return;
-            }
+    const derivedKey = (await pbkdf2Async(
+        password,
+        parsed.saltHex,
+        parsed.iterations,
+        KEY_LENGTH,
+        parsed.digest
+    )) as Buffer;
+    const hashBuffer = Buffer.from(parsed.hashHex, 'hex');
 
-            const hashBuffer = Buffer.from(hash, 'hex');
-            const derivedBuffer = derivedKey;
+    if (hashBuffer.length !== derivedKey.length) {
+        return false;
+    }
 
-            // Use timing-safe comparison to prevent timing attacks
-            if (hashBuffer.length !== derivedBuffer.length) {
-                resolve(false);
-                return;
-            }
+    return timingSafeEqual(hashBuffer, derivedKey);
+}
 
-            resolve(timingSafeEqual(hashBuffer, derivedBuffer));
-        });
-    });
+/**
+ * Determine whether a stored hash should be upgraded (rehash) on next successful login.
+ */
+export function needsRehash(hashedPassword: string): boolean {
+    const parsed = parseHashedPassword(hashedPassword);
+    if (parsed.kind === 'invalid') return true;
+    // Upgrade legacy format and any v1 with weaker parameters.
+    return parsed.kind === 'legacy' || parsed.iterations < DEFAULT_ITERATIONS || parsed.digest !== DIGEST;
 }

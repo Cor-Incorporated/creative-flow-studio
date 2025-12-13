@@ -39,6 +39,13 @@ export const SUPPORT_EMAIL = (() => {
 export const MAX_PROMPT_LENGTH = 30000; // Gemini API prompt length limit
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB file size limit
 
+// Auth
+export const MIN_PASSWORD_LENGTH = 8;
+export const MAX_PASSWORD_LENGTH = 128;
+
+// Credentials auth: minimum response time to mitigate timing-based account enumeration
+export const MIN_AUTH_RESPONSE_TIME_MS = 350;
+
 // Allowed MIME types
 export const ALLOWED_IMAGE_TYPES = [
     'image/jpeg',

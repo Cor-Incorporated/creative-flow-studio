@@ -1,6 +1,7 @@
 'use client';
 
 import { EyeIcon, EyeSlashIcon, SparklesIcon } from '@/components/icons';
+import { MAX_PASSWORD_LENGTH } from '@/lib/constants';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
@@ -168,6 +169,7 @@ function SignInContent() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 minLength={8}
+                                maxLength={MAX_PASSWORD_LENGTH}
                                 className="w-full px-4 py-3 pr-12 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
                                 placeholder="8文字以上"
                             />

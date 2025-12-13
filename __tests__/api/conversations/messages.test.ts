@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { POST } from '@/app/api/conversations/[id]/messages/route';
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 
 // Mock dependencies
-vi.mock('next-auth');
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(),
+}));
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         conversation: {
@@ -19,8 +18,15 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 describe('POST /api/conversations/[id]/messages', () => {
-    beforeEach(() => {
+    let POST: typeof import('@/app/api/conversations/[id]/messages/route').POST;
+    let getServerSession: any;
+    let prisma: any;
+
+    beforeEach(async () => {
         vi.clearAllMocks();
+        ({ POST } = await import('@/app/api/conversations/[id]/messages/route'));
+        ({ getServerSession } = await import('next-auth'));
+        ({ prisma } = await import('@/lib/prisma'));
     });
 
     it('should create message in conversation', async () => {

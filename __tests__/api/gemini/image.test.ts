@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { POST } from '@/app/api/gemini/image/route';
-import { checkSubscriptionLimits, logUsage } from '@/lib/subscription';
+import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage } from '@/lib/subscription';
 
 // Mock NextAuth
 vi.mock('next-auth', () => ({
@@ -16,21 +16,14 @@ vi.mock('next-auth', () => ({
 // Mock subscription utilities
 vi.mock('@/lib/subscription', () => ({
     checkSubscriptionLimits: vi.fn(),
-    getMonthlyUsageCount: vi.fn().mockResolvedValue(0),
-    getUserSubscription: vi.fn().mockResolvedValue({
-        plan: {
-            name: 'PRO',
-            features: {
-                maxRequestsPerMonth: 1000,
-            },
-        },
-        currentPeriodEnd: new Date('2030-01-01T00:00:00.000Z'),
-    }),
     logUsage: vi.fn(),
+    getUserSubscription: vi.fn(),
+    getMonthlyUsageCount: vi.fn(),
 }));
 
 // Mock Gemini functions
 vi.mock('@/lib/gemini', () => ({
+    // generateImage now returns a data URL string (same as alpha / route expectation)
     generateImage: vi.fn().mockResolvedValue('data:image/png;base64,base64ImageData'),
     editImage: vi.fn().mockResolvedValue({
         candidates: [
@@ -71,6 +64,8 @@ describe('POST /api/gemini/image', () => {
         expect(response.status).toBe(401);
         const data = await response.json();
         expect(data.error).toBe('Unauthorized');
+        expect(data.code).toBe('UNAUTHORIZED');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should return 403 if plan does not allow image generation', async () => {
@@ -92,6 +87,8 @@ describe('POST /api/gemini/image', () => {
         expect(response.status).toBe(403);
         const data = await response.json();
         expect(data.error).toContain('not available in current plan');
+        expect(data.code).toBe('FORBIDDEN_PLAN');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should return 429 if monthly limit exceeded', async () => {
@@ -102,6 +99,10 @@ describe('POST /api/gemini/image', () => {
         (checkSubscriptionLimits as any).mockRejectedValue(
             new Error('Monthly request limit exceeded')
         );
+        (getUserSubscription as any).mockResolvedValue({
+            plan: { name: 'PRO', features: { maxRequestsPerMonth: 1000 } },
+        });
+        (getMonthlyUsageCount as any).mockResolvedValue(1000);
 
         const request = new NextRequest('http://localhost:3000/api/gemini/image', {
             method: 'POST',
@@ -112,6 +113,9 @@ describe('POST /api/gemini/image', () => {
 
         expect(response.status).toBe(429);
         expect(response.headers.get('Retry-After')).toBe('86400');
+        const data = await response.json();
+        expect(data.code).toBe('RATE_LIMIT_EXCEEDED');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should generate image and log usage', async () => {
@@ -208,6 +212,8 @@ describe('POST /api/gemini/image', () => {
         expect(response.status).toBe(400);
         const data = await response.json();
         expect(data.error).toContain('Invalid aspect ratio');
+        expect(data.code).toBe('VALIDATION_ERROR');
+        expect(typeof data.requestId).toBe('string');
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();

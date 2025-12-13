@@ -70,6 +70,110 @@ export default function Home() {
     const authedFetch = (input: RequestInfo | URL, init: RequestInit = {}) =>
         fetch(input, { credentials: 'include', ...init });
 
+    type ApiErrorPayload = {
+        error?: string;
+        code?: string;
+        details?: any;
+        requestId?: string;
+        planName?: string;
+        usage?: { current: number; limit: number | null };
+        resetDate?: string | null;
+        [key: string]: any;
+    };
+
+    class ApiError extends Error {
+        status: number;
+        code?: string;
+        requestId?: string;
+        payload?: ApiErrorPayload;
+        constructor(status: number, payload?: ApiErrorPayload, fallbackMessage?: string) {
+            const message = payload?.error || fallbackMessage || ERROR_MESSAGES.GENERIC_ERROR;
+            super(message);
+            this.name = 'ApiError';
+            this.status = status;
+            this.code = payload?.code;
+            this.requestId = payload?.requestId;
+            this.payload = payload;
+        }
+    }
+
+    const parseJsonSafe = async (response: Response): Promise<any | null> => {
+        try {
+            return await response.json();
+        } catch {
+            return null;
+        }
+    };
+
+    const buildUserFacingErrorMessage = (error: ApiError): { message: string; action?: { label: string; onClick: () => void } } => {
+        const requestIdSuffix = error.requestId ? `（サポートID: ${error.requestId}）` : '';
+
+        // Prefer explicit API error codes when present.
+        switch (error.code) {
+            case 'UNAUTHORIZED':
+                return {
+                    message: `セッションが切れました。再度ログインしてください。${requestIdSuffix}`,
+                    action: {
+                        label: 'ログインする',
+                        onClick: () => signIn('google', { callbackUrl: window.location.href }),
+                    },
+                };
+            case 'FORBIDDEN_PLAN':
+                return {
+                    message: `現在のプランではこの機能を利用できません。${requestIdSuffix}`,
+                    action: {
+                        label: '料金プランを見る',
+                        onClick: () => (window.location.href = '/pricing'),
+                    },
+                };
+            case 'FORBIDDEN_ADMIN':
+                return {
+                    message: `この操作を行う権限がありません。${requestIdSuffix}`,
+                };
+            case 'RATE_LIMIT_EXCEEDED': {
+                const reset = error.payload?.resetDate ? new Date(error.payload.resetDate) : null;
+                const resetText = reset ? `（リセット: ${reset.toLocaleString('ja-JP')}）` : '';
+                return {
+                    message: `今月の利用上限に達しました。${resetText}${requestIdSuffix}`,
+                    action: {
+                        label: '料金プランを見る',
+                        onClick: () => (window.location.href = '/pricing'),
+                    },
+                };
+            }
+            case 'GEMINI_API_KEY_NOT_FOUND':
+                return {
+                    message: `サーバー設定に問題があります。時間をおいて改善しない場合はサポートへご連絡ください。${requestIdSuffix}`,
+                };
+            case 'VALIDATION_ERROR':
+                return { message: `${error.message}${requestIdSuffix}` };
+            case 'UPSTREAM_ERROR':
+                return { message: `生成に失敗しました。時間をおいて再度お試しください。${requestIdSuffix}` };
+        }
+
+        // Fallbacks by HTTP status when code is absent.
+        if (error.status === 401) {
+            return {
+                message: `セッションが切れました。再度ログインしてください。${requestIdSuffix}`,
+                action: {
+                    label: 'ログインする',
+                    onClick: () => signIn('google', { callbackUrl: window.location.href }),
+                },
+            };
+        }
+        if (error.status === 429) {
+            return {
+                message: `リクエストが多すぎます。時間をおいて再度お試しください。${requestIdSuffix}`,
+            };
+        }
+        if (error.status === 403) {
+            return {
+                message: `この操作を行う権限がありません。${requestIdSuffix}`,
+            };
+        }
+        return { message: `${error.message}${requestIdSuffix}` };
+    };
+
     const normalizeFileResourceName = (value?: string | null) => {
         if (!value) return null;
         const trimmed = value.trim().replace(/^\/+/, '');
@@ -345,9 +449,37 @@ export default function Home() {
     ) => {
         console.error(`Error in ${context}:`, error);
         let errorMessage = ERROR_MESSAGES.GENERIC_ERROR;
+        let toastAction: { label: string; onClick: () => void } | undefined;
 
-        if (error.message) {
+        if (error instanceof ApiError) {
+            const mapped = buildUserFacingErrorMessage(error);
+            errorMessage = mapped.message;
+            toastAction = mapped.action;
+
+            // For rate limit errors, keep usage panel in sync if payload contains details.
+            if (error.code === 'RATE_LIMIT_EXCEEDED' && error.payload) {
+                setUsageLimitInfo({
+                    isLimitReached: true,
+                    planName: error.payload.planName || 'FREE',
+                    usage: {
+                        current: error.payload.usage?.current || 0,
+                        limit: error.payload.usage?.limit ?? null,
+                    },
+                    resetDate: error.payload.resetDate || null,
+                });
+            }
+        } else if (error?.message) {
             errorMessage = error.message;
+        }
+
+        // Also show toast for actionable errors (e.g., re-login / pricing).
+        if (toastAction) {
+            showToast({
+                message: errorMessage,
+                type: 'error',
+                duration: 8000,
+                action: toastAction,
+            });
         }
 
         // 画像・動画生成のエラーでインフルエンサーモードがONの場合、エラーメッセージをインフルエンサースタイルに変換
@@ -861,10 +993,10 @@ export default function Home() {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = (await parseJsonSafe(response)) as ApiErrorPayload | null;
 
                     // Handle rate limit exceeded (429)
-                    if (response.status === 429 && errorData.code === 'RATE_LIMIT_EXCEEDED') {
+                    if (response.status === 429 && errorData?.code === 'RATE_LIMIT_EXCEEDED') {
                         setUsageLimitInfo({
                             isLimitReached: true,
                             planName: errorData.planName || 'FREE',
@@ -876,7 +1008,11 @@ export default function Home() {
                         });
                     }
 
-                    throw new Error(errorData.error || ERROR_MESSAGES.IMAGE_GENERATION_FAILED);
+                    throw new ApiError(
+                        response.status,
+                        errorData || undefined,
+                        ERROR_MESSAGES.IMAGE_GENERATION_FAILED
+                    );
                 }
 
                 const data = await response.json();
@@ -915,10 +1051,10 @@ export default function Home() {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = (await parseJsonSafe(response)) as ApiErrorPayload | null;
 
                     // Handle rate limit exceeded (429)
-                    if (response.status === 429 && errorData.code === 'RATE_LIMIT_EXCEEDED') {
+                    if (response.status === 429 && errorData?.code === 'RATE_LIMIT_EXCEEDED') {
                         setUsageLimitInfo({
                             isLimitReached: true,
                             planName: errorData.planName || 'FREE',
@@ -930,7 +1066,11 @@ export default function Home() {
                         });
                     }
 
-                    throw new Error(errorData.error || ERROR_MESSAGES.VIDEO_GENERATION_FAILED);
+                    throw new ApiError(
+                        response.status,
+                        errorData || undefined,
+                        ERROR_MESSAGES.VIDEO_GENERATION_FAILED
+                    );
                 }
 
                 const data = await response.json();
@@ -1000,10 +1140,10 @@ export default function Home() {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorData = (await parseJsonSafe(response)) as ApiErrorPayload | null;
 
                     // Handle rate limit exceeded (429)
-                    if (response.status === 429 && errorData.code === 'RATE_LIMIT_EXCEEDED') {
+                    if (response.status === 429 && errorData?.code === 'RATE_LIMIT_EXCEEDED') {
                         setUsageLimitInfo({
                             isLimitReached: true,
                             planName: errorData.planName || 'FREE',
@@ -1015,7 +1155,11 @@ export default function Home() {
                         });
                     }
 
-                    throw new Error(errorData.error || ERROR_MESSAGES.GENERIC_ERROR);
+                    throw new ApiError(
+                        response.status,
+                        errorData || undefined,
+                        ERROR_MESSAGES.GENERIC_ERROR
+                    );
                 }
 
                 const data = await response.json();

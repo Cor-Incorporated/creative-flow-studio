@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET, PATCH, DELETE } from '@/app/api/conversations/[id]/route';
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 
 // Mock dependencies
-vi.mock('next-auth');
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(),
+}));
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         conversation: {
@@ -16,9 +15,22 @@ vi.mock('@/lib/prisma', () => ({
     },
 }));
 
+let GET: typeof import('@/app/api/conversations/[id]/route').GET;
+let PATCH: typeof import('@/app/api/conversations/[id]/route').PATCH;
+let DELETE: typeof import('@/app/api/conversations/[id]/route').DELETE;
+let getServerSession: any;
+let prisma: any;
+
+beforeEach(async () => {
+    vi.clearAllMocks();
+    ({ GET, PATCH, DELETE } = await import('@/app/api/conversations/[id]/route'));
+    ({ getServerSession } = await import('next-auth'));
+    ({ prisma } = await import('@/lib/prisma'));
+});
+
 describe('GET /api/conversations/[id]', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        // already loaded in top-level beforeEach
     });
 
     it('should return conversation with messages', async () => {

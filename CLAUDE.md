@@ -162,6 +162,31 @@ HTTP Status Codes:
 
 ---
 
+## UX / Error Handling Conventions (Must-follow)
+
+### Auth Errors (NextAuth)
+
+- **Where**: NextAuth errors are routed to `/auth/error?error=<CODE>`.
+- **Display**: The UI must show a **user-friendly Japanese message** for each `error` code.
+- **Important**: We do **not** auto-link OAuth accounts to existing credentials users unless we have a **verified email** flow for credentials (pre-hijacking risk). This is why `allowDangerousEmailAccountLinking` is disabled.
+
+### API Errors (App Routes)
+
+- **Contract**: API routes should return structured JSON errors using `jsonError()` from `lib/api-utils.ts`.
+- **Required fields**:
+  - `error`: user-facing short message (Japanese where applicable)
+  - `code`: stable error code (e.g. `UNAUTHORIZED`, `VALIDATION_ERROR`, `FORBIDDEN_PLAN`, `RATE_LIMIT_EXCEEDED`, `UPSTREAM_ERROR`)
+  - `requestId`: support/debug identifier
+  - Response header `X-Request-Id` must match `requestId`
+- **Frontend behavior**:
+  - Show errors via **Toast** and/or inline message.
+  - Include `requestId` as a **“サポートID”** in the user-facing message when present.
+  - For actionable errors, include a CTA:
+    - `UNAUTHORIZED` → login CTA
+    - `FORBIDDEN_PLAN` / `RATE_LIMIT_EXCEEDED` → pricing CTA
+
+---
+
 ## Development
 
 ### Commands
