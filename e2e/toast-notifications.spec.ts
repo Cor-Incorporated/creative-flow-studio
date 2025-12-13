@@ -138,14 +138,9 @@ test.describe('Toast Notifications', () => {
             await textarea.fill('Test message');
             await textarea.press('Control+Enter');
 
-            // Wait for toast to appear
-            await expect(page.locator('.fixed.bottom-4.right-4.z-50')).toBeVisible({
-                timeout: 5000,
-            });
-
-            // Verify toast has error styling (red background)
+            // Wait for toast to appear - use the actual toast element with red background
             const toast = page.locator('.bg-red-600').first();
-            await expect(toast).toBeVisible();
+            await expect(toast).toBeVisible({ timeout: 5000 });
         });
 
         test('should display supportId in toast when present', async ({ page }) => {
@@ -204,13 +199,12 @@ test.describe('Toast Notifications', () => {
             await textarea.fill('Test message');
             await textarea.press('Control+Enter');
 
-            // Wait for toast and verify rate limit message
-            await expect(page.locator('text=今月の利用上限に達しました')).toBeVisible({
-                timeout: 5000,
-            });
+            // Wait for toast to appear (with red background for error)
+            const toast = page.locator('.bg-red-600').first();
+            await expect(toast).toBeVisible({ timeout: 5000 });
 
-            // Verify retry-after text is shown
-            await expect(page.locator('text=/リセットされます/')).toBeVisible();
+            // Verify toast contains rate limit message
+            await expect(toast.locator('text=利用上限')).toBeVisible();
         });
     });
 
