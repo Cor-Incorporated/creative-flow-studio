@@ -5,6 +5,7 @@ import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
+import { EyeIcon, EyeSlashIcon } from '@/components/icons';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -18,6 +19,7 @@ export default function RegisterPage() {
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         if (status === 'authenticated' && session?.user) {
@@ -31,12 +33,20 @@ export default function RegisterPage() {
         setIsSubmitting(true);
 
         try {
+            // NOTE: Autofill may not trigger onChange in some environments.
+            // Read from the form as source-of-truth on submit.
+            const form = e.currentTarget as HTMLFormElement;
+            const formData = new FormData(form);
+            const formName = (formData.get('name') as string | null) ?? undefined;
+            const formEmail = (formData.get('email') as string | null) ?? undefined;
+            const formPassword = (formData.get('password') as string | null) ?? undefined;
+
             const result = await signIn('credentials', {
                 redirect: false,
-                email,
-                password,
+                email: (formEmail ?? email).trim(),
+                password: formPassword ?? password,
                 action: 'register',
-                name: name || undefined,
+                name: (formName ?? name).trim() || undefined,
                 callbackUrl,
             });
 
@@ -44,7 +54,7 @@ export default function RegisterPage() {
                 setError(
                     result?.error === 'CredentialsSignin'
                         ? '登録に失敗しました。入力内容をご確認ください。'
-                        : result?.error || '登録に失敗しました'
+                        : '登録に失敗しました。入力内容をご確認ください。'
                 );
                 return;
             }
@@ -103,8 +113,10 @@ export default function RegisterPage() {
                             name="name"
                             value={name}
                             onChange={e => setName(e.target.value)}
+                            onBlur={e => setName(e.target.value.trim())}
                             className="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             autoComplete="name"
+                            maxLength={100}
                         />
                     </div>
                     <div>
@@ -114,6 +126,7 @@ export default function RegisterPage() {
                             name="email"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
+                            onBlur={e => setEmail(e.target.value.trim())}
                             className="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             autoComplete="email"
                             required
@@ -123,16 +136,30 @@ export default function RegisterPage() {
                         <label className="block text-sm mb-1 text-gray-200">
                             パスワード（{MIN_PASSWORD_LENGTH}文字以上）
                         </label>
-                        <input
-                            type="password"
-                            name="password"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            autoComplete="new-password"
-                            required
-                            minLength={MIN_PASSWORD_LENGTH}
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                name="password"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className="w-full px-3 py-2 pr-11 rounded-lg bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                autoComplete="new-password"
+                                required
+                                minLength={MIN_PASSWORD_LENGTH}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(v => !v)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors p-1"
+                                aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                            >
+                                {showPassword ? (
+                                    <EyeSlashIcon className="w-5 h-5" />
+                                ) : (
+                                    <EyeIcon className="w-5 h-5" />
+                                )}
+                            </button>
+                        </div>
                     </div>
 
                     <button

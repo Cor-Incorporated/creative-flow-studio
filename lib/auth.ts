@@ -70,9 +70,10 @@ export const authOptions: NextAuthOptions = {
 
                 // Registration flow
                 if (action === 'register') {
-                    const existingUser = await prisma.user.findUnique({
-                        where: { email },
-                        select: { id: true },
+                    // Case-insensitive existence check to support legacy mixed-case rows.
+                    const existingUser = await prisma.user.findFirst({
+                        where: { email: { equals: email, mode: 'insensitive' } },
+                        select: { id: true, email: true },
                     });
 
                     if (existingUser) {
@@ -80,7 +81,8 @@ export const authOptions: NextAuthOptions = {
                             email,
                             userId: existingUser.id,
                         });
-                        throw new Error('このメールアドレスは既に登録されています');
+                        // Avoid email enumeration by returning a generic message.
+                        throw new Error('登録に失敗しました。入力内容をご確認ください。');
                     }
 
                     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -122,21 +124,20 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 // Login flow
-                const user = await prisma.user.findUnique({
-                    where: { email },
+                // Case-insensitive lookup to support legacy mixed-case rows.
+                // We use findFirst (not findUnique) because Prisma's unique lookup is case-sensitive in Postgres.
+                const user = await prisma.user.findFirst({
+                    where: { email: { equals: email, mode: 'insensitive' } },
                 });
 
-                if (!user) {
-                    console.warn('[auth][credentials] login failed: user not found', { email });
-                    throw new Error('メールアドレスまたはパスワードが正しくありません');
-                }
-
-                if (!user.password) {
-                    console.warn('[auth][credentials] login blocked: user has no password (likely OAuth only)', {
+                // Avoid account enumeration by returning a generic error for all failures.
+                if (!user || !user.password) {
+                    console.warn('[auth][credentials] login failed', {
                         email,
-                        userId: user.id,
+                        reason: !user ? 'user_not_found' : 'no_password',
+                        userId: user?.id,
                     });
-                    throw new Error('このアカウントはGoogleログインで登録されています。Googleでログインしてください。');
+                    throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
                 const isPasswordValid = await comparePassword(password, user.password);
@@ -144,6 +145,23 @@ export const authOptions: NextAuthOptions = {
                 if (!isPasswordValid) {
                     console.warn('[auth][credentials] login failed: invalid password', { email, userId: user.id });
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
+                }
+
+                // Best-effort: normalize legacy mixed-case emails on successful login.
+                if (user.email && user.email !== email) {
+                    try {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: { email },
+                        });
+                    } catch (error) {
+                        console.error('Failed to normalize legacy user email on credentials login', {
+                            userId: user.id,
+                            fromEmail: user.email,
+                            toEmail: email,
+                            error,
+                        });
+                    }
                 }
 
                 console.info('[auth][credentials] login success', { email, userId: user.id });
@@ -259,6 +277,23 @@ export const authOptions: NextAuthOptions = {
 
             // For Google OAuth: Create default FREE subscription if user is new
             if (account?.provider === 'google' && user?.id) {
+                // If a subscription already exists, don't block sign-in due to subscription init.
+                // (This also avoids unnecessary writes and reduces risk of transient failures.)
+                try {
+                    const existing = await prisma.subscription.findUnique({
+                        where: { userId: user.id },
+                        select: { id: true },
+                    });
+                    if (existing) {
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('Failed to check existing subscription during Google sign-in', {
+                        userId: user.id,
+                        error,
+                    });
+                }
+
                 try {
                     const { createDefaultFreeSubscription } = await import('./subscription');
                     await createDefaultFreeSubscription(user.id);

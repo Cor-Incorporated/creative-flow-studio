@@ -106,6 +106,39 @@ export const authOptions: NextAuthOptions = {
 
 ---
 
+## 既存ユーザー向け: メールアドレス正規化（大小文字）
+
+このリポジトリでは **メールアドレスを小文字に正規化**して扱います（`User.email` は Postgres の `UNIQUE` でケースセンシティブなため）。
+
+**注意:** 過去に混在ケース（例: `User@Example.com`）で保存されたユーザーがいる場合、デプロイ前に一度だけ正規化を実施してください。
+
+### 1) 事前チェック（Dry-run）
+
+```sql
+-- 大小文字を無視した場合に衝突するメールがあるか確認
+SELECT LOWER(email) AS normalized_email, COUNT(*) AS cnt
+FROM users
+GROUP BY LOWER(email)
+HAVING COUNT(*) > 1;
+```
+
+1件でも出た場合は、**どのユーザーを残すか**を決めてから対応してください（自動で安全に統合できません）。
+
+### 2) 衝突が無い場合の正規化
+
+```sql
+UPDATE users
+SET email = LOWER(email)
+WHERE email <> LOWER(email);
+```
+
+### 3) デプロイ後の監視
+
+- `/auth/error?error=EmailNormalizationConflict` が出る場合は、上記の衝突が残っている可能性があります。
+- `/auth/error?error=SubscriptionInitFailed` が増える場合は、DB接続や初期FREEプランの存在を確認してください。
+
+---
+
 ## セッション動作の検証
 
 ### 1. ログイン動作確認
