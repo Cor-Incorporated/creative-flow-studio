@@ -7,6 +7,7 @@ import { prisma } from './prisma';
 import { comparePassword, hashPassword, needsRehash } from './password';
 import { MIN_PASSWORD_LENGTH } from './constants';
 import { createDefaultFreeSubscriptionWithClient } from './subscription';
+import { createDefaultFreeSubscription } from './subscription';
 import { createHash } from 'crypto';
 
 function isBuildTime(): boolean {
@@ -36,6 +37,17 @@ function emailLogId(email: string): string {
     return createHash('sha256').update(email.toLowerCase().trim()).digest('hex').slice(0, 12);
 }
 
+function sanitizeDisplayName(input: string | undefined, fallbackEmail: string): string {
+    const raw = (input || '').trim();
+    const normalized = raw.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (normalized.length >= 1) {
+        return normalized.slice(0, 100);
+    }
+    const prefix = fallbackEmail.split('@')[0] || 'ユーザー';
+    const safePrefix = prefix.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return (safePrefix || 'ユーザー').slice(0, 100);
+}
+
 async function ensureMinDelay(startMs: number, minMs: number): Promise<void> {
     const elapsed = Date.now() - startMs;
     const remaining = minMs - elapsed;
@@ -52,11 +64,11 @@ export const authOptions: NextAuthOptions = {
         GoogleProvider({
             clientId: GOOGLE_CLIENT_ID,
             clientSecret: GOOGLE_CLIENT_SECRET,
-            // Allow linking Google OAuth to an existing user with the same email.
-            // This prevents OAuthAccountNotLinked when a user originally registered with credentials.
-            //
-            // Safety: We only allow sign-in if Google reports the email is verified.
-            allowDangerousEmailAccountLinking: true,
+            // NOTE:
+            // We intentionally do NOT enable allowDangerousEmailAccountLinking here.
+            // Without a credentials email verification flow, automatic linking can enable
+            // account pre-hijacking (someone registers credentials with a victim email, then
+            // victim later signs in with Google and lands in that account).
         }),
         CredentialsProvider({
             name: 'credentials',
@@ -121,7 +133,7 @@ export const authOptions: NextAuthOptions = {
                             data: {
                                 email,
                                 password: hashedPassword,
-                                name: name || email.split('@')[0],
+                                name: sanitizeDisplayName(name, email),
                             },
                         });
 
@@ -351,7 +363,6 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 try {
-                    const { createDefaultFreeSubscription } = await import('./subscription');
                     await createDefaultFreeSubscription(user.id);
                 } catch (error: any) {
                     console.error('Failed to create default subscription for Google OAuth user:', error);
