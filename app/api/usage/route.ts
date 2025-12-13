@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/usage
  * Get current user's usage statistics and plan limits

@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { updateConversationSchema } from '@/lib/validators';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/conversations/[id]
  * Retrieve a specific conversation with its messages

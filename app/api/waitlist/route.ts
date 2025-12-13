@@ -10,6 +10,8 @@ import {
 import { ERROR_MESSAGES } from '@/lib/constants';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/waitlist
  * Get waitlist status and statistics
