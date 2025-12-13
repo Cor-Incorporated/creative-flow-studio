@@ -33,7 +33,17 @@ export async function middleware(request: NextRequest) {
             // - Use hostname (without port) for comparisons because some platforms/proxies
             //   may report internal ports (e.g. :8080) in request.nextUrl.host.
             // - Never redirect users to :8080 on a public domain.
-            const currentHostname = request.nextUrl.hostname;
+            // Also: Prefer x-forwarded-host because Cloud Run domain mappings / proxies can
+            // set Host to the underlying *.run.app service while preserving the original
+            // domain in X-Forwarded-Host. Using NextRequest.nextUrl alone can cause an
+            // infinite 308 loop (Location points to the same public URL).
+            const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+            const forwardedHostname = (forwardedHost || '')
+                .split(',')[0]
+                .trim()
+                .replace(/:\d+$/, '');
+
+            const currentHostname = forwardedHostname || request.nextUrl.hostname;
             const canonicalHostname = canonical.hostname;
 
             if (canonicalHostname && currentHostname && canonicalHostname !== currentHostname) {
