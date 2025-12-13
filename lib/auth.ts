@@ -4,8 +4,10 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
-import { comparePassword, hashPassword } from './password';
+import { comparePassword, hashPassword, needsRehash } from './password';
 import { MIN_PASSWORD_LENGTH } from './constants';
+import { createDefaultFreeSubscriptionWithClient } from './subscription';
+import { createHash } from 'crypto';
 
 function isBuildTime(): boolean {
     // Next.js sets NEXT_PHASE during build (e.g. "phase-production-build").
@@ -28,6 +30,19 @@ function requireEnv(name: string): string {
 const GOOGLE_CLIENT_ID = requireEnv('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = requireEnv('GOOGLE_CLIENT_SECRET');
 const NEXTAUTH_SECRET = requireEnv('NEXTAUTH_SECRET');
+
+function emailLogId(email: string): string {
+    // Non-reversible identifier for logs to avoid storing PII.
+    return createHash('sha256').update(email.toLowerCase().trim()).digest('hex').slice(0, 12);
+}
+
+async function ensureMinDelay(startMs: number, minMs: number): Promise<void> {
+    const elapsed = Date.now() - startMs;
+    const remaining = minMs - elapsed;
+    if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+}
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
@@ -52,12 +67,14 @@ export const authOptions: NextAuthOptions = {
                 name: { label: '名前', type: 'text' },
             },
             async authorize(credentials) {
+                const start = Date.now();
                 if (!credentials?.email || !credentials?.password) {
                     console.warn('[auth][credentials] missing email or password');
                     throw new Error('メールアドレスとパスワードを入力してください');
                 }
 
                 const email = String(credentials.email).toLowerCase().trim();
+                const emailId = emailLogId(email);
                 const password = String(credentials.password);
                 const action = String(credentials.action || 'login');
                 const name = credentials.name ? String(credentials.name) : undefined;
@@ -66,7 +83,7 @@ export const authOptions: NextAuthOptions = {
                     throw new Error('メールアドレスを入力してください');
                 }
                 // Never log passwords.
-                console.info('[auth][credentials] attempt', { email, action });
+                console.info('[auth][credentials] attempt', { emailId, action });
 
                 // Registration flow
                 if (action === 'register') {
@@ -78,15 +95,17 @@ export const authOptions: NextAuthOptions = {
 
                     if (existingUser) {
                         console.warn('[auth][credentials] register blocked: email already exists', {
-                            email,
+                            emailId,
                             userId: existingUser.id,
                         });
                         // Avoid email enumeration by returning a generic message.
+                        await ensureMinDelay(start, 350);
                         throw new Error('登録に失敗しました。入力内容をご確認ください。');
                     }
 
                     if (password.length < MIN_PASSWORD_LENGTH) {
-                        console.warn('[auth][credentials] register blocked: password too short', { email });
+                        console.warn('[auth][credentials] register blocked: password too short', { emailId });
+                        await ensureMinDelay(start, 350);
                         throw new Error(`パスワードは${MIN_PASSWORD_LENGTH}文字以上で入力してください`);
                     }
 
@@ -100,12 +119,11 @@ export const authOptions: NextAuthOptions = {
                             },
                         });
 
-                        const { createDefaultFreeSubscriptionWithClient } = await import('./subscription');
                         await createDefaultFreeSubscriptionWithClient(created.id, tx);
                         return created;
                     });
 
-                    console.info('[auth][credentials] register success', { email, userId: user.id });
+                    console.info('[auth][credentials] register success', { emailId, userId: user.id });
 
                     const createdUser = {
                         id: user.id,
@@ -133,17 +151,19 @@ export const authOptions: NextAuthOptions = {
                 // Avoid account enumeration by returning a generic error for all failures.
                 if (!user || !user.password) {
                     console.warn('[auth][credentials] login failed', {
-                        email,
+                        emailId,
                         reason: !user ? 'user_not_found' : 'no_password',
                         userId: user?.id,
                     });
+                    await ensureMinDelay(start, 350);
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
                 const isPasswordValid = await comparePassword(password, user.password);
 
                 if (!isPasswordValid) {
-                    console.warn('[auth][credentials] login failed: invalid password', { email, userId: user.id });
+                    console.warn('[auth][credentials] login failed: invalid password', { emailId, userId: user.id });
+                    await ensureMinDelay(start, 350);
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
@@ -157,14 +177,31 @@ export const authOptions: NextAuthOptions = {
                     } catch (error) {
                         console.error('Failed to normalize legacy user email on credentials login', {
                             userId: user.id,
-                            fromEmail: user.email,
-                            toEmail: email,
+                            fromEmailId: emailLogId(String(user.email)),
+                            toEmailId: emailLogId(email),
                             error,
                         });
                     }
                 }
 
-                console.info('[auth][credentials] login success', { email, userId: user.id });
+                // Upgrade password hash parameters opportunistically on successful login.
+                if (needsRehash(user.password)) {
+                    try {
+                        const upgraded = await hashPassword(password);
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: { password: upgraded },
+                        });
+                    } catch (error) {
+                        console.error('Failed to upgrade password hash parameters', {
+                            userId: user.id,
+                            emailId,
+                            error,
+                        });
+                    }
+                }
+
+                console.info('[auth][credentials] login success', { emailId, userId: user.id });
                 const loggedInUser = {
                     id: user.id,
                     email: user.email,
@@ -235,8 +272,9 @@ export const authOptions: NextAuthOptions = {
             if (account?.provider === 'google') {
                 const emailVerified = (profile as any)?.email_verified;
                 if (emailVerified !== true) {
+                    const profileEmail = String((profile as any)?.email || '');
                     console.error('Google OAuth sign-in blocked: email not verified', {
-                        email: (profile as any)?.email,
+                        emailId: profileEmail ? emailLogId(profileEmail) : null,
                     });
                     return false;
                 }
@@ -255,8 +293,8 @@ export const authOptions: NextAuthOptions = {
                         if (existing && existing.id !== user.id) {
                             console.error('Email normalization conflict detected for OAuth sign-in', {
                                 userId: user.id,
-                                fromEmail: user.email,
-                                toEmail: normalizedEmail,
+                                fromEmailId: emailLogId(String(user.email)),
+                                toEmailId: emailLogId(normalizedEmail),
                                 conflictingUserId: existing.id,
                             });
                             return '/auth/error?error=EmailNormalizationConflict';
@@ -268,7 +306,7 @@ export const authOptions: NextAuthOptions = {
                     } catch (error) {
                         console.error('Failed to normalize user email on sign-in', {
                             userId: user.id,
-                            email: user.email,
+                            emailId: emailLogId(String(user.email)),
                             error,
                         });
                     }
