@@ -5,6 +5,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import { comparePassword, hashPassword } from './password';
+import { MIN_PASSWORD_LENGTH } from './constants';
 
 function isBuildTime(): boolean {
     // Next.js sets NEXT_PHASE during build (e.g. "phase-production-build").
@@ -82,9 +83,9 @@ export const authOptions: NextAuthOptions = {
                         throw new Error('このメールアドレスは既に登録されています');
                     }
 
-                    if (password.length < 8) {
+                    if (password.length < MIN_PASSWORD_LENGTH) {
                         console.warn('[auth][credentials] register blocked: password too short', { email });
-                        throw new Error('パスワードは8文字以上で入力してください');
+                        throw new Error(`パスワードは${MIN_PASSWORD_LENGTH}文字以上で入力してください`);
                     }
 
                     const hashedPassword = await hashPassword(password);

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -110,7 +111,9 @@ export default function RegisterPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm mb-1 text-gray-200">パスワード（8文字以上）</label>
+                        <label className="block text-sm mb-1 text-gray-200">
+                            パスワード（{MIN_PASSWORD_LENGTH}文字以上）
+                        </label>
                         <input
                             type="password"
                             name="password"
@@ -119,7 +122,7 @@ export default function RegisterPage() {
                             className="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
                             autoComplete="new-password"
                             required
-                            minLength={8}
+                            minLength={MIN_PASSWORD_LENGTH}
                         />
                     </div>
 

@@ -49,8 +49,9 @@ export async function middleware(request: NextRequest) {
                 url.port = canonical.port;
                 return NextResponse.redirect(url, 308);
             }
-        } catch {
+        } catch (error) {
             // Ignore invalid canonical URL; do not block requests.
+            console.warn('[middleware] Invalid NEXTAUTH_URL configuration:', canonicalBaseUrl, error);
         }
     }
 
