@@ -15,6 +15,8 @@ export type SubscriptionWithPlan = Subscription & {
     plan: Plan;
 };
 
+type SubscriptionDbClient = Pick<typeof prisma, 'subscription' | 'plan'>;
+
 export type PlanFeatures = {
     allowProMode: boolean;
     allowImageGeneration: boolean;
@@ -265,21 +267,24 @@ export function calculateUsagePercentage(
 export async function createDefaultFreeSubscription(
     userId: string
 ): Promise<SubscriptionWithPlan> {
-    // Check if subscription already exists
-    const existing = await prisma.subscription.findUnique({
+    return await createDefaultFreeSubscriptionWithClient(userId, prisma);
+}
+
+export async function createDefaultFreeSubscriptionWithClient(
+    userId: string,
+    db: SubscriptionDbClient
+): Promise<SubscriptionWithPlan> {
+    // Fast-path: if subscription already exists, return it (no FREE plan query needed).
+    const existing = await db.subscription.findUnique({
         where: { userId },
+        include: { plan: true },
     });
+    if (existing) return existing as SubscriptionWithPlan;
 
-    if (existing) {
-        // Return existing subscription with plan
-        return await getUserSubscription(userId) as SubscriptionWithPlan;
-    }
-
-    // Find FREE plan by name
-    const freePlan = await prisma.plan.findUnique({
+    // Find FREE plan by name (needed only for the create path).
+    const freePlan = await db.plan.findUnique({
         where: { name: 'FREE' },
     });
-
     if (!freePlan) {
         throw new Error('FREE plan not found in database. Please run database migrations.');
     }
@@ -289,9 +294,12 @@ export async function createDefaultFreeSubscription(
     const periodEnd = new Date(now);
     periodEnd.setDate(periodEnd.getDate() + 30);
 
-    // Create subscription
-    const subscription = await prisma.subscription.create({
-        data: {
+    // Create-if-absent, safely (prevents race condition / unique violations on subscriptions.userId).
+    // If another request created the subscription after our fast-path check, upsert returns the existing row.
+    return (await db.subscription.upsert({
+        where: { userId },
+        update: {},
+        create: {
             userId,
             planId: freePlan.id,
             status: 'ACTIVE',
@@ -300,7 +308,5 @@ export async function createDefaultFreeSubscription(
             cancelAtPeriodEnd: false,
         },
         include: { plan: true },
-    });
-
-    return subscription;
+    })) as SubscriptionWithPlan;
 }

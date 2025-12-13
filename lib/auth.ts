@@ -89,23 +89,21 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     const hashedPassword = await hashPassword(password);
-                    const user = await prisma.user.create({
-                        data: {
-                            email,
-                            password: hashedPassword,
-                            name: name || email.split('@')[0],
-                        },
-                    });
-                    console.info('[auth][credentials] register success', { email, userId: user.id });
+                    const user = await prisma.$transaction(async tx => {
+                        const created = await tx.user.create({
+                            data: {
+                                email,
+                                password: hashedPassword,
+                                name: name || email.split('@')[0],
+                            },
+                        });
 
-                    // Create default FREE plan subscription for new user
-                    try {
-                        const { createDefaultFreeSubscription } = await import('./subscription');
-                        await createDefaultFreeSubscription(user.id);
-                    } catch (error: any) {
-                        console.error('Failed to create default subscription:', error);
-                        // Don't fail registration if subscription creation fails
-                    }
+                        const { createDefaultFreeSubscriptionWithClient } = await import('./subscription');
+                        await createDefaultFreeSubscriptionWithClient(created.id, tx);
+                        return created;
+                    });
+
+                    console.info('[auth][credentials] register success', { email, userId: user.id });
 
                     const createdUser = {
                         id: user.id,
@@ -243,7 +241,7 @@ export const authOptions: NextAuthOptions = {
                                 toEmail: normalizedEmail,
                                 conflictingUserId: existing.id,
                             });
-                            return false;
+                            return '/auth/error?error=EmailNormalizationConflict';
                         }
                         await prisma.user.update({
                             where: { id: user.id },
@@ -266,7 +264,19 @@ export const authOptions: NextAuthOptions = {
                     await createDefaultFreeSubscription(user.id);
                 } catch (error: any) {
                     console.error('Failed to create default subscription for Google OAuth user:', error);
-                    // Don't fail sign-in if subscription creation fails
+                    // If we cannot ensure a subscription exists, fail sign-in with a user-friendly error.
+                    try {
+                        const existing = await prisma.subscription.findUnique({
+                            where: { userId: user.id },
+                            select: { id: true },
+                        });
+                        if (existing) {
+                            return true;
+                        }
+                    } catch {
+                        // ignore secondary errors
+                    }
+                    return '/auth/error?error=SubscriptionInitFailed';
                 }
             }
             return true;
