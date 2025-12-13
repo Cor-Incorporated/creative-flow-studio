@@ -26,17 +26,31 @@ function SignInContent() {
         setErrorMessage(null);
 
         try {
+            // NOTE:
+            // Password managers / autofill (and some automated environments) may not trigger
+            // React onChange, leaving state values empty. Read from the form as the source
+            // of truth on submit to avoid sending blank credentials.
+            const form = e.currentTarget as HTMLFormElement;
+            const formData = new FormData(form);
+            const formEmail = (formData.get('email') as string | null) ?? undefined;
+            const formPassword = (formData.get('password') as string | null) ?? undefined;
+            const formName = (formData.get('name') as string | null) ?? undefined;
+
             const result = await signIn('credentials', {
-                email,
-                password,
+                email: (formEmail ?? email).trim(),
+                password: formPassword ?? password,
                 action: isLogin ? 'login' : 'register',
-                name: isLogin ? undefined : name,
+                name: isLogin ? undefined : (formName ?? name),
                 redirect: false,
                 callbackUrl,
             });
 
             if (result?.error) {
-                setErrorMessage(result.error);
+                setErrorMessage(
+                    result.error === 'CredentialsSignin'
+                        ? 'メールアドレスまたはパスワードが正しくありません'
+                        : result.error
+                );
             } else if (result?.url) {
                 window.location.href = result.url;
             }
@@ -117,6 +131,7 @@ function SignInContent() {
                             </label>
                             <input
                                 id="name"
+                                name="name"
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
@@ -131,6 +146,7 @@ function SignInContent() {
                         </label>
                         <input
                             id="email"
+                            name="email"
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -146,6 +162,7 @@ function SignInContent() {
                         <div className="relative">
                             <input
                                 id="password"
+                                name="password"
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
