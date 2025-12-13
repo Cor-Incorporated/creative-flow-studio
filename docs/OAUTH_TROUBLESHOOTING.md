@@ -73,6 +73,23 @@ http://localhost:3000
 ### デプロイ後のチェックリスト
 
 1. [ ] Cloud Run環境変数に `NEXTAUTH_URL` が正しく設定されている
+
+#### 追加: カスタムドメインで 308 リダイレクトループになる（ページが開けない）
+
+**症状**
+- `https://blunaai.com/` にアクセスすると読み込みが終わらない（ブラウザがリダイレクトを繰り返す）
+- `curl -I https://blunaai.com/` で `HTTP/2 308` かつ `Location: https://blunaai.com/` のように **同一URLへ自己リダイレクト**する
+
+**原因**
+- Cloud Run のドメインマッピング / 反向プロキシ環境では、
+  - `Host` ヘッダーが内部の `*.run.app` を指すことがある
+  - 元のドメインは `X-Forwarded-Host` に入ることがある
+- canonical host への寄せを `request.nextUrl.hostname`（=Host由来）だけで判定すると、
+  毎回「別ホスト」と誤判定して **無限308** になる
+
+**対策**
+- canonical redirect 判定は `X-Forwarded-Host` を優先してホスト名を決める（portやカンマ区切りも正規化する）
+- 前提: この挙動は **信頼できるプロキシ（Cloud Run）配下**でのみ成立する想定
 2. [ ] `lib/auth.ts` に `trustHost: true` が設定されている
 3. [ ] Google Cloud ConsoleでリダイレクトURIが登録されている
 4. [ ] Google Cloud ConsoleでJavaScript生成元が登録されている

@@ -118,9 +118,10 @@ export function formatPrice(amountInCents: number, currency: string = 'jpy'): st
         minimumFractionDigits: 0,
     }).format(amount);
 
-    // Node/ICU may output a full-width Yen sign (￥). Normalize for consistency.
-    if (currency.toUpperCase() === 'JPY') {
-        return formatted.replace('￥', '¥');
+    // Some environments render JPY currency symbol as fullwidth '￥' (U+FFE5).
+    // Normalize to ASCII '¥' (U+00A5) for stable display/tests.
+    if (currency.toLowerCase() === 'jpy') {
+        return formatted.replace(/\uFFE5/g, '\u00A5');
     }
 
     return formatted;

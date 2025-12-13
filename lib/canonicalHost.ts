@@ -1,42 +1,22 @@
-/**
- * Canonical host resolution for reverse-proxy environments (e.g., Cloud Run custom domain).
- *
- * - Prefer `x-forwarded-host` when present.
- * - Handle comma-separated values and ports.
- * - Lowercase normalization.
- */
+type HeaderGetter = { get(name: string): string | null };
 
-export function getEffectiveHost(headers: Headers): string | null {
-    const xfh = headers.get('x-forwarded-host');
-    const host = headers.get('host');
-    const raw = xfh || host;
+export function normalizeHostname(raw: string | null | undefined): string | null {
     if (!raw) return null;
-
-    // If comma-separated (proxy chain), pick the first entry
     const first = raw.split(',')[0]?.trim();
     if (!first) return null;
-
-    // Strip port
-    const withoutPort = first.replace(/:\d+$/, '');
-    return withoutPort.toLowerCase();
+    // Strip port if present (e.g. "example.com:8080")
+    return first.replace(/:\d+$/, '');
 }
 
-export function shouldRedirectToCanonicalHost(input: {
-    headers: Headers;
-    canonicalHost: string | undefined;
-}): { shouldRedirect: boolean; effectiveHost: string | null; canonicalHost: string | null } {
-    const canonicalHost = (input.canonicalHost || '').toLowerCase().trim() || null;
-    const effectiveHost = getEffectiveHost(input.headers);
+export function getEffectiveHostname(headers: HeaderGetter, fallbackHostname: string): string {
+    // Prefer x-forwarded-host in proxy environments (Cloud Run domain mapping)
+    const forwarded = normalizeHostname(headers.get('x-forwarded-host'));
+    if (forwarded) return forwarded;
 
-    if (!canonicalHost || !effectiveHost) {
-        return { shouldRedirect: false, effectiveHost, canonicalHost };
-    }
+    const host = normalizeHostname(headers.get('host'));
+    if (host) return host;
 
-    if (effectiveHost === canonicalHost) {
-        return { shouldRedirect: false, effectiveHost, canonicalHost };
-    }
-
-    return { shouldRedirect: true, effectiveHost, canonicalHost };
+    return fallbackHostname;
 }
 
 

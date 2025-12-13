@@ -136,7 +136,7 @@ describe('POST /api/gemini/video', () => {
             expect.objectContaining({
                 aspectRatio: '9:16',
                 resourceType: 'veo-3.1-fast-generate-preview',
-                promptLength: 19,
+                promptLength: 'A cat playing piano'.length,
             })
         );
     });

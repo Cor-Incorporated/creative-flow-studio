@@ -64,7 +64,7 @@ Secret Manager に格納し、Cloud Run の環境変数として注入する項�
 
 | Secret Manager キー名   | 環境変数名                  | 説明                                        | 例                                                                  |
 | ----------------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
-| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列                    | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列（Unix socket）     | `postgresql://user:pass@localhost/db?host=/cloudsql/project%3Aregion%3Ainstance`<br/>**注意**: コロンを`%3A`にエンコード必須 |
 | `nextauth-secret`       | `NEXTAUTH_SECRET`           | NextAuth.js のセッション暗号化キー          | `openssl rand -base64 32`                                           |
 | `google-client-id`      | `GOOGLE_CLIENT_ID`          | Google OAuth クライアントID                 | Google Cloud Console から取得                                       |
 | `google-client-secret`  | `GOOGLE_CLIENT_SECRET`      | Google OAuth クライアントシークレット       | Google Cloud Console から取得                                       |
@@ -688,8 +688,8 @@ npm run start
 
 **トリガー条件:**
 
-- ブランチ: `dev`（初期開発時）、後に `main` へマージ
-- 変更検知: dev ブランチへの push
+- ブランチ: `develop`
+- 変更検知: develop ブランチへの push
 
 **ビルドステップ（cloudbuild.yaml）:**
 
@@ -792,7 +792,7 @@ Cloud Build デフォルト SA (`667780715339@cloudbuild.gserviceaccount.com`) �
 3. マージ後、Cloud Build 自動トリガー
 4. 本番 Cloud Run へデプロイ
 
-**注意:** 現在のリポジトリでは `dev` ブランチを使用していますが、将来的に `develop` へリネームすることを推奨します。
+**注意:** 以前は `dev` ブランチを使用していましたが、現在は `develop` ブランチに統一されています。
 
 ---
 

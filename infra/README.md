@@ -66,7 +66,8 @@ state バケットと prefix はドキュメントに合わせて調整してく
 - `modules/cloud_run/` では Artifact Registry の Docker リポジトリ、Cloud Run サービス本体、`roles/run.invoker` の公開設定を一括で管理します。
 - `cloud_run_env_vars` / `cloud_run_secret_env_vars` で `.env` と同じ名前の環境変数を指定でき、Secret Manager の `secret_id`（例: `database-url`）を Cloud Run の環境変数（例: `DATABASE_URL`）へマッピングします。
 - VPC 接続が必要な場合は、`network` モジュールで作成した Serverless Connector 名を自動で参照し、`cloud_sql_instances` へ `module.cloud_sql.instance_connection_name` を渡すことで `/cloudsql` マウントを構成します。
-- Cloud Build から Artifact Registry に push された `asia-northeast1-docker.pkg.dev/<project>/<repo>/app:latest` イメージを `cloud_run_image` に指定してください（初期はダミーで OK）。
+- Cloud Build から Artifact Registry に push されたイメージを `cloud_run_image` に指定してください（初期はダミーで OK）。
+  - 運用上、**コンテナimageの更新はCloud Buildが主導**します（TerraformはCloud Runのサービス設定を管理し、image差分はignoreしています）。
 
 ### 既存 Artifact Registry との統合
 
