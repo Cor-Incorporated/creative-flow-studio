@@ -1,6 +1,8 @@
 import { expireOldNotifications } from '@/lib/waitlist';
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/cron/expire-waitlist
  * Expire old waitlist notifications that weren't acted upon
