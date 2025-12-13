@@ -126,6 +126,10 @@ export default function Home() {
                         onClick: () => (window.location.href = '/pricing'),
                     },
                 };
+            case 'FORBIDDEN_ADMIN':
+                return {
+                    message: `この操作を行う権限がありません。${requestIdSuffix}`,
+                };
             case 'RATE_LIMIT_EXCEEDED': {
                 const reset = error.payload?.resetDate ? new Date(error.payload.resetDate) : null;
                 const resetText = reset ? `（リセット: ${reset.toLocaleString('ja-JP')}）` : '';

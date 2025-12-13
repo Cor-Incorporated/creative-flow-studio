@@ -7,7 +7,6 @@ import { prisma } from './prisma';
 import { comparePassword, hashPassword, needsRehash } from './password';
 import { MIN_PASSWORD_LENGTH } from './constants';
 import { createDefaultFreeSubscriptionWithClient } from './subscription';
-import { createDefaultFreeSubscription } from './subscription';
 import { createHash } from 'crypto';
 
 function isBuildTime(): boolean {
@@ -48,12 +47,25 @@ function sanitizeDisplayName(input: string | undefined, fallbackEmail: string): 
     return (safePrefix || 'ユーザー').slice(0, 100);
 }
 
+const MIN_AUTH_RESPONSE_TIME_MS = 350; // Prevents timing-based account enumeration
+
 async function ensureMinDelay(startMs: number, minMs: number): Promise<void> {
     const elapsed = Date.now() - startMs;
     const remaining = minMs - elapsed;
     if (remaining > 0) {
         await new Promise(resolve => setTimeout(resolve, remaining));
     }
+}
+
+function safeErrorForLog(error: any): { name?: string; code?: string; message?: string } {
+    if (!error || typeof error !== 'object') {
+        return { message: String(error) };
+    }
+    return {
+        name: (error as any).name,
+        code: (error as any).code,
+        message: (error as any).message,
+    };
 }
 
 export const authOptions: NextAuthOptions = {
@@ -93,7 +105,7 @@ export const authOptions: NextAuthOptions = {
 
                 if (action !== 'login' && action !== 'register') {
                     console.warn('[auth][credentials] invalid action', { emailId, action });
-                    await ensureMinDelay(start, 350);
+                    await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
                     throw new Error('登録に失敗しました。入力内容をご確認ください。');
                 }
 
@@ -117,13 +129,13 @@ export const authOptions: NextAuthOptions = {
                             userId: existingUser.id,
                         });
                         // Avoid email enumeration by returning a generic message.
-                        await ensureMinDelay(start, 350);
+                        await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
                         throw new Error('登録に失敗しました。入力内容をご確認ください。');
                     }
 
                     if (password.length < MIN_PASSWORD_LENGTH) {
                         console.warn('[auth][credentials] register blocked: password too short', { emailId });
-                        await ensureMinDelay(start, 350);
+                        await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
                         throw new Error(`パスワードは${MIN_PASSWORD_LENGTH}文字以上で入力してください`);
                     }
 
@@ -173,7 +185,7 @@ export const authOptions: NextAuthOptions = {
                         reason: !user ? 'user_not_found' : 'no_password',
                         userId: user?.id,
                     });
-                    await ensureMinDelay(start, 350);
+                    await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
@@ -181,7 +193,7 @@ export const authOptions: NextAuthOptions = {
 
                 if (!isPasswordValid) {
                     console.warn('[auth][credentials] login failed: invalid password', { emailId, userId: user.id });
-                    await ensureMinDelay(start, 350);
+                    await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
@@ -358,14 +370,28 @@ export const authOptions: NextAuthOptions = {
                 } catch (error) {
                     console.error('Failed to check existing subscription during Google sign-in', {
                         userId: user.id,
-                        error,
+                        error: safeErrorForLog(error),
                     });
                 }
 
                 try {
-                    await createDefaultFreeSubscription(user.id);
+                    await prisma.$transaction(async tx => {
+                        const existing = await tx.subscription.findUnique({
+                            where: { userId: user.id },
+                            select: { id: true },
+                        });
+                        if (existing) return;
+                        await createDefaultFreeSubscriptionWithClient(user.id, tx);
+                    });
                 } catch (error: any) {
-                    console.error('Failed to create default subscription for Google OAuth user:', error);
+                    // Another concurrent request might have created the subscription first.
+                    if (error?.code === 'P2002') {
+                        return true;
+                    }
+                    console.error(
+                        'Failed to create default subscription for Google OAuth user:',
+                        safeErrorForLog(error)
+                    );
                     // If we cannot ensure a subscription exists, fail sign-in with a user-friendly error.
                     try {
                         const existing = await prisma.subscription.findUnique({

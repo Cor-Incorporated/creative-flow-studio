@@ -8,6 +8,7 @@ export type ApiErrorCode =
     | 'UNAUTHORIZED'
     | 'VALIDATION_ERROR'
     | 'FORBIDDEN_PLAN'
+    | 'FORBIDDEN_ADMIN'
     | 'RATE_LIMIT_EXCEEDED'
     | 'GEMINI_API_KEY_NOT_FOUND'
     | 'UPSTREAM_ERROR'
@@ -128,7 +129,7 @@ export async function requireAdmin(
             errorResponse: jsonError({
                 message: 'Forbidden: Admin access required',
                 status: 403,
-                code: 'FORBIDDEN_PLAN',
+                code: 'FORBIDDEN_ADMIN',
             }),
         };
     }
