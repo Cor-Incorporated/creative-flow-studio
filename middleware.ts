@@ -1,5 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
+import { getEffectiveHostname } from './lib/canonicalHost';
 
 /**
  * Middleware for Role-Based Access Control (RBAC)
@@ -37,13 +38,7 @@ export async function middleware(request: NextRequest) {
             // set Host to the underlying *.run.app service while preserving the original
             // domain in X-Forwarded-Host. Using NextRequest.nextUrl alone can cause an
             // infinite 308 loop (Location points to the same public URL).
-            const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
-            const forwardedHostname = (forwardedHost || '')
-                .split(',')[0]
-                .trim()
-                .replace(/:\d+$/, '');
-
-            const currentHostname = forwardedHostname || request.nextUrl.hostname;
+            const currentHostname = getEffectiveHostname(request.headers, request.nextUrl.hostname);
             const canonicalHostname = canonical.hostname;
 
             if (canonicalHostname && currentHostname && canonicalHostname !== currentHostname) {
