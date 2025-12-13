@@ -48,6 +48,9 @@ export default function Home() {
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
     const [usageLimitInfo, setUsageLimitInfo] = useState<UsageLimitInfo | null>(null);
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
+    // Retry state for failed messages
+    const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+    const [lastFailedMedia, setLastFailedMedia] = useState<Media | null>(null);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
@@ -105,14 +108,20 @@ export default function Home() {
         }
     };
 
-    const buildUserFacingErrorMessage = (error: ApiError): { message: string; action?: { label: string; onClick: () => void } } => {
-        const requestIdSuffix = error.requestId ? `（サポートID: ${error.requestId}）` : '';
+    interface UserFacingError {
+        message: string;
+        action?: { label: string; onClick: () => void };
+        retryAfterText?: string;
+    }
+
+    const buildUserFacingErrorMessage = (error: ApiError): UserFacingError => {
+        // Note: requestIdSuffix no longer included in message - supportId displayed separately in Toast
 
         // Prefer explicit API error codes when present.
         switch (error.code) {
             case 'UNAUTHORIZED':
                 return {
-                    message: `セッションが切れました。再度ログインしてください。${requestIdSuffix}`,
+                    message: 'セッションが切れました。再度ログインしてください。',
                     action: {
                         label: 'ログインする',
                         onClick: () => signIn('google', { callbackUrl: window.location.href }),
@@ -120,7 +129,7 @@ export default function Home() {
                 };
             case 'FORBIDDEN_PLAN':
                 return {
-                    message: `現在のプランではこの機能を利用できません。${requestIdSuffix}`,
+                    message: '現在のプランではこの機能を利用できません。',
                     action: {
                         label: '料金プランを見る',
                         onClick: () => (window.location.href = '/pricing'),
@@ -128,33 +137,49 @@ export default function Home() {
                 };
             case 'FORBIDDEN_ADMIN':
                 return {
-                    message: `この操作を行う権限がありません。${requestIdSuffix}`,
+                    message: 'この操作を行う権限がありません。',
                 };
             case 'RATE_LIMIT_EXCEEDED': {
                 const reset = error.payload?.resetDate ? new Date(error.payload.resetDate) : null;
-                const resetText = reset ? `（リセット: ${reset.toLocaleString('ja-JP')}）` : '';
+                const retryAfterText = reset
+                    ? `約${formatRetryAfter(reset)}後にリセットされます`
+                    : undefined;
                 return {
-                    message: `今月の利用上限に達しました。${resetText}${requestIdSuffix}`,
+                    message: '今月の利用上限に達しました。',
                     action: {
                         label: '料金プランを見る',
                         onClick: () => (window.location.href = '/pricing'),
                     },
+                    retryAfterText,
                 };
             }
             case 'GEMINI_API_KEY_NOT_FOUND':
                 return {
-                    message: `サーバー設定に問題があります。時間をおいて改善しない場合はサポートへご連絡ください。${requestIdSuffix}`,
+                    message: 'サーバー設定に問題があります。時間をおいて改善しない場合はサポートへご連絡ください。',
                 };
             case 'VALIDATION_ERROR':
-                return { message: `${error.message}${requestIdSuffix}` };
+                return { message: error.message };
             case 'UPSTREAM_ERROR':
-                return { message: `生成に失敗しました。時間をおいて再度お試しください。${requestIdSuffix}` };
+                return {
+                    message: '生成に失敗しました。時間をおいて再度お試しください。',
+                    retryAfterText: '数分後に再試行してください',
+                };
+            // Content policy errors (Phase 7)
+            case 'CONTENT_POLICY_VIOLATION':
+            case 'SAFETY_BLOCKED':
+                return {
+                    message: error.payload?.error || 'コンテンツがポリシーに違反しているため処理できません。別の表現でお試しください。',
+                };
+            case 'RECITATION_BLOCKED':
+                return {
+                    message: '著作権保護のため、この内容は生成できません。別の内容でお試しください。',
+                };
         }
 
         // Fallbacks by HTTP status when code is absent.
         if (error.status === 401) {
             return {
-                message: `セッションが切れました。再度ログインしてください。${requestIdSuffix}`,
+                message: 'セッションが切れました。再度ログインしてください。',
                 action: {
                     label: 'ログインする',
                     onClick: () => signIn('google', { callbackUrl: window.location.href }),
@@ -163,15 +188,32 @@ export default function Home() {
         }
         if (error.status === 429) {
             return {
-                message: `リクエストが多すぎます。時間をおいて再度お試しください。${requestIdSuffix}`,
+                message: 'リクエストが多すぎます。時間をおいて再度お試しください。',
+                retryAfterText: '数分後に再試行してください',
             };
         }
         if (error.status === 403) {
             return {
-                message: `この操作を行う権限がありません。${requestIdSuffix}`,
+                message: 'この操作を行う権限がありません。',
             };
         }
-        return { message: `${error.message}${requestIdSuffix}` };
+        return { message: error.message };
+    };
+
+    /**
+     * Format retry-after duration in human readable Japanese
+     */
+    const formatRetryAfter = (resetDate: Date): string => {
+        const now = new Date();
+        const diffMs = resetDate.getTime() - now.getTime();
+        if (diffMs <= 0) return '間もなく';
+
+        const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+        if (diffHours < 24) {
+            return `${diffHours}時間`;
+        }
+        const diffDays = Math.ceil(diffHours / 24);
+        return `${diffDays}日`;
     };
 
     const normalizeFileResourceName = (value?: string | null) => {
@@ -450,11 +492,15 @@ export default function Home() {
         console.error(`Error in ${context}:`, error);
         let errorMessage = ERROR_MESSAGES.GENERIC_ERROR;
         let toastAction: { label: string; onClick: () => void } | undefined;
+        let supportId: string | undefined;
+        let retryAfterText: string | undefined;
 
         if (error instanceof ApiError) {
             const mapped = buildUserFacingErrorMessage(error);
             errorMessage = mapped.message;
             toastAction = mapped.action;
+            supportId = error.requestId;
+            retryAfterText = mapped.retryAfterText;
 
             // For rate limit errors, keep usage panel in sync if payload contains details.
             if (error.code === 'RATE_LIMIT_EXCEEDED' && error.payload) {
@@ -472,15 +518,15 @@ export default function Home() {
             errorMessage = error.message;
         }
 
-        // Also show toast for actionable errors (e.g., re-login / pricing).
-        if (toastAction) {
-            showToast({
-                message: errorMessage,
-                type: 'error',
-                duration: 8000,
-                action: toastAction,
-            });
-        }
+        // Always show toast for all errors with enhanced information
+        showToast({
+            message: errorMessage,
+            type: 'error',
+            duration: 8000,
+            action: toastAction,
+            supportId,
+            retryAfterText,
+        });
 
         // 画像・動画生成のエラーでインフルエンサーモードがONの場合、エラーメッセージをインフルエンサースタイルに変換
         if (useInfluencerStyle && selectedInfluencerRef.current !== 'none') {
@@ -630,7 +676,8 @@ export default function Home() {
     const saveMessage = async (
         role: 'USER' | 'MODEL',
         parts: ContentPart[],
-        conversationIdOverride?: string | null
+        conversationIdOverride?: string | null,
+        messageMode?: GenerationMode
     ) => {
         const activeConversationId = conversationIdOverride || currentConversationIdRef.current;
 
@@ -645,6 +692,7 @@ export default function Home() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     role,
+                    mode: messageMode?.toUpperCase() || mode.toUpperCase(), // Use passed mode or current mode
                     content: parts,
                 }),
             });
@@ -1184,12 +1232,33 @@ export default function Home() {
                 // Save model response (text)
                 await saveMessage('MODEL', textParts);
             }
+
+            // Clear retry state on success
+            setLastFailedPrompt(null);
+            setLastFailedMedia(null);
         } catch (error: any) {
+            // Store failed prompt and media for retry
+            setLastFailedPrompt(prompt);
+            setLastFailedMedia(uploadedMedia || null);
+
             const shouldUseDjShachoStyle = mode === 'image' || mode === 'video';
             await handleApiError(error, `mode: ${mode}`, shouldUseDjShachoStyle);
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Retry handler for failed messages
+    const handleRetry = () => {
+        if (lastFailedPrompt) {
+            handleSendMessage(lastFailedPrompt, lastFailedMedia || undefined);
+        }
+    };
+
+    // Clear retry state
+    const handleClearRetry = () => {
+        setLastFailedPrompt(null);
+        setLastFailedMedia(null);
     };
 
     const handleEditImage = async (prompt: string, image: Media) => {
@@ -1481,6 +1550,10 @@ export default function Home() {
                     setAspectRatio={setAspectRatio}
                     selectedInfluencer={selectedInfluencer}
                     setSelectedInfluencer={setSelectedInfluencer}
+                    lastFailedPrompt={lastFailedPrompt}
+                    lastFailedMedia={lastFailedMedia}
+                    onRetry={handleRetry}
+                    onClearRetry={handleClearRetry}
                 />
             </div>
 

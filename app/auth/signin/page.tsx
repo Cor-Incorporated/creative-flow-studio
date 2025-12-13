@@ -1,6 +1,7 @@
 'use client';
 
 import { EyeIcon, EyeSlashIcon, SparklesIcon } from '@/components/icons';
+import { getAuthErrorMessage } from '@/lib/auth-errors';
 import { MAX_PASSWORD_LENGTH } from '@/lib/constants';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -22,13 +23,7 @@ function SignInContent() {
 
     const errorFromUrl = useMemo(() => {
         if (!error) return null;
-        if (error === 'CredentialsSignin') {
-            return 'メールアドレスまたはパスワードが正しくありません';
-        }
-        if (error === 'OAuthAccountNotLinked') {
-            return 'このメールアドレスは別の認証方法で登録されています。最初に登録した方法でログインしてください（メールで登録した場合はメール/パスワード、Googleで登録した場合はGoogleログイン）。';
-        }
-        return null;
+        return getAuthErrorMessage(error);
     }, [error]);
 
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -71,11 +66,7 @@ function SignInContent() {
             });
 
             if (result?.error) {
-                setErrorMessage(
-                    result.error === 'CredentialsSignin'
-                        ? 'メールアドレスまたはパスワードが正しくありません'
-                        : result.error
-                );
+                setErrorMessage(getAuthErrorMessage(result.error));
             } else if (result?.url) {
                 window.location.href = result.url;
             } else {

@@ -1,34 +1,55 @@
 'use client';
 
-import { SparklesIcon } from '@/components/icons';
+import { SparklesIcon, GoogleIcon } from '@/components/icons';
+import {
+    getAuthErrorConfig,
+    isEnhancedError,
+    formatErrorTimestamp,
+    type AuthErrorAction,
+} from '@/lib/auth-errors';
+import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useMemo } from 'react';
 
-const errorMessages: Record<string, string> = {
-    Configuration: 'サーバー設定にエラーがあります。管理者にお問い合わせください。',
-    AccessDenied: 'アクセスが拒否されました。',
-    Verification: '認証トークンの有効期限が切れているか、既に使用されています。',
-    OAuthSignin: 'OAuth認証の開始中にエラーが発生しました。',
-    OAuthCallback: 'OAuth認証のコールバック処理中にエラーが発生しました。',
-    OAuthCreateAccount: 'OAuthアカウントの作成中にエラーが発生しました。',
-    EmailCreateAccount: 'メールアカウントの作成中にエラーが発生しました。',
-    Callback: '認証コールバック中にエラーが発生しました。',
-    OAuthAccountNotLinked:
-        'このメールアドレスは別の認証方法で登録されています。最初に登録した方法でログインしてください（メールで登録した場合はメール/パスワード、Googleで登録した場合はGoogleログイン）。',
-    EmailSignin: 'メール認証の送信に失敗しました。',
-    CredentialsSignin: 'メールアドレスまたはパスワードが正しくありません。',
-    EmailNormalizationConflict:
-        'このメールアドレスは既に別ユーザーで使用されています。別の認証方法でログインしている可能性があります。サポートにお問い合わせください。',
-    SubscriptionInitFailed:
-        '初期設定に失敗しました。時間をおいて再度お試しください。改善しない場合はサポートにお問い合わせください。',
-    SessionRequired: 'この操作を行うにはログインが必要です。',
-    Default: '認証中にエラーが発生しました。',
-};
+function ActionButton({ action }: { action: AuthErrorAction }) {
+    const handleClick = () => {
+        if (action.type === 'google') {
+            signIn('google', { callbackUrl: '/' });
+            return;
+        }
+        if (action.href) {
+            window.location.href = action.href;
+        }
+    };
+
+    // Determine button style based on action type
+    const buttonStyle =
+        action.type === 'google'
+            ? 'bg-white text-gray-900 hover:bg-gray-100'
+            : action.type === 'support'
+              ? 'bg-yellow-600 hover:bg-yellow-700'
+              : action.type === 'signin' || action.type === 'email'
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-gray-700 hover:bg-gray-600';
+
+    return (
+        <button
+            onClick={handleClick}
+            className={`flex items-center justify-center gap-2 w-full px-4 py-3 text-white rounded-lg font-medium transition-colors ${buttonStyle}`}
+        >
+            {action.type === 'google' && <GoogleIcon className="w-5 h-5" />}
+            <span className={action.type === 'google' ? 'text-gray-900' : ''}>{action.label}</span>
+        </button>
+    );
+}
 
 function AuthErrorContent() {
     const searchParams = useSearchParams();
-    const error = searchParams.get('error') || 'Default';
-    const errorMessage = errorMessages[error] || errorMessages.Default;
+    const errorCode = searchParams.get('error') || 'Default';
+
+    const errorConfig = useMemo(() => getAuthErrorConfig(errorCode), [errorCode]);
+    const needsEnhancedUI = useMemo(() => isEnhancedError(errorCode), [errorCode]);
+    const timestamp = useMemo(() => formatErrorTimestamp(), []);
 
     return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
@@ -60,30 +81,34 @@ function AuthErrorContent() {
 
                 {/* Error Message */}
                 <div>
-                    <h2 className="text-xl font-semibold text-white mb-2">認証エラー</h2>
-                    <p className="text-gray-400">{errorMessage}</p>
+                    <h2 className="text-xl font-semibold text-white mb-2">
+                        {errorConfig.title || '認証エラー'}
+                    </h2>
+                    <p className="text-gray-400">{errorConfig.message}</p>
                 </div>
 
+                {/* Support Info (for enhanced errors) */}
+                {needsEnhancedUI && errorConfig.supportInfo && (
+                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 text-left">
+                        <h3 className="text-sm font-semibold text-white mb-2">サポート情報</h3>
+                        <pre className="text-xs text-gray-400 whitespace-pre-wrap font-sans">
+                            {errorConfig.supportInfo}
+                        </pre>
+                        {errorConfig.showTimestamp && (
+                            <p className="mt-2 text-xs text-gray-500">発生日時: {timestamp}</p>
+                        )}
+                    </div>
+                )}
+
                 {/* Actions */}
-                <div className="space-y-4">
-                    <a
-                        href="/auth/signin"
-                        className="block w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                    >
-                        ログインページに戻る
-                    </a>
-                    <a
-                        href="/"
-                        className="block w-full px-4 py-3 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-600 transition-colors"
-                    >
-                        ホームに戻る
-                    </a>
+                <div className="space-y-3">
+                    {errorConfig.actions?.map((action, index) => (
+                        <ActionButton key={index} action={action} />
+                    ))}
                 </div>
 
                 {/* Error Code */}
-                <p className="text-xs text-gray-500">
-                    エラーコード: {error}
-                </p>
+                <p className="text-xs text-gray-500">エラーコード: {errorCode}</p>
             </div>
         </div>
     );
@@ -91,11 +116,13 @@ function AuthErrorContent() {
 
 export default function AuthErrorPage() {
     return (
-        <Suspense fallback={
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-                <div className="text-white">読み込み中...</div>
-            </div>
-        }>
+        <Suspense
+            fallback={
+                <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+                    <div className="text-white">読み込み中...</div>
+                </div>
+            }
+        >
             <AuthErrorContent />
         </Suspense>
     );

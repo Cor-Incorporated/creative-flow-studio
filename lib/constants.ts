@@ -102,6 +102,11 @@ export const ERROR_MESSAGES = {
     CAPACITY_REACHED: '現在、新規の有料プラン登録を制限しています。ウェイトリストに登録してください。',
     ALREADY_ON_WAITLIST: 'すでにウェイトリストに登録されています。',
     WAITLIST_REGISTRATION_SUCCESS: 'ウェイトリストに登録しました。空きが出次第、メールでお知らせします。',
+    // Content policy/safety errors
+    CONTENT_POLICY_VIOLATION: 'リクエストの内容がポリシーに違反しているため処理できません。別の表現でお試しください。',
+    SAFETY_BLOCKED: '安全フィルターにより処理がブロックされました。別の内容でお試しください。',
+    RECITATION_BLOCKED: '著作権保護のため、この内容は生成できません。',
+    UNSAFE_INPUT: '入力内容がガイドラインに違反しています。別のプロンプトでお試しください。',
 };
 
 // Aspect Ratios

@@ -23,7 +23,6 @@ vi.mock('@/lib/subscription', () => ({
 
 // Mock Gemini functions
 vi.mock('@/lib/gemini', () => ({
-    // generateImage now returns a data URL string (same as alpha / route expectation)
     generateImage: vi.fn().mockResolvedValue('data:image/png;base64,base64ImageData'),
     editImage: vi.fn().mockResolvedValue({
         candidates: [
@@ -37,10 +36,14 @@ vi.mock('@/lib/gemini', () => ({
                         },
                     ],
                 },
+                finishReason: 'STOP',
             },
         ],
     }),
 }));
+
+// Import mocked functions for direct access in tests
+import { generateImage, editImage } from '@/lib/gemini';
 
 describe('POST /api/gemini/image', () => {
     beforeEach(() => {
@@ -217,5 +220,114 @@ describe('POST /api/gemini/image', () => {
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();
+    });
+
+    describe('Safety checks for image editing', () => {
+        beforeEach(() => {
+            (getServerSession as any).mockResolvedValue({
+                user: { id: 'user-pro', email: 'pro@example.com' },
+            });
+
+            (checkSubscriptionLimits as any).mockResolvedValue({
+                allowed: true,
+                plan: { name: 'PRO' },
+                usageCount: 100,
+                limit: 1000,
+            });
+        });
+
+        it('should return 400 SAFETY_BLOCKED when edit response has finishReason=SAFETY', async () => {
+            vi.mocked(editImage).mockResolvedValueOnce({
+                candidates: [
+                    {
+                        content: { parts: [] },
+                        finishReason: 'SAFETY',
+                    },
+                ],
+            });
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/image', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Edit this image inappropriately',
+                    originalImage: {
+                        type: 'image',
+                        url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...',
+                        mimeType: 'image/jpeg',
+                    },
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('SAFETY_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
+
+        it('should return 400 RECITATION_BLOCKED when edit response has finishReason=RECITATION', async () => {
+            vi.mocked(editImage).mockResolvedValueOnce({
+                candidates: [
+                    {
+                        content: { parts: [] },
+                        finishReason: 'RECITATION',
+                    },
+                ],
+            });
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/image', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Add copyrighted logo',
+                    originalImage: {
+                        type: 'image',
+                        url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...',
+                        mimeType: 'image/jpeg',
+                    },
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('RECITATION_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
+
+        it('should return 400 SAFETY_BLOCKED when error message contains "safety"', async () => {
+            vi.mocked(generateImage).mockRejectedValueOnce(new Error('Request blocked due to safety concerns'));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/image', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Generate dangerous content' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('SAFETY_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+        });
+
+        it('should return 400 RECITATION_BLOCKED when error message contains "copyright"', async () => {
+            vi.mocked(generateImage).mockRejectedValueOnce(new Error('Content blocked due to copyright violation'));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/image', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Create famous artwork replica' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('RECITATION_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+        });
     });
 });

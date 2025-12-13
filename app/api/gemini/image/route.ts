@@ -6,6 +6,7 @@ import type { AspectRatio, Media } from '@/types/app';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createRequestId, jsonError } from '@/lib/api-utils';
+import { checkResponseSafety, blockReasonToErrorCode } from '@/lib/gemini-safety';
 
 /**
  * POST /api/gemini/image
@@ -120,6 +121,25 @@ export async function POST(request: NextRequest) {
         // Image editing mode
         if (originalImage) {
             const result = await editImage(prompt, originalImage);
+
+            // Check for safety/policy blocks in edit response
+            const safetyResult = checkResponseSafety(result);
+            if (safetyResult.isBlocked) {
+                const errorCode = blockReasonToErrorCode(safetyResult.reason || 'OTHER');
+                const errorMessage = safetyResult.reason === 'SAFETY'
+                    ? ERROR_MESSAGES.SAFETY_BLOCKED
+                    : safetyResult.reason === 'RECITATION'
+                        ? ERROR_MESSAGES.RECITATION_BLOCKED
+                        : ERROR_MESSAGES.CONTENT_POLICY_VIOLATION;
+
+                return jsonError({
+                    message: errorMessage,
+                    status: 400,
+                    code: errorCode,
+                    requestId,
+                });
+            }
+
             // Extract image from edit response (same as alpha)
             if (!result.candidates || result.candidates.length === 0) {
                 throw new Error('No candidates found in edit response');
@@ -156,12 +176,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ imageUrl });
     } catch (error: any) {
         console.error('Gemini Image API Error:', error);
+        const errorMessage = error.message?.toLowerCase() || '';
 
         if (error.message?.includes('API_KEY')) {
             return jsonError({
                 message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
                 status: 401,
                 code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
+        }
+
+        // Check for safety/policy related errors in error message
+        if (errorMessage.includes('safety') || errorMessage.includes('policy')) {
+            return jsonError({
+                message: ERROR_MESSAGES.SAFETY_BLOCKED,
+                status: 400,
+                code: 'SAFETY_BLOCKED',
+                requestId,
+            });
+        }
+
+        if (errorMessage.includes('copyright') || errorMessage.includes('recitation')) {
+            return jsonError({
+                message: ERROR_MESSAGES.RECITATION_BLOCKED,
+                status: 400,
+                code: 'RECITATION_BLOCKED',
                 requestId,
             });
         }

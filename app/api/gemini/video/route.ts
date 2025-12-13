@@ -2,7 +2,7 @@ import { authOptions } from '@/lib/auth';
 import { ERROR_MESSAGES, VALID_VIDEO_ASPECT_RATIOS } from '@/lib/constants';
 import { generateVideo } from '@/lib/gemini';
 import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage, PlanFeatures } from '@/lib/subscription';
-import type { AspectRatio } from '@/types/app';
+import type { AspectRatio, Media } from '@/types/app';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createRequestId, jsonError } from '@/lib/api-utils';
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { prompt, aspectRatio = '16:9' }: { prompt: string; aspectRatio?: AspectRatio } =
+        const { prompt, aspectRatio = '16:9', media }: { prompt: string; aspectRatio?: AspectRatio; media?: Media } =
             body;
 
         if (!prompt) {
@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 3. Generate video
-        const operation = await generateVideo(prompt, aspectRatio);
+        // 3. Generate video (with optional start image for Image-to-Video)
+        const operation = await generateVideo(prompt, aspectRatio, media);
 
         // Validate operation object
         const operationName = operation?.name;
@@ -122,12 +122,32 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ operationName, operation });
     } catch (error: any) {
         console.error('Gemini Video API Error:', error);
+        const errorMessage = error.message?.toLowerCase() || '';
 
         if (error.message?.includes('API_KEY')) {
             return jsonError({
                 message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
                 status: 401,
                 code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
+        }
+
+        // Check for safety/policy related errors in error message
+        if (errorMessage.includes('safety') || errorMessage.includes('policy')) {
+            return jsonError({
+                message: ERROR_MESSAGES.SAFETY_BLOCKED,
+                status: 400,
+                code: 'SAFETY_BLOCKED',
+                requestId,
+            });
+        }
+
+        if (errorMessage.includes('copyright') || errorMessage.includes('recitation')) {
+            return jsonError({
+                message: ERROR_MESSAGES.RECITATION_BLOCKED,
+                status: 400,
+                code: 'RECITATION_BLOCKED',
                 requestId,
             });
         }

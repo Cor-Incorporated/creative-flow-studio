@@ -266,6 +266,124 @@ describe('Validators', () => {
         });
     });
 
+    describe('createMessageSchema - mode parameter', () => {
+        it('should accept mode="CHAT"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'CHAT',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="PRO"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'PRO',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="SEARCH"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'SEARCH',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="IMAGE"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'IMAGE',
+                content: [{ text: 'Generate an image' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="VIDEO"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'VIDEO',
+                content: [{ text: 'Generate a video' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept message without mode (optional)', () => {
+            const data = {
+                role: 'USER',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+            if (result.success) {
+                expect(result.data.mode).toBeUndefined();
+            }
+        });
+
+        it('should reject invalid mode value', () => {
+            const data = {
+                role: 'USER',
+                mode: 'INVALID_MODE',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(false);
+        });
+
+        it('should accept mode with text content', () => {
+            const data = {
+                role: 'MODEL',
+                mode: 'PRO',
+                content: [{ text: 'This is a pro mode response with thinking' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode with media content', () => {
+            const data = {
+                role: 'MODEL',
+                mode: 'IMAGE',
+                content: [
+                    {
+                        media: {
+                            type: 'image',
+                            url: 'https://example.com/generated.png',
+                            mimeType: 'image/png',
+                        },
+                    },
+                ],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should preserve mode in parsed output', () => {
+            const data = {
+                role: 'USER',
+                mode: 'SEARCH',
+                content: [{ text: 'Search for something' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+            if (result.success) {
+                expect(result.data.mode).toBe('SEARCH');
+                expect(result.data.role).toBe('USER');
+                expect(result.data.content).toHaveLength(1);
+                expect(result.data.content[0].text).toBe('Search for something');
+            }
+        });
+    });
+
     describe('updateUserRoleSchema', () => {
         it('should validate all role values', () => {
             const roles = ['USER', 'PRO', 'ENTERPRISE', 'ADMIN'];

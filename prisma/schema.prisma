@@ -108,11 +108,12 @@ enum GenerationMode {
 }
 
 model Message {
-    id             String      @id @default(cuid())
+    id             String         @id @default(cuid())
     conversationId String
     role           MessageRole
+    mode           GenerationMode @default(CHAT) // Mode used for this message (multi-mode conversation support)
     content        Json // Flexible structure for text, media, sources
-    createdAt      DateTime    @default(now())
+    createdAt      DateTime       @default(now())
 
     conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
