@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         // 2. Subscription limits check
         try {
             // Determine action based on mode
-            let action: 'chat' | 'pro_mode' | 'chat' = 'chat';
+            let action: 'chat' | 'pro_mode' = 'chat';
             if (mode === 'pro') {
                 action = 'pro_mode';
             }
