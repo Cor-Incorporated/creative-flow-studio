@@ -79,6 +79,12 @@ export const authOptions: NextAuthOptions = {
                 const action = String(credentials.action || 'login');
                 const name = credentials.name ? String(credentials.name) : undefined;
 
+                if (action !== 'login' && action !== 'register') {
+                    console.warn('[auth][credentials] invalid action', { emailId, action });
+                    await ensureMinDelay(start, 350);
+                    throw new Error('登録に失敗しました。入力内容をご確認ください。');
+                }
+
                 if (!email) {
                     throw new Error('メールアドレスを入力してください');
                 }
@@ -299,11 +305,23 @@ export const authOptions: NextAuthOptions = {
                             });
                             return '/auth/error?error=EmailNormalizationConflict';
                         }
-                        await prisma.user.update({
-                            where: { id: user.id },
-                            data: { email: normalizedEmail },
-                        });
-                    } catch (error) {
+                        try {
+                            await prisma.user.update({
+                                where: { id: user.id },
+                                data: { email: normalizedEmail },
+                            });
+                        } catch (error: any) {
+                            // If another request wins the race and claims the normalized email, surface a user-friendly error.
+                            if (error?.code === 'P2002') {
+                                console.error('Email normalization conflict (unique violation) on sign-in', {
+                                    userId: user.id,
+                                    toEmailId: emailLogId(normalizedEmail),
+                                });
+                                return '/auth/error?error=EmailNormalizationConflict';
+                            }
+                            throw error;
+                        }
+                    } catch (error: any) {
                         console.error('Failed to normalize user email on sign-in', {
                             userId: user.id,
                             emailId: emailLogId(String(user.email)),

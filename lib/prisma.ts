@@ -78,11 +78,13 @@ if (typeof window === 'undefined') {
         process.env.DATABASE_URL = dbUrl;
         console.warn('[Prisma] Normalized DATABASE_URL host for Cloud SQL unix socket (removed :5432 suffix).');
     }
-    console.log('[Prisma] Initializing Prisma Client...');
-    console.log('[Prisma] NODE_ENV:', process.env.NODE_ENV);
     if (dbUrl) {
         const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
-        console.log('[Prisma] DATABASE_URL is set:', maskedUrl.substring(0, 100) + '...');
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[Prisma] Initializing Prisma Client...');
+            console.log('[Prisma] NODE_ENV:', process.env.NODE_ENV);
+            console.log('[Prisma] DATABASE_URL is set:', maskedUrl.substring(0, 100) + '...');
+        }
         // Check if it's pointing to localhost (which would be wrong in Cloud Run)
         if (dbUrl.includes('localhost:5432')) {
             console.error('[Prisma] ERROR: DATABASE_URL is pointing to localhost:5432! This is wrong for Cloud Run.');
