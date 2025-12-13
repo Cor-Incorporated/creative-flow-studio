@@ -107,13 +107,20 @@ export const authOptions: NextAuthOptions = {
                         // Don't fail registration if subscription creation fails
                     }
 
-                    return {
+                    const createdUser = {
                         id: user.id,
                         email: user.email,
                         name: user.name,
                         image: user.image,
                         role: user.role,
-                    } as any;
+                    } satisfies {
+                        id: string;
+                        email: string;
+                        name: string | null;
+                        image: string | null;
+                        role: Role;
+                    };
+                    return createdUser;
                 }
 
                 // Login flow
@@ -142,13 +149,20 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 console.info('[auth][credentials] login success', { email, userId: user.id });
-                return {
+                const loggedInUser = {
                     id: user.id,
                     email: user.email,
                     name: user.name,
                     image: user.image,
                     role: user.role,
-                } as any;
+                } satisfies {
+                    id: string;
+                    email: string;
+                    name: string | null;
+                    image: string | null;
+                    role: Role;
+                };
+                return loggedInUser;
             },
         }),
     ],
@@ -209,6 +223,39 @@ export const authOptions: NextAuthOptions = {
                         email: (profile as any)?.email,
                     });
                     return false;
+                }
+            }
+
+            // Normalize email casing for existing users (prevents duplicate users / login issues).
+            // Prisma middleware also enforces lowercase on writes; this handles legacy rows.
+            if (user?.id && user.email) {
+                const normalizedEmail = String(user.email).toLowerCase().trim();
+                if (normalizedEmail && normalizedEmail !== user.email) {
+                    try {
+                        const existing = await prisma.user.findUnique({
+                            where: { email: normalizedEmail },
+                            select: { id: true },
+                        });
+                        if (existing && existing.id !== user.id) {
+                            console.error('Email normalization conflict detected for OAuth sign-in', {
+                                userId: user.id,
+                                fromEmail: user.email,
+                                toEmail: normalizedEmail,
+                                conflictingUserId: existing.id,
+                            });
+                            return false;
+                        }
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: { email: normalizedEmail },
+                        });
+                    } catch (error) {
+                        console.error('Failed to normalize user email on sign-in', {
+                            userId: user.id,
+                            email: user.email,
+                            error,
+                        });
+                    }
                 }
             }
 

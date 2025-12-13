@@ -17,6 +17,7 @@ export default function RegisterPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
     useEffect(() => {
         if (status === 'authenticated' && session?.user) {
@@ -56,7 +57,14 @@ export default function RegisterPage() {
 
     const handleGoogleSignIn = async () => {
         setError(null);
-        await signIn('google', { callbackUrl });
+        setIsGoogleSubmitting(true);
+        try {
+            await signIn('google', { callbackUrl });
+        } catch {
+            setError('Googleログインに失敗しました。もう一度お試しください。');
+        } finally {
+            setIsGoogleSubmitting(false);
+        }
     };
 
     return (
@@ -75,9 +83,10 @@ export default function RegisterPage() {
 
                 <button
                     onClick={handleGoogleSignIn}
-                    className="w-full mb-4 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium"
+                    disabled={isSubmitting || isGoogleSubmitting}
+                    className="w-full mb-4 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                    Googleで始める
+                    {isGoogleSubmitting ? 'Googleログイン中...' : 'Googleで始める'}
                 </button>
 
                 <div className="flex items-center gap-3 my-4">
