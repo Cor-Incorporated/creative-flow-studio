@@ -29,6 +29,9 @@ vi.mock('@/lib/gemini', () => ({
     }),
 }));
 
+// Import mocked functions for direct access in tests
+import { generateVideo } from '@/lib/gemini';
+
 describe('POST /api/gemini/video', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -190,5 +193,97 @@ describe('POST /api/gemini/video', () => {
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();
+    });
+
+    describe('Image-to-Video and safety checks', () => {
+        beforeEach(() => {
+            (getServerSession as any).mockResolvedValue({
+                user: { id: 'user-enterprise', email: 'enterprise@example.com' },
+            });
+
+            (checkSubscriptionLimits as any).mockResolvedValue({
+                allowed: true,
+                plan: { name: 'ENTERPRISE' },
+                usageCount: 500,
+                limit: null,
+            });
+        });
+
+        it('should call generateVideo with media parameter for Image-to-Video', async () => {
+            const mediaInput = {
+                type: 'image',
+                url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...',
+                mimeType: 'image/jpeg',
+            };
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Animate this image',
+                    aspectRatio: '16:9',
+                    media: mediaInput,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
+                'Animate this image',
+                '16:9',
+                mediaInput
+            );
+        });
+
+        it('should return 400 SAFETY_BLOCKED when error message contains "safety"', async () => {
+            vi.mocked(generateVideo).mockRejectedValueOnce(new Error('Request blocked due to safety violation'));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Generate harmful video content' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('SAFETY_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
+
+        it('should return 400 RECITATION_BLOCKED when error message contains "copyright"', async () => {
+            vi.mocked(generateVideo).mockRejectedValueOnce(new Error('Content blocked due to copyright infringement'));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Recreate famous movie scene' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('RECITATION_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
+
+        it('should return 400 SAFETY_BLOCKED when error message contains "policy"', async () => {
+            vi.mocked(generateVideo).mockRejectedValueOnce(new Error('Request violates content policy'));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Generate policy-violating content' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('SAFETY_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
     });
 });

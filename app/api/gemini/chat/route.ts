@@ -11,6 +11,7 @@ import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsage
 import { ERROR_MESSAGES } from '@/lib/constants';
 import type { GenerationMode, Media } from '@/types/app';
 import { createRequestId, jsonError } from '@/lib/api-utils';
+import { checkResponseSafety, blockReasonToErrorCode } from '@/lib/gemini-safety';
 
 /**
  * POST /api/gemini/chat
@@ -155,6 +156,24 @@ export async function POST(request: NextRequest) {
                         { status: 400 }
                     );
             }
+        }
+
+        // 3.5. Check for safety/policy blocks in response
+        const safetyResult = checkResponseSafety(result);
+        if (safetyResult.isBlocked) {
+            const errorCode = blockReasonToErrorCode(safetyResult.reason || 'OTHER');
+            const errorMessage = safetyResult.reason === 'SAFETY'
+                ? ERROR_MESSAGES.SAFETY_BLOCKED
+                : safetyResult.reason === 'RECITATION'
+                    ? ERROR_MESSAGES.RECITATION_BLOCKED
+                    : ERROR_MESSAGES.CONTENT_POLICY_VIOLATION;
+
+            return jsonError({
+                message: errorMessage,
+                status: 400,
+                code: errorCode,
+                requestId,
+            });
         }
 
         // 4. Log usage after successful generation

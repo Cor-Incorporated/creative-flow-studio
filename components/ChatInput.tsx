@@ -33,6 +33,11 @@ interface ChatInputProps {
     setAspectRatio: (ratio: AspectRatio) => void;
     selectedInfluencer: InfluencerId;
     setSelectedInfluencer: (influencer: InfluencerId) => void;
+    // Retry functionality
+    lastFailedPrompt?: string | null;
+    lastFailedMedia?: Media | null;
+    onRetry?: () => void;
+    onClearRetry?: () => void;
 }
 
 const MODE_CONFIG = {
@@ -54,6 +59,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
     setAspectRatio,
     selectedInfluencer,
     setSelectedInfluencer,
+    lastFailedPrompt,
+    lastFailedMedia,
+    onRetry,
+    onClearRetry,
 }) => {
     const [prompt, setPrompt] = useState('');
     const [uploadedMedia, setUploadedMedia] = useState<Media | null>(null);
@@ -165,6 +174,35 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     return (
         <div className="sticky bottom-0 z-50 bg-gray-900 border-t border-gray-700 safe-area-bottom">
+            {/* Retry Banner */}
+            {lastFailedPrompt && onRetry && onClearRetry && (
+                <div className="mx-4 mt-2 p-3 bg-amber-900/50 border border-amber-600 rounded-lg flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-amber-200 text-sm font-medium">前回のメッセージの送信に失敗しました</p>
+                        <p className="text-amber-300/70 text-xs mt-0.5 truncate">
+                            「{lastFailedPrompt.slice(0, 50)}{lastFailedPrompt.length > 50 ? '...' : ''}」
+                            {lastFailedMedia && ' + 添付ファイル'}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            onClick={onRetry}
+                            disabled={isLoading}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors"
+                        >
+                            再試行
+                        </button>
+                        <button
+                            onClick={onClearRetry}
+                            className="p-1.5 text-amber-300 hover:text-white hover:bg-amber-800/50 rounded-lg transition-colors"
+                            aria-label="クリア"
+                        >
+                            <XMarkIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Validation Error */}
             {validationError && (
                 <div className="mx-4 mt-2 p-2 bg-red-900/50 border border-red-500 rounded-md text-red-200 text-sm">
@@ -355,8 +393,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                     isComposingRef.current = false;
                                 }}
                                 onKeyDown={(e) => {
-                                    // IME変換中はEnterを無視する（日本語などの入力で変換確定前に送信されるのを防ぐ）
-                                    if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
+                                    // Cmd+Enter (Mac) / Ctrl+Enter (Windows) で送信
+                                    // IME変換中は無視する（日本語などの入力で変換確定前に送信されるのを防ぐ）
+                                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isComposingRef.current) {
                                         e.preventDefault();
                                         handleSubmit(e);
                                     }
@@ -395,7 +434,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                 {INFLUENCERS[selectedInfluencer]?.name}
                             </span>
                         )}
-                        <span className="text-gray-500">Enterで送信</span>
+                        <span className="text-gray-500">
+                            {typeof window !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+                                ? '⌘+Enter'
+                                : 'Ctrl+Enter'}
+                            で送信
+                        </span>
                     </div>
                 </div>
             </div>

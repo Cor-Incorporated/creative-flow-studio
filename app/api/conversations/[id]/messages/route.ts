@@ -14,6 +14,7 @@ import { createMessageSchema } from '@/lib/validators';
  * Request Body:
  * {
  *   role: 'USER' | 'MODEL' | 'SYSTEM'
+ *   mode?: 'CHAT' | 'PRO' | 'SEARCH' | 'IMAGE' | 'VIDEO'  // Mode for this message (multi-mode support)
  *   content: Array<{
  *     text?: string
  *     media?: { type: 'image' | 'video', url: string, mimeType: string }
@@ -32,6 +33,7 @@ import { createMessageSchema } from '@/lib/validators';
  *     id: string
  *     conversationId: string
  *     role: string
+ *     mode: string
  *     content: any (JSON)
  *     createdAt: string
  *   }
@@ -80,13 +82,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
             );
         }
 
-        const { role, content } = validationResult.data;
+        const { role, mode, content } = validationResult.data;
 
         // 5. Create message in database and update conversation updatedAt
         const message = await prisma.message.create({
             data: {
                 conversationId: params.id,
                 role,
+                mode: mode || 'CHAT', // Default to CHAT if not specified
                 content: content as any, // Prisma accepts JSON as any
             },
         });

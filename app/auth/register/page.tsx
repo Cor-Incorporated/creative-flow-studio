@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { EyeIcon, EyeSlashIcon } from '@/components/icons';
+import { getAuthErrorMessage } from '@/lib/auth-errors';
 
 function RegisterContent() {
     const router = useRouter();
@@ -51,11 +52,8 @@ function RegisterContent() {
             });
 
             if (!result || result.error) {
-                setError(
-                    result?.error === 'CredentialsSignin'
-                        ? '登録に失敗しました。入力内容をご確認ください。'
-                        : '登録に失敗しました。入力内容をご確認ください。'
-                );
+                const errorCode = result?.error || 'Default';
+                setError(getAuthErrorMessage(errorCode));
                 return;
             }
 

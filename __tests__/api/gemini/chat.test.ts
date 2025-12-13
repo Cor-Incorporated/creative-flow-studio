@@ -21,19 +21,30 @@ vi.mock('@/lib/subscription', () => ({
     getMonthlyUsageCount: vi.fn(),
 }));
 
-// Mock Gemini functions
+// Mock Gemini functions - response structure must include candidates for safety check
 vi.mock('@/lib/gemini', () => ({
-    generateChatResponse: vi.fn().mockResolvedValue({ text: 'Chat response' }),
+    generateChatResponse: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Chat response' }] }, finishReason: 'STOP' }],
+        text: 'Chat response',
+    }),
     generateProResponse: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Pro response' }] }, finishReason: 'STOP' }],
         text: 'Pro response',
         thinking: 'Thinking process',
     }),
     generateSearchGroundedResponse: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Search response' }] }, finishReason: 'STOP' }],
         text: 'Search response',
         sources: [],
     }),
-    analyzeImage: vi.fn().mockResolvedValue({ text: 'Image analysis' }),
+    analyzeImage: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Image analysis' }] }, finishReason: 'STOP' }],
+        text: 'Image analysis',
+    }),
 }));
+
+// Import mocked functions for direct access in tests
+import { generateChatResponse, generateProResponse } from '@/lib/gemini';
 
 describe('POST /api/gemini/chat', () => {
     beforeEach(() => {
@@ -206,5 +217,99 @@ describe('POST /api/gemini/chat', () => {
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();
+    });
+
+    describe('Safety checks', () => {
+        beforeEach(() => {
+            (getServerSession as any).mockResolvedValue({
+                user: { id: 'user-1', email: 'test@example.com' },
+            });
+
+            (checkSubscriptionLimits as any).mockResolvedValue({
+                allowed: true,
+                plan: { name: 'PRO' },
+                usageCount: 50,
+                limit: 1000,
+            });
+        });
+
+        it('should return 400 SAFETY_BLOCKED when response has finishReason=SAFETY', async () => {
+            vi.mocked(generateChatResponse).mockResolvedValueOnce({
+                candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'SAFETY' }],
+                text: '',
+            });
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Generate harmful content', mode: 'chat' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('SAFETY_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
+
+        it('should return 400 RECITATION_BLOCKED when response has finishReason=RECITATION', async () => {
+            vi.mocked(generateChatResponse).mockResolvedValueOnce({
+                candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'RECITATION' }],
+                text: '',
+            });
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Copy this book verbatim', mode: 'chat' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('RECITATION_BLOCKED');
+            expect(typeof data.requestId).toBe('string');
+            expect(response.headers.get('X-Request-Id')).toBeTruthy();
+        });
+
+        it('should return error when response has no candidates', async () => {
+            vi.mocked(generateChatResponse).mockResolvedValueOnce({
+                candidates: [],
+                text: '',
+            });
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Test prompt', mode: 'chat' }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('CONTENT_POLICY_VIOLATION');
+            expect(typeof data.requestId).toBe('string');
+        });
+
+        it('should include requestId in error response and X-Request-Id header', async () => {
+            vi.mocked(generateChatResponse).mockResolvedValueOnce({
+                candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'SAFETY' }],
+                text: '',
+            });
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: 'Test prompt', mode: 'chat' }),
+            });
+
+            const response = await POST(request);
+            const data = await response.json();
+
+            // Verify requestId is present and matches header
+            expect(typeof data.requestId).toBe('string');
+            expect(data.requestId.length).toBeGreaterThan(0);
+            expect(response.headers.get('X-Request-Id')).toBe(data.requestId);
+        });
     });
 });

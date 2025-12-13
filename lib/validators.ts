@@ -169,6 +169,7 @@ export type UpdateConversationRequest = z.infer<typeof updateConversationSchema>
  */
 export const createMessageSchema = z.object({
     role: z.enum(['USER', 'MODEL', 'SYSTEM']),
+    mode: z.enum(['CHAT', 'PRO', 'SEARCH', 'IMAGE', 'VIDEO']).optional(), // Mode for this message (multi-mode support)
     content: z
         .array(
             z.object({

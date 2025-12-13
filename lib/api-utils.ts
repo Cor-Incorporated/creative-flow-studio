@@ -12,7 +12,11 @@ export type ApiErrorCode =
     | 'RATE_LIMIT_EXCEEDED'
     | 'GEMINI_API_KEY_NOT_FOUND'
     | 'UPSTREAM_ERROR'
-    | 'INTERNAL_ERROR';
+    | 'INTERNAL_ERROR'
+    // Content policy/safety errors
+    | 'CONTENT_POLICY_VIOLATION'
+    | 'SAFETY_BLOCKED'
+    | 'RECITATION_BLOCKED';
 
 export type ApiErrorBody = {
     error: string;
