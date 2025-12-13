@@ -26,7 +26,7 @@ export async function middleware(request: NextRequest) {
     // Fix: Always redirect traffic to the canonical host (NEXTAUTH_URL) before any
     // auth flow starts, so sign-in and callback share the same origin.
     // ------------------------------------------------------------
-    const canonicalBaseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL;
+    const canonicalBaseUrl = process.env.NEXTAUTH_URL;
     if (canonicalBaseUrl) {
         try {
             const canonical = new URL(canonicalBaseUrl);
@@ -53,6 +53,8 @@ export async function middleware(request: NextRequest) {
             // Ignore invalid canonical URL; do not block requests.
             console.warn('[middleware] Invalid NEXTAUTH_URL configuration:', canonicalBaseUrl, error);
         }
+    } else if (process.env.NODE_ENV === 'production') {
+        console.warn('[middleware] NEXTAUTH_URL is not set; skipping canonical host redirect');
     }
 
     const { pathname } = request.nextUrl;

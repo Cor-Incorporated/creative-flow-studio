@@ -25,6 +25,30 @@ export type PlanFeatures = {
     maxFileSize: number;
 };
 
+function getFallbackAdminPlan(): Plan {
+    const now = new Date(0);
+    const features: PlanFeatures = {
+        allowProMode: true,
+        allowImageGeneration: true,
+        allowVideoGeneration: true,
+        maxRequestsPerMonth: null,
+        // Effectively unlimited; keep within Postgres int range.
+        maxFileSize: 2_147_483_647,
+    };
+
+    return {
+        id: 'admin-enterprise-fallback',
+        name: 'ENTERPRISE',
+        stripePriceId: null,
+        monthlyPrice: 0,
+        features,
+        maxRequestsPerMonth: null,
+        maxFileSize: features.maxFileSize,
+        createdAt: now,
+        updatedAt: now,
+    };
+}
+
 /**
  * Get user's active subscription with plan details
  *
@@ -107,7 +131,7 @@ export async function checkSubscriptionLimits(
 
         return {
             allowed: true,
-            plan: adminPlan || ({} as Plan),
+            plan: adminPlan || getFallbackAdminPlan(),
             usageCount: 0,
             limit: null, // Unlimited for admins
         };

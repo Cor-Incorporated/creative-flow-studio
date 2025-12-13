@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { MIN_PASSWORD_LENGTH } from '@/lib/constants';
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/constants';
 import { EyeIcon, EyeSlashIcon } from '@/components/icons';
 
 export default function RegisterPage() {
@@ -146,6 +146,7 @@ export default function RegisterPage() {
                                 autoComplete="new-password"
                                 required
                                 minLength={MIN_PASSWORD_LENGTH}
+                                maxLength={MAX_PASSWORD_LENGTH}
                             />
                             <button
                                 type="button"

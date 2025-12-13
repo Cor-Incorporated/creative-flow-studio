@@ -5,7 +5,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from './prisma';
 import { comparePassword, hashPassword, needsRehash } from './password';
-import { MIN_PASSWORD_LENGTH } from './constants';
+import { MAX_PASSWORD_LENGTH, MIN_AUTH_RESPONSE_TIME_MS, MIN_PASSWORD_LENGTH } from './constants';
 import { createDefaultFreeSubscriptionWithClient } from './subscription';
 import { createHash } from 'crypto';
 
@@ -46,8 +46,6 @@ function sanitizeDisplayName(input: string | undefined, fallbackEmail: string): 
     const safePrefix = prefix.replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
     return (safePrefix || 'ユーザー').slice(0, 100);
 }
-
-const MIN_AUTH_RESPONSE_TIME_MS = 350; // Prevents timing-based account enumeration
 
 async function ensureMinDelay(startMs: number, minMs: number): Promise<void> {
     const elapsed = Date.now() - startMs;
@@ -107,6 +105,15 @@ export const authOptions: NextAuthOptions = {
                     console.warn('[auth][credentials] invalid action', { emailId, action });
                     await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
                     throw new Error('登録に失敗しました。入力内容をご確認ください。');
+                }
+
+                if (password.length > MAX_PASSWORD_LENGTH) {
+                    console.warn('[auth][credentials] blocked: password too long', { emailId, action });
+                    await ensureMinDelay(start, MIN_AUTH_RESPONSE_TIME_MS);
+                    if (action === 'register') {
+                        throw new Error(`パスワードは${MAX_PASSWORD_LENGTH}文字以下で入力してください`);
+                    }
+                    throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
                 if (!email) {
@@ -209,7 +216,7 @@ export const authOptions: NextAuthOptions = {
                             userId: user.id,
                             fromEmailId: emailLogId(String(user.email)),
                             toEmailId: emailLogId(email),
-                            error,
+                            error: safeErrorForLog(error),
                         });
                     }
                 }
@@ -226,7 +233,7 @@ export const authOptions: NextAuthOptions = {
                         console.error('Failed to upgrade password hash parameters', {
                             userId: user.id,
                             emailId,
-                            error,
+                            error: safeErrorForLog(error),
                         });
                     }
                 }
@@ -316,19 +323,6 @@ export const authOptions: NextAuthOptions = {
                 const normalizedEmail = String(user.email).toLowerCase().trim();
                 if (normalizedEmail && normalizedEmail !== user.email) {
                     try {
-                        const existing = await prisma.user.findUnique({
-                            where: { email: normalizedEmail },
-                            select: { id: true },
-                        });
-                        if (existing && existing.id !== user.id) {
-                            console.error('Email normalization conflict detected for OAuth sign-in', {
-                                userId: user.id,
-                                fromEmailId: emailLogId(String(user.email)),
-                                toEmailId: emailLogId(normalizedEmail),
-                                conflictingUserId: existing.id,
-                            });
-                            return '/auth/error?error=EmailNormalizationConflict';
-                        }
                         try {
                             await prisma.user.update({
                                 where: { id: user.id },
@@ -349,7 +343,7 @@ export const authOptions: NextAuthOptions = {
                         console.error('Failed to normalize user email on sign-in', {
                             userId: user.id,
                             emailId: emailLogId(String(user.email)),
-                            error,
+                            error: safeErrorForLog(error),
                         });
                     }
                 }
@@ -376,11 +370,6 @@ export const authOptions: NextAuthOptions = {
 
                 try {
                     await prisma.$transaction(async tx => {
-                        const existing = await tx.subscription.findUnique({
-                            where: { userId: user.id },
-                            select: { id: true },
-                        });
-                        if (existing) return;
                         await createDefaultFreeSubscriptionWithClient(user.id, tx);
                     });
                 } catch (error: any) {
@@ -388,10 +377,10 @@ export const authOptions: NextAuthOptions = {
                     if (error?.code === 'P2002') {
                         return true;
                     }
-                    console.error(
-                        'Failed to create default subscription for Google OAuth user:',
-                        safeErrorForLog(error)
-                    );
+                    console.error('Failed to create default subscription for Google OAuth user', {
+                        userId: user.id,
+                        error: safeErrorForLog(error),
+                    });
                     // If we cannot ensure a subscription exists, fail sign-in with a user-friendly error.
                     try {
                         const existing = await prisma.subscription.findUnique({
