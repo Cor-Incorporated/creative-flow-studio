@@ -3,6 +3,25 @@ import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import createFetchMock from 'vitest-fetch-mock';
 
+// ---- Global mocks (stabilize NextAuth in unit tests) ----
+// Some environments restrict filesystem access patterns used by jose/next-auth internals.
+// We mock NextAuth modules globally so API route tests don't load jose at import-time.
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(),
+}));
+vi.mock('next-auth/jwt', () => ({
+    getToken: vi.fn(),
+}));
+vi.mock('@next-auth/prisma-adapter', () => ({
+    PrismaAdapter: () => ({}),
+}));
+vi.mock('next-auth/providers/google', () => ({
+    default: () => ({ id: 'google', name: 'Google', type: 'oauth' }),
+}));
+vi.mock('next-auth/providers/credentials', () => ({
+    default: () => ({ id: 'credentials', name: 'Credentials', type: 'credentials' }),
+}));
+
 // Initialize vitest-fetch-mock for Happy-DOM
 const fetchMocker = createFetchMock(vi);
 

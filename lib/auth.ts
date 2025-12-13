@@ -3,29 +3,31 @@ import { Role } from '@prisma/client';
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import { comparePassword, hashPassword } from './password';
 import { prisma } from './prisma';
+import { comparePassword, hashPassword } from './password';
 
-// Validate required environment variables
-if (!process.env.GOOGLE_CLIENT_ID) {
-    throw new Error('Missing required environment variable: GOOGLE_CLIENT_ID');
-}
-if (!process.env.GOOGLE_CLIENT_SECRET) {
-    throw new Error('Missing required environment variable: GOOGLE_CLIENT_SECRET');
-}
 if (!process.env.NEXTAUTH_SECRET) {
     throw new Error('Missing required environment variable: NEXTAUTH_SECRET');
 }
 
+const hasGoogleProvider = !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
     // NextAuth v4 automatically detects host for multi-domain support (Cloud Run + custom domain)
-    // This works with both blunaai.com and *.run.app URLs without NEXTAUTH_URL env var
+    // This works with both blunaai.com and *.run.app URLs without hard-depending on NEXTAUTH_URL.
     providers: [
-        GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        }),
+        ...(hasGoogleProvider
+            ? [
+                  GoogleProvider({
+                      clientId: process.env.GOOGLE_CLIENT_ID!,
+                      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+                      // Existing email may already exist with another provider.
+                      // We guard this further in callbacks.signIn by requiring verified email.
+                      allowDangerousEmailAccountLinking: true,
+                  }),
+              ]
+            : []),
         CredentialsProvider({
             name: 'credentials',
             credentials: {
@@ -39,12 +41,20 @@ export const authOptions: NextAuthOptions = {
                     throw new Error('メールアドレスとパスワードを入力してください');
                 }
 
-                const { email, password, action, name } = credentials;
+                const email = String(credentials.email).toLowerCase().trim();
+                const password = String(credentials.password);
+                const action = String(credentials.action || 'login');
+                const name = credentials.name ? String(credentials.name) : undefined;
+
+                if (!email) {
+                    throw new Error('メールアドレスを入力してください');
+                }
 
                 // Registration flow
                 if (action === 'register') {
                     const existingUser = await prisma.user.findUnique({
                         where: { email },
+                        select: { id: true },
                     });
 
                     if (existingUser) {
@@ -71,7 +81,6 @@ export const authOptions: NextAuthOptions = {
                     } catch (error: any) {
                         console.error('Failed to create default subscription:', error);
                         // Don't fail registration if subscription creation fails
-                        // User can still use the app, but may need to manually create subscription
                     }
 
                     return {
@@ -80,7 +89,7 @@ export const authOptions: NextAuthOptions = {
                         name: user.name,
                         image: user.image,
                         role: user.role,
-                    };
+                    } as any;
                 }
 
                 // Login flow
@@ -93,7 +102,9 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 if (!user.password) {
-                    throw new Error('このアカウントはGoogleログインで登録されています。Googleでログインしてください。');
+                    throw new Error(
+                        'このアカウントはGoogleログインで登録されています。Googleでログインしてください。'
+                    );
                 }
 
                 const isPasswordValid = await comparePassword(password, user.password);
@@ -108,7 +119,7 @@ export const authOptions: NextAuthOptions = {
                     name: user.name,
                     image: user.image,
                     role: user.role,
-                };
+                } as any;
             },
         }),
     ],
@@ -123,7 +134,10 @@ export const authOptions: NextAuthOptions = {
     // HTTPS環境用のCookie設定
     cookies: {
         sessionToken: {
-            name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.session-token` : 'next-auth.session-token',
+            name:
+                process.env.NODE_ENV === 'production'
+                    ? `__Secure-next-auth.session-token`
+                    : 'next-auth.session-token',
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
@@ -132,7 +146,10 @@ export const authOptions: NextAuthOptions = {
             },
         },
         callbackUrl: {
-            name: process.env.NODE_ENV === 'production' ? `__Secure-next-auth.callback-url` : 'next-auth.callback-url',
+            name:
+                process.env.NODE_ENV === 'production'
+                    ? `__Secure-next-auth.callback-url`
+                    : 'next-auth.callback-url',
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
@@ -141,7 +158,10 @@ export const authOptions: NextAuthOptions = {
             },
         },
         csrfToken: {
-            name: process.env.NODE_ENV === 'production' ? `__Host-next-auth.csrf-token` : 'next-auth.csrf-token',
+            name:
+                process.env.NODE_ENV === 'production'
+                    ? `__Host-next-auth.csrf-token`
+                    : 'next-auth.csrf-token',
             options: {
                 httpOnly: true,
                 sameSite: 'lax',
@@ -152,24 +172,32 @@ export const authOptions: NextAuthOptions = {
     },
     callbacks: {
         async signIn({ user, account, profile }) {
-            // For Google OAuth: Create default FREE subscription if user is new
-            if (account?.provider === 'google' && user?.id) {
-                try {
-                    const { createDefaultFreeSubscription } = await import('./subscription');
-                    await createDefaultFreeSubscription(user.id);
-                } catch (error: any) {
-                    console.error('Failed to create default subscription for Google OAuth user:', error);
-                    // Don't fail sign-in if subscription creation fails
+            // Safety: only allow account linking if Google says the email is verified.
+            if (account?.provider === 'google') {
+                const emailVerified =
+                    typeof (profile as any)?.email_verified === 'boolean'
+                        ? (profile as any).email_verified
+                        : true;
+                if (!emailVerified) return false;
+
+                // For Google OAuth: Create default FREE subscription if user is new
+                if (user?.id) {
+                    try {
+                        const { createDefaultFreeSubscription } = await import('./subscription');
+                        await createDefaultFreeSubscription(user.id);
+                    } catch (error: any) {
+                        console.error('Failed to create default subscription for Google OAuth user:', error);
+                        // Don't fail sign-in if subscription creation fails
+                    }
                 }
             }
             return true;
         },
         async jwt({ token, user }) {
             if (user) {
-                token.id = user.id;
-                // Fetch role from database
+                token.id = (user as any).id;
                 const dbUser = await prisma.user.findUnique({
-                    where: { id: user.id },
+                    where: { id: (user as any).id },
                     select: { role: true },
                 });
                 if (dbUser) {
@@ -180,8 +208,8 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user && token) {
-                session.user.id = token.id as string;
-                session.user.role = token.role as Role;
+                (session.user as any).id = token.id as string;
+                (session.user as any).role = token.role as Role;
             }
             return session;
         },

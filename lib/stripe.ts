@@ -112,11 +112,18 @@ export async function getOrCreateStripeCustomer(
 export function formatPrice(amountInCents: number, currency: string = 'jpy'): string {
     const amount = amountInCents / 100;
 
-    return new Intl.NumberFormat('ja-JP', {
+    const formatted = new Intl.NumberFormat('ja-JP', {
         style: 'currency',
         currency: currency.toUpperCase(),
         minimumFractionDigits: 0,
     }).format(amount);
+
+    // Node/ICU may output a full-width Yen sign (￥). Normalize for consistency.
+    if (currency.toUpperCase() === 'JPY') {
+        return formatted.replace('￥', '¥');
+    }
+
+    return formatted;
 }
 
 /**

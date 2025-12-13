@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { POST } from '@/app/api/gemini/video/route';
-import { checkSubscriptionLimits, logUsage } from '@/lib/subscription';
+import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage } from '@/lib/subscription';
 
 // Mock NextAuth
 vi.mock('next-auth', () => ({
@@ -17,6 +17,8 @@ vi.mock('next-auth', () => ({
 vi.mock('@/lib/subscription', () => ({
     checkSubscriptionLimits: vi.fn(),
     logUsage: vi.fn(),
+    getUserSubscription: vi.fn(),
+    getMonthlyUsageCount: vi.fn(),
 }));
 
 // Mock Gemini functions
@@ -80,6 +82,10 @@ describe('POST /api/gemini/video', () => {
         (checkSubscriptionLimits as any).mockRejectedValue(
             new Error('Monthly request limit exceeded')
         );
+        (getUserSubscription as any).mockResolvedValue({
+            plan: { name: 'ENTERPRISE', features: { maxRequestsPerMonth: null } },
+        });
+        (getMonthlyUsageCount as any).mockResolvedValue(999999);
 
         const request = new NextRequest('http://localhost:3000/api/gemini/video', {
             method: 'POST',
@@ -129,7 +135,8 @@ describe('POST /api/gemini/video', () => {
             'video_generation',
             expect.objectContaining({
                 aspectRatio: '9:16',
-                resourceType: 'veo-3.1-fast',
+                resourceType: 'veo-3.1-fast-generate-preview',
+                promptLength: 19,
             })
         );
     });

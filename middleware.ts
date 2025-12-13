@@ -1,5 +1,6 @@
-import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+import { shouldRedirectToCanonicalHost } from '@/lib/canonicalHost';
 
 /**
  * Middleware for Role-Based Access Control (RBAC)
@@ -15,6 +16,19 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+
+    // Canonical host redirect (prevents OAuth state cookie mismatch & 308 self-loop in proxy env)
+    // Set CANONICAL_HOST=blunaai.com in Cloud Run for custom domain.
+    const canonicalCheck = shouldRedirectToCanonicalHost({
+        headers: request.headers,
+        canonicalHost: process.env.CANONICAL_HOST,
+    });
+    if (canonicalCheck.shouldRedirect && canonicalCheck.canonicalHost) {
+        const url = request.nextUrl.clone();
+        url.hostname = canonicalCheck.canonicalHost;
+        url.port = '';
+        return NextResponse.redirect(url, 308);
+    }
 
     // Admin route protection
     if (pathname.startsWith('/admin')) {

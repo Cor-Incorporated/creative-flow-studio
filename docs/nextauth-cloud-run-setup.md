@@ -19,6 +19,7 @@
 | `GOOGLE_CLIENT_ID` | Secret Manager (`google-client-id`) | Secret Manager から注入 |
 | `GOOGLE_CLIENT_SECRET` | Secret Manager (`google-client-secret`) | Secret Manager から注入 |
 | `DATABASE_URL` | Secret Manager (`database-url`) | Secret Manager から注入 |
+| `CANONICAL_HOST` | 例: `blunaai.com` | 直接設定（カスタムドメイン運用時のみ） |
 
 ### Secret Manager シークレット
 
@@ -45,6 +46,11 @@
 
 ```
 https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app/api/auth/callback/google
+```
+
+**カスタムドメイン運用時（必須）:**
+```
+https://blunaai.com/api/auth/callback/google
 ```
 
 **ローカル開発用（オプション）:**
@@ -96,6 +102,7 @@ export const authOptions: NextAuthOptions = {
 3. **`GOOGLE_CLIENT_ID`**: Google OAuth クライアント ID（必須）
 4. **`GOOGLE_CLIENT_SECRET`**: Google OAuth クライアントシークレット（必須）
 5. **`DATABASE_URL`**: Prisma Adapter 用のデータベース接続文字列（必須）
+6. **`CANONICAL_HOST`**: カスタムドメイン配下で `X-Forwarded-Host` を優先して正規ホストへ収束させる（OAuth state cookie mismatch / 308ループ回避）
 
 ---
 

@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { POST } from '@/app/api/gemini/image/route';
-import { checkSubscriptionLimits, logUsage } from '@/lib/subscription';
+import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage } from '@/lib/subscription';
 
 // Mock NextAuth
 vi.mock('next-auth', () => ({
@@ -17,19 +17,14 @@ vi.mock('next-auth', () => ({
 vi.mock('@/lib/subscription', () => ({
     checkSubscriptionLimits: vi.fn(),
     logUsage: vi.fn(),
+    getUserSubscription: vi.fn(),
+    getMonthlyUsageCount: vi.fn(),
 }));
 
 // Mock Gemini functions
 vi.mock('@/lib/gemini', () => ({
-    generateImage: vi.fn().mockResolvedValue({
-        generatedImages: [
-            {
-                image: {
-                    imageBytes: 'base64ImageData',
-                },
-            },
-        ],
-    }),
+    // generateImage now returns a data URL string (same as alpha / route expectation)
+    generateImage: vi.fn().mockResolvedValue('data:image/png;base64,base64ImageData'),
     editImage: vi.fn().mockResolvedValue({
         candidates: [
             {
@@ -100,6 +95,10 @@ describe('POST /api/gemini/image', () => {
         (checkSubscriptionLimits as any).mockRejectedValue(
             new Error('Monthly request limit exceeded')
         );
+        (getUserSubscription as any).mockResolvedValue({
+            plan: { name: 'PRO', features: { maxRequestsPerMonth: 1000 } },
+        });
+        (getMonthlyUsageCount as any).mockResolvedValue(1000);
 
         const request = new NextRequest('http://localhost:3000/api/gemini/image', {
             method: 'POST',
