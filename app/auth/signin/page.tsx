@@ -2,14 +2,16 @@
 
 import { EyeIcon, EyeSlashIcon, SparklesIcon } from '@/components/icons';
 import { MAX_PASSWORD_LENGTH } from '@/lib/constants';
-import { signIn } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 function SignInContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get('callbackUrl') || '/';
     const error = searchParams.get('error');
+    const { data: session, status } = useSession();
 
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
@@ -17,9 +19,31 @@ function SignInContent() {
     const [name, setName] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(
-        error === 'CredentialsSignin' ? 'メールアドレスまたはパスワードが正しくありません' : null
-    );
+
+    const errorFromUrl = useMemo(() => {
+        if (!error) return null;
+        if (error === 'CredentialsSignin') {
+            return 'メールアドレスまたはパスワードが正しくありません';
+        }
+        if (error === 'OAuthAccountNotLinked') {
+            return 'このメールアドレスは別の認証方法で登録されています。最初に登録した方法でログインしてください（メールで登録した場合はメール/パスワード、Googleで登録した場合はGoogleログイン）。';
+        }
+        return null;
+    }, [error]);
+
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        setErrorMessage(errorFromUrl);
+    }, [errorFromUrl]);
+
+    useEffect(() => {
+        // If the user is already authenticated (e.g. after successful credentials sign-in),
+        // redirect them away from the sign-in page.
+        if (status === 'authenticated' && session?.user) {
+            router.replace(callbackUrl);
+        }
+    }, [status, session, router, callbackUrl]);
 
     const handleCredentialsSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,6 +78,9 @@ function SignInContent() {
                 );
             } else if (result?.url) {
                 window.location.href = result.url;
+            } else {
+                // Fallback: treat as success and move to callbackUrl.
+                window.location.href = callbackUrl;
             }
         } catch {
             setErrorMessage('エラーが発生しました。もう一度お試しください。');
