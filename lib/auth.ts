@@ -52,10 +52,13 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) {
+                    console.warn('[auth][credentials] missing email or password');
                     throw new Error('メールアドレスとパスワードを入力してください');
                 }
 
                 const { email, password, action, name } = credentials;
+                // Never log passwords.
+                console.info('[auth][credentials] attempt', { email, action });
 
                 // Registration flow
                 if (action === 'register') {
@@ -64,10 +67,15 @@ export const authOptions: NextAuthOptions = {
                     });
 
                     if (existingUser) {
+                        console.warn('[auth][credentials] register blocked: email already exists', {
+                            email,
+                            userId: existingUser.id,
+                        });
                         throw new Error('このメールアドレスは既に登録されています');
                     }
 
                     if (password.length < 8) {
+                        console.warn('[auth][credentials] register blocked: password too short', { email });
                         throw new Error('パスワードは8文字以上で入力してください');
                     }
 
@@ -79,6 +87,7 @@ export const authOptions: NextAuthOptions = {
                             name: name || email.split('@')[0],
                         },
                     });
+                    console.info('[auth][credentials] register success', { email, userId: user.id });
 
                     // Create default FREE plan subscription for new user
                     try {
@@ -105,19 +114,26 @@ export const authOptions: NextAuthOptions = {
                 });
 
                 if (!user) {
+                    console.warn('[auth][credentials] login failed: user not found', { email });
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
                 if (!user.password) {
+                    console.warn('[auth][credentials] login blocked: user has no password (likely OAuth only)', {
+                        email,
+                        userId: user.id,
+                    });
                     throw new Error('このアカウントはGoogleログインで登録されています。Googleでログインしてください。');
                 }
 
                 const isPasswordValid = await comparePassword(password, user.password);
 
                 if (!isPasswordValid) {
+                    console.warn('[auth][credentials] login failed: invalid password', { email, userId: user.id });
                     throw new Error('メールアドレスまたはパスワードが正しくありません');
                 }
 
+                console.info('[auth][credentials] login success', { email, userId: user.id });
                 return {
                     id: user.id,
                     email: user.email,
@@ -213,6 +229,6 @@ export const authOptions: NextAuthOptions = {
             return session;
         },
     },
-    debug: process.env.NODE_ENV === 'development',
+    debug: process.env.NODE_ENV === 'development' || process.env.NEXTAUTH_DEBUG === 'true',
     secret: NEXTAUTH_SECRET,
 };
