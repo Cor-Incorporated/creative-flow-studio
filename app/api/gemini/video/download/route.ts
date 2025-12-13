@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { createRequestId, jsonError } from '@/lib/api-utils';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -19,11 +20,12 @@ export const dynamic = 'force-dynamic';
  * @see https://ai.google.dev/gemini-api/docs/video-generation
  */
 export async function GET(request: NextRequest) {
+    const requestId = createRequestId();
     try {
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return jsonError({ message: 'Unauthorized', status: 401, code: 'UNAUTHORIZED', requestId });
         }
 
         const searchParams = request.nextUrl.searchParams;
@@ -32,17 +34,24 @@ export async function GET(request: NextRequest) {
         const hintedMimeType = searchParams.get('mimeType') || undefined;
 
         if (!videoUri && !fileName) {
-            return NextResponse.json(
-                { error: 'Video URI or file identifier is required' },
-                { status: 400 }
-            );
+            return jsonError({
+                message: 'Video URI or file identifier is required',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         // Get API key from server-side environment variable
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             console.error('GEMINI_API_KEY is not configured');
-            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+            return jsonError({
+                message: 'Server configuration error',
+                status: 500,
+                code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
         }
 
         const normalizeFileParam = (value: string) => {
@@ -81,20 +90,25 @@ export async function GET(request: NextRequest) {
 
         const upstreamUrl = resolveVideoUrl();
         if (!upstreamUrl) {
-            return NextResponse.json(
-                { error: 'Unable to resolve download URL for video asset' },
-                { status: 400 }
-            );
+            return jsonError({
+                message: 'Unable to resolve download URL for video asset',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         const videoResponse = await fetch(upstreamUrl);
 
         if (!videoResponse.ok) {
             console.error('Failed to fetch video from Gemini:', videoResponse.statusText);
-            return NextResponse.json(
-                { error: 'Failed to download video from Gemini API' },
-                { status: videoResponse.status }
-            );
+            return jsonError({
+                message: 'Failed to download video from Gemini API',
+                status: videoResponse.status,
+                code: 'UPSTREAM_ERROR',
+                requestId,
+                details: videoResponse.statusText,
+            });
         }
 
         const videoBuffer = await videoResponse.arrayBuffer();
@@ -111,9 +125,11 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Error in video download proxy:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to download video' },
-            { status: 500 }
-        );
+        return jsonError({
+            message: error.message || 'Failed to download video',
+            status: 500,
+            code: 'INTERNAL_ERROR',
+            requestId,
+        });
     }
 }

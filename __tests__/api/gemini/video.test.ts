@@ -51,6 +51,8 @@ describe('POST /api/gemini/video', () => {
         expect(response.status).toBe(401);
         const data = await response.json();
         expect(data.error).toBe('Unauthorized');
+        expect(data.code).toBe('UNAUTHORIZED');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should return 403 if plan does not allow video generation', async () => {
@@ -72,6 +74,8 @@ describe('POST /api/gemini/video', () => {
         expect(response.status).toBe(403);
         const data = await response.json();
         expect(data.error).toContain('not available in current plan');
+        expect(data.code).toBe('FORBIDDEN_PLAN');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should return 429 if monthly limit exceeded', async () => {
@@ -96,6 +100,9 @@ describe('POST /api/gemini/video', () => {
 
         expect(response.status).toBe(429);
         expect(response.headers.get('Retry-After')).toBe('86400');
+        const data = await response.json();
+        expect(data.code).toBe('RATE_LIMIT_EXCEEDED');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should generate video and log usage', async () => {
@@ -156,6 +163,8 @@ describe('POST /api/gemini/video', () => {
         expect(response.status).toBe(400);
         const data = await response.json();
         expect(data.error).toBe('Prompt is required');
+        expect(data.code).toBe('VALIDATION_ERROR');
+        expect(typeof data.requestId).toBe('string');
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();
@@ -176,6 +185,8 @@ describe('POST /api/gemini/video', () => {
         expect(response.status).toBe(400);
         const data = await response.json();
         expect(data.error).toContain('Invalid aspect ratio');
+        expect(data.code).toBe('VALIDATION_ERROR');
+        expect(typeof data.requestId).toBe('string');
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();

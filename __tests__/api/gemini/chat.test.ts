@@ -57,6 +57,9 @@ describe('POST /api/gemini/chat', () => {
         expect(response.status).toBe(401);
         const data = await response.json();
         expect(data.error).toBe('Unauthorized');
+        expect(data.code).toBe('UNAUTHORIZED');
+        expect(typeof data.requestId).toBe('string');
+        expect(response.headers.get('X-Request-Id')).toBeTruthy();
     });
 
     it('should return 403 if plan does not allow Pro mode', async () => {
@@ -78,6 +81,8 @@ describe('POST /api/gemini/chat', () => {
         expect(response.status).toBe(403);
         const data = await response.json();
         expect(data.error).toContain('not available in current plan');
+        expect(data.code).toBe('FORBIDDEN_PLAN');
+        expect(typeof data.requestId).toBe('string');
     });
 
     it('should return 429 if monthly limit exceeded', async () => {
@@ -104,6 +109,9 @@ describe('POST /api/gemini/chat', () => {
         expect(response.headers.get('Retry-After')).toBe('86400');
         const data = await response.json();
         expect(data.error).toContain('Monthly request limit exceeded');
+        expect(data.code).toBe('RATE_LIMIT_EXCEEDED');
+        expect(typeof data.requestId).toBe('string');
+        expect(response.headers.get('X-Request-Id')).toBeTruthy();
     });
 
     it('should generate chat response and log usage', async () => {
@@ -193,6 +201,8 @@ describe('POST /api/gemini/chat', () => {
         expect(response.status).toBe(400);
         const data = await response.json();
         expect(data.error).toBe('Prompt is required');
+        expect(data.code).toBe('VALIDATION_ERROR');
+        expect(typeof data.requestId).toBe('string');
 
         // Should not call checkSubscriptionLimits for invalid requests
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();

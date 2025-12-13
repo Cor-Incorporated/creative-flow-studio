@@ -3,6 +3,7 @@ import { ERROR_MESSAGES } from '@/lib/constants';
 import { pollVideoOperation } from '@/lib/gemini';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestId, jsonError } from '@/lib/api-utils';
 
 /**
  * POST /api/gemini/video/status
@@ -16,11 +17,12 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 
 export async function POST(request: NextRequest) {
+    const requestId = createRequestId();
     try {
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return jsonError({ message: 'Unauthorized', status: 401, code: 'UNAUTHORIZED', requestId });
         }
 
         const body = await request.json();
@@ -34,7 +36,12 @@ export async function POST(request: NextRequest) {
             // If only operationName is provided, create a minimal operation object
             operationToPoll = { name: operationName };
         } else {
-            return NextResponse.json({ error: 'Operation or operationName is required' }, { status: 400 });
+            return jsonError({
+                message: 'Operation or operationName is required',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         const operation = await pollVideoOperation(operationToPoll);
@@ -45,12 +52,20 @@ export async function POST(request: NextRequest) {
         console.error('Gemini Video Status API Error:', error);
 
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
+            return jsonError({
+                message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
+                status: 401,
+                code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
         }
 
-        return NextResponse.json(
-            { error: ERROR_MESSAGES.VIDEO_GENERATION_FAILED, details: error.message },
-            { status: 500 }
-        );
+        return jsonError({
+            message: ERROR_MESSAGES.VIDEO_GENERATION_FAILED,
+            status: 500,
+            code: 'UPSTREAM_ERROR',
+            details: error.message,
+            requestId,
+        });
     }
 }

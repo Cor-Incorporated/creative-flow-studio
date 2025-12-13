@@ -5,6 +5,7 @@ import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, log
 import type { AspectRatio, Media } from '@/types/app';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { createRequestId, jsonError } from '@/lib/api-utils';
 
 /**
  * POST /api/gemini/image
@@ -19,12 +20,13 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
     let originalImage: Media | undefined;
+    const requestId = createRequestId();
 
     try {
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return jsonError({ message: 'Unauthorized', status: 401, code: 'UNAUTHORIZED', requestId });
         }
 
         const body = await request.json();
@@ -41,15 +43,22 @@ export async function POST(request: NextRequest) {
         originalImage = originalImageFromBody;
 
         if (!prompt) {
-            return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+            return jsonError({
+                message: 'Prompt is required',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         // Validate aspect ratio
         if (!VALID_IMAGE_ASPECT_RATIOS.includes(aspectRatio as any)) {
-            return NextResponse.json(
-                { error: `Invalid aspect ratio: ${aspectRatio}` },
-                { status: 400 }
-            );
+            return jsonError({
+                message: `Invalid aspect ratio: ${aspectRatio}`,
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         // 2. Subscription limits check
@@ -58,10 +67,12 @@ export async function POST(request: NextRequest) {
         } catch (error: any) {
             // Feature not allowed in plan (FREE plan doesn't have image generation)
             if (error.message.includes('not available in current plan')) {
-                return NextResponse.json(
-                    { error: error.message },
-                    { status: 403 }
-                );
+                return jsonError({
+                    message: error.message,
+                    status: 403,
+                    code: 'FORBIDDEN_PLAN',
+                    requestId,
+                });
             }
 
             // Monthly limit exceeded - return detailed info
@@ -75,6 +86,7 @@ export async function POST(request: NextRequest) {
                     {
                         error: error.message,
                         code: 'RATE_LIMIT_EXCEEDED',
+                        requestId,
                         planName: subscription?.plan.name || 'FREE',
                         usage: {
                             current: usageCount,
@@ -85,6 +97,7 @@ export async function POST(request: NextRequest) {
                     {
                         status: 429,
                         headers: {
+                            'X-Request-Id': requestId,
                             'Retry-After': '86400', // 24 hours in seconds
                         },
                     }
@@ -92,7 +105,12 @@ export async function POST(request: NextRequest) {
             }
 
             // Other subscription errors
-            return NextResponse.json({ error: error.message }, { status: 403 });
+            return jsonError({
+                message: error.message,
+                status: 403,
+                code: 'FORBIDDEN_PLAN',
+                requestId,
+            });
         }
 
         // 3. Generate or edit image
@@ -140,17 +158,22 @@ export async function POST(request: NextRequest) {
         console.error('Gemini Image API Error:', error);
 
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
+            return jsonError({
+                message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
+                status: 401,
+                code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
         }
 
-        return NextResponse.json(
-            {
-                error: originalImage
-                    ? ERROR_MESSAGES.IMAGE_EDIT_NO_IMAGE
-                    : ERROR_MESSAGES.IMAGE_GENERATION_FAILED,
-                details: error.message,
-            },
-            { status: 500 }
-        );
+        return jsonError({
+            message: originalImage
+                ? ERROR_MESSAGES.IMAGE_EDIT_NO_IMAGE
+                : ERROR_MESSAGES.IMAGE_GENERATION_FAILED,
+            status: 500,
+            code: 'UPSTREAM_ERROR',
+            details: error.message,
+            requestId,
+        });
     }
 }

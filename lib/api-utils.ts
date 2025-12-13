@@ -4,6 +4,67 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import type { Session } from 'next-auth';
 
+export type ApiErrorCode =
+    | 'UNAUTHORIZED'
+    | 'VALIDATION_ERROR'
+    | 'FORBIDDEN_PLAN'
+    | 'RATE_LIMIT_EXCEEDED'
+    | 'GEMINI_API_KEY_NOT_FOUND'
+    | 'UPSTREAM_ERROR'
+    | 'INTERNAL_ERROR';
+
+export type ApiErrorBody = {
+    error: string;
+    code?: ApiErrorCode | string;
+    details?: any;
+    requestId?: string;
+    [key: string]: any;
+};
+
+export function createRequestId(): string {
+    try {
+        // Node 18+ / modern runtimes
+        if (typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto) {
+            return (globalThis.crypto as any).randomUUID();
+        }
+    } catch {
+        // ignore
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+/**
+ * Create a JSON error response with consistent format (code + requestId + optional details/extra fields).
+ * Prefer this over ad-hoc NextResponse.json({ error }) for user-facing APIs.
+ */
+export function jsonError(input: {
+    message: string;
+    status: number;
+    code?: ApiErrorCode | string;
+    details?: any;
+    requestId?: string;
+    headers?: Record<string, string>;
+    extra?: Record<string, any>;
+}): NextResponse {
+    const requestId = input.requestId || createRequestId();
+    const body: ApiErrorBody = {
+        error: input.message,
+        code: input.code,
+        requestId,
+        ...(input.extra || {}),
+    };
+    if (typeof input.details !== 'undefined') {
+        body.details = input.details;
+    }
+
+    const headers: Record<string, string> = {
+        'X-Request-Id': requestId,
+        ...(input.headers || {}),
+    };
+
+    return NextResponse.json(body, { status: input.status, headers });
+}
+
 /**
  * API Utilities for common patterns across route handlers
  *
@@ -35,7 +96,11 @@ export async function requireAuth(): Promise<AuthResult | AuthError> {
     if (!session?.user?.id) {
         return {
             session: null,
-            errorResponse: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+            errorResponse: jsonError({
+                message: 'Unauthorized',
+                status: 401,
+                code: 'UNAUTHORIZED',
+            }),
         };
     }
 
@@ -60,10 +125,11 @@ export async function requireAdmin(
     if (user?.role !== 'ADMIN') {
         return {
             isAdmin: false,
-            errorResponse: NextResponse.json(
-                { error: 'Forbidden: Admin access required' },
-                { status: 403 }
-            ),
+            errorResponse: jsonError({
+                message: 'Forbidden: Admin access required',
+                status: 403,
+                code: 'FORBIDDEN_PLAN',
+            }),
         };
     }
 
@@ -78,24 +144,23 @@ export function handleSubscriptionLimitError(error: Error): NextResponse {
 
     // Feature not allowed in plan
     if (message.includes('not available in current plan')) {
-        return NextResponse.json({ error: message }, { status: 403 });
+        return jsonError({ message, status: 403, code: 'FORBIDDEN_PLAN' });
     }
 
     // Monthly limit exceeded
     if (message.includes('Monthly request limit exceeded')) {
-        return NextResponse.json(
-            { error: message },
-            {
-                status: 429,
-                headers: {
-                    'Retry-After': '86400', // 24 hours
-                },
-            }
-        );
+        return jsonError({
+            message,
+            status: 429,
+            code: 'RATE_LIMIT_EXCEEDED',
+            headers: {
+                'Retry-After': '86400', // 24 hours
+            },
+        });
     }
 
     // Generic subscription error
-    return NextResponse.json({ error: message }, { status: 403 });
+    return jsonError({ message, status: 403, code: 'FORBIDDEN_PLAN' });
 }
 
 /**
