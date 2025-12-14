@@ -20,7 +20,11 @@ vi.mock('@/lib/subscription', () => ({
 // Mock safeErrorForLog
 vi.mock('@/lib/utils', () => ({
   ...vi.importActual('@/lib/utils'),
-  safeErrorForLog: (err: any) => err,
+  safeErrorForLog: (err: any) => ({
+    name: err?.name,
+    code: err?.code,
+    message: err?.message || String(err)
+  }),
 }));
 
 describe('authOptions.events.createUser', () => {

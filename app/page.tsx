@@ -363,11 +363,26 @@ export default function Home() {
     // Cleanup all blob URLs on unmount
     useEffect(() => {
         return () => {
-            blobUrlsRef.current.forEach(url => {
-                URL.revokeObjectURL(url);
-            });
-            blobUrlsRef.current.clear();
+            cleanupBlobUrls();
         };
+    }, []);
+
+    // Handle browser back/forward navigation
+    useEffect(() => {
+        const handlePopState = () => {
+            const params = new URLSearchParams(window.location.search);
+            const urlId = params.get(CONVERSATION_PARAM);
+            // If URL changed and it's different from current, reload
+            if (urlId && urlId !== currentConversationIdRef.current) {
+                loadConversation(urlId);
+            } else if (!urlId && currentConversationIdRef.current) {
+                // If URL cleared (e.g. back to root), maybe start new or handle appropriately
+                startNewConversation();
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
     // Auto-scroll to bottom on new messages
@@ -392,16 +407,19 @@ export default function Home() {
 
                     // Check for restoration target
                     if (!currentConversationIdRef.current) {
+                        // Priority: 1. URL param > 2. LocalStorage > 3. Latest conversation
+
                         // 1. Check URL param
                         const urlParams = new URLSearchParams(window.location.search);
                         const urlId = urlParams.get(CONVERSATION_PARAM);
 
                         // 2. Check LocalStorage
-                        const storageId = localStorage.getItem('lastActiveConversationId');
+                        const storageId = typeof window !== 'undefined' ? localStorage.getItem('lastActiveConversationId') : null;
 
                         const targetId = urlId || storageId;
 
                         if (targetId) {
+                            if (!isMountedRef.current) return;
                             if (fetchedConversations.some((c: any) => c.id === targetId)) {
                                 loadConversation(targetId);
                             } else {
@@ -756,7 +774,17 @@ export default function Home() {
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete(CONVERSATION_PARAM);
         window.history.replaceState(window.history.state, '', newUrl);
-        localStorage.removeItem('lastActiveConversationId');
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActiveConversationId');
+        }
+    };
+
+    /**
+     * Helper to clean up blob URLs
+     */
+    const cleanupBlobUrls = () => {
+        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+        blobUrlsRef.current.clear();
     };
 
     /**
@@ -772,8 +800,7 @@ export default function Home() {
         currentConversationIdRef.current = conversationId;
 
         // Clean up previous blob URLs to prevent memory leaks upon switching conversations
-        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
-        blobUrlsRef.current.clear();
+        cleanupBlobUrls();
 
         try {
             const response = await authedFetch(`/api/conversations/${conversationId}`);
@@ -799,7 +826,9 @@ export default function Home() {
                 window.history.replaceState(window.history.state, '', newUrl);
 
                 // Safe to set localStorage as we verified we are still on the target conversation
-                localStorage.setItem('lastActiveConversationId', conversation.id);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('lastActiveConversationId', conversation.id);
+                }
 
                 // Set mode from conversation if available
                 if (conversation.mode) {
@@ -858,8 +887,7 @@ export default function Home() {
      */
     const startNewConversation = () => {
         // Clean up blob URLs to prevent memory leaks
-        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
-        blobUrlsRef.current.clear();
+        cleanupBlobUrls();
 
         // Clear persistence
         clearConversationPersistence();
