@@ -393,10 +393,7 @@ export default function Home() {
                                 // Target ID not found in user's conversations (invalid or deleted)
                                 // Clean up invalid state
                                 console.warn(`Conversation ${targetId} not found, clearing persistence`);
-                                const newUrl = new URL(window.location.href);
-                                newUrl.searchParams.delete('c');
-                                window.history.replaceState({}, '', newUrl);
-                                localStorage.removeItem('lastActiveConversationId');
+                                clearConversationPersistence();
 
                                 // Fallback to latest if available
                                 if (fetchedConversations.length > 0) {
@@ -732,16 +729,26 @@ export default function Home() {
         }
     };
 
-    const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+    const isLoadingConversationRef = useRef(false);
+
+    /**
+     * Helper to clear conversation persistence state
+     */
+    const clearConversationPersistence = () => {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('c');
+        window.history.replaceState(window.history.state, '', newUrl);
+        localStorage.removeItem('lastActiveConversationId');
+    };
 
     /**
      * Load a conversation and display its messages
      */
     const loadConversation = async (conversationId: string) => {
         if (!session?.user) return;
-        if (isLoadingConversation) return;
+        if (isLoadingConversationRef.current) return;
 
-        setIsLoadingConversation(true);
+        isLoadingConversationRef.current = true;
         // Optimistically set current ref to track user intent and prevent race conditions
         currentConversationIdRef.current = conversationId;
 
@@ -807,7 +814,7 @@ export default function Home() {
                 setIsSidebarOpen(false); // Close sidebar on mobile
             }
         } finally {
-            setIsLoadingConversation(false);
+            isLoadingConversationRef.current = false;
         }
     };
 
@@ -815,11 +822,12 @@ export default function Home() {
      * Start a new conversation
      */
     const startNewConversation = () => {
+        // Clean up blob URLs to prevent memory leaks
+        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+        blobUrlsRef.current.clear();
+
         // Clear persistence
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('c');
-        window.history.replaceState({}, '', newUrl);
-        localStorage.removeItem('lastActiveConversationId');
+        clearConversationPersistence();
 
         // Reset to initial state
         const config = getInfluencerConfig(selectedInfluencer);
