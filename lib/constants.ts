@@ -162,12 +162,9 @@ const DJ_SHACHO_CONFIG: InfluencerConfig = {
     temperature: 0.9,
 };
 
-
-
 // All available influencers
 export const INFLUENCERS: Record<Exclude<InfluencerId, 'none'>, InfluencerConfig> = {
     dj_shacho: DJ_SHACHO_CONFIG,
-
 };
 
 // Get influencer config by ID
