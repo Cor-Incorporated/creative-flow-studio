@@ -46,6 +46,8 @@ prisma/migrations/*_migration/
 # Testing
 coverage
 .nyc_output
+playwright-report/
+test-results/
 
 # Editor directories and files
 .vscode/*

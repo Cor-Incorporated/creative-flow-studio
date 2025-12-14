@@ -97,3 +97,4 @@ gcloud logging read \
 - **（E2E）**: Playwright で「トップ表示 → サインイン開始 → callback成功」までの最小E2Eを追加（Cookie/Host系の回帰に強い）
 
 
+

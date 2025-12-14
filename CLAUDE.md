@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-BulnaAI is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features an Influencer Mode that allows selecting different AI personas (DJ Shacho, HIKAKIN風, etc.) to customize text responses.
+BulnaAI is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It supports text generation (chat, pro mode with thinking, search-grounded), image generation/editing (Imagen 4.0), video generation (Veo 3.1), and multimodal interactions. The app features an Influencer Mode that allows selecting different AI personas (DJ Shacho, etc.) to customize text responses.
 
 ## Branch Strategy
 
@@ -32,7 +32,7 @@ BulnaAI is a multimodal AI SaaS application that integrates multiple Google Gemi
 | Shared API Utilities                                         | ✅      | 14    |
 | Validators                                                   | ✅      | 9     |
 | Landing Page & Auth UX (Toast notifications)                 | ✅      | -     |
-| Influencer Mode (DJ Shacho, HIKAKIN風)                       | ✅      | -     |
+| Influencer Mode (DJ Shacho)                            | ✅      | -     |
 | Chat Sidebar (New chat, History, Delete)                     | ✅      | -     |
 | Password Visibility Toggle                                   | ✅      | -     |
 | Mobile Responsive Design                                     | ✅      | -     |
@@ -276,7 +276,7 @@ Selectable AI persona mode that applies different influencer speaking styles.
 | ID          | Name      | Description                              |
 |-------------|-----------|------------------------------------------|
 | `dj_shacho` | DJ社長    | Repezen Foxx leader, 九州弁, high-energy |
-| `hikakin`   | HIKAKIN風 | Top YouTuber style, friendly, polite     |
+
 | `none`      | OFF       | Default AI assistant                     |
 
 **Implementation:**
@@ -357,7 +357,7 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
 - Refactored DJ Shacho Mode to Influencer Mode
   - New `INFLUENCERS` config object in `lib/constants.ts`
   - Dropdown selector instead of toggle
-  - Added HIKAKIN風 persona as additional option
+
   - Updated ChatInput, ChatMessage, and page.tsx components
 - Added Admin Dashboard documentation (`docs/admin-dashboard.md`)
 - Updated CLAUDE.md with new features

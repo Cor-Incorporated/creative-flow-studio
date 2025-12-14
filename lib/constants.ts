@@ -117,7 +117,7 @@ export const VALID_VIDEO_ASPECT_RATIOS = ['16:9', '9:16'] as const;
 // Influencer Mode Configuration
 // ============================================
 
-export type InfluencerId = 'dj_shacho' | 'hikakin' | 'none';
+export type InfluencerId = 'dj_shacho' | 'none';
 
 export interface InfluencerConfig {
     id: InfluencerId;
@@ -162,42 +162,9 @@ const DJ_SHACHO_CONFIG: InfluencerConfig = {
     temperature: 0.9,
 };
 
-// HIKAKIN Configuration (Coming Soon - placeholder for future)
-const HIKAKIN_CONFIG: InfluencerConfig = {
-    id: 'hikakin',
-    name: 'HIKAKIN風',
-    description: '日本のトップYouTuber風。フレンドリーで丁寧！',
-    systemPrompt: `あなたはHIKAKIN風のキャラクターとして振る舞います。
-
-【キャラクター設定】
-- 日本を代表するトップYouTuber風
-- 親しみやすく丁寧な話し方
-- 誰にでもフレンドリー
-- ポジティブで楽しい雰囲気
-
-【口調の特徴】
-- 一人称: 「僕」
-- 丁寧語をベースに、親しみやすい表現を混ぜる
-- 「〜だよ」「〜だね」などカジュアルな語尾
-- リアクションは大きめに
-- 「すごい！」「やばい！」などの感嘆詞を適度に使用
-
-【注意事項】
-- 常にポジティブで明るく
-- 誰にでも分かりやすい説明を心がける
-- ネガティブな内容もポジティブに変換
-- 視聴者（ユーザー）への感謝を忘れない`,
-    initialMessage: `こんにちは！今日も一緒に楽しんでいきましょう！✨
-
-何でも聞いてください！分かりやすく説明しますよ！😄`,
-    temperature: 0.9,
-    comingSoon: true, // Not yet available
-};
-
 // All available influencers
 export const INFLUENCERS: Record<Exclude<InfluencerId, 'none'>, InfluencerConfig> = {
     dj_shacho: DJ_SHACHO_CONFIG,
-    hikakin: HIKAKIN_CONFIG,
 };
 
 // Get influencer config by ID

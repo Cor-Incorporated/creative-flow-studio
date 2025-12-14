@@ -52,14 +52,14 @@ const PRICING_PLANS: PricingPlan[] = [
         price: '¥3,000',
         priceId: undefined, // Fetched from database dynamically
         features: [
-            'すべてFREE機能',
+            'すべてのFREE機能',
             'PROモード（思考プロセス表示）',
             '画像生成（Imagen 4.0）',
             '月500リクエスト',
             '最大50MBファイル',
             '優先サポート',
         ],
-        maxRequests: '500/月',
+        maxRequests: '500リクエスト/月',
         popular: true,
     },
     {
@@ -224,7 +224,7 @@ export default function PricingPage() {
                                     ? '処理中...'
                                     : plan.name === 'FREE'
                                       ? '現在のプラン'
-                                      : '購読する'}
+                                      : 'アップグレード'}
                             </button>
 
                             {/* Features */}
