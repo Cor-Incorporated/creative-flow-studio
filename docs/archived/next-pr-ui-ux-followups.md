@@ -95,3 +95,4 @@
 - Cloud Run + custom domain では canonical host が重要（`docs/handoff-2025-12-13-auth-redirect-incident.md`）。
 
 
+
