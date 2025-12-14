@@ -1,13 +1,13 @@
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { Role } from '@prisma/client';
+import { createHash } from 'crypto';
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
-import { prisma } from './prisma';
-import { comparePassword, hashPassword, needsRehash } from './password';
 import { MAX_PASSWORD_LENGTH, MIN_AUTH_RESPONSE_TIME_MS, MIN_PASSWORD_LENGTH } from './constants';
+import { comparePassword, hashPassword, needsRehash } from './password';
+import { prisma } from './prisma';
 import { createDefaultFreeSubscriptionWithClient } from './subscription';
-import { createHash } from 'crypto';
 
 function isBuildTime(): boolean {
     // Next.js sets NEXT_PHASE during build (e.g. "phase-production-build").
@@ -30,6 +30,14 @@ function requireEnv(name: string): string {
 const GOOGLE_CLIENT_ID = requireEnv('GOOGLE_CLIENT_ID');
 const GOOGLE_CLIENT_SECRET = requireEnv('GOOGLE_CLIENT_SECRET');
 const NEXTAUTH_SECRET = requireEnv('NEXTAUTH_SECRET');
+
+// Declare extended type for the user object passed to createUser event
+type NextAuthUser = {
+    id: string;
+    email: string;
+    name?: string | null;
+    image?: string | null;
+};
 
 function emailLogId(email: string): string {
     // Non-reversible identifier for logs to avoid storing PII.
@@ -350,52 +358,10 @@ export const authOptions: NextAuthOptions = {
             }
 
             // For Google OAuth: Create default FREE subscription if user is new
-            if (account?.provider === 'google' && user?.id) {
-                // If a subscription already exists, don't block sign-in due to subscription init.
-                // (This also avoids unnecessary writes and reduces risk of transient failures.)
-                try {
-                    const existing = await prisma.subscription.findUnique({
-                        where: { userId: user.id },
-                        select: { id: true },
-                    });
-                    if (existing) {
-                        return true;
-                    }
-                } catch (error) {
-                    console.error('Failed to check existing subscription during Google sign-in', {
-                        userId: user.id,
-                        error: safeErrorForLog(error),
-                    });
-                }
+            // NOTE: We used to do this here, but it caused race conditions (SubscriptionInitFailed)
+            // because the user record might not be committed yet when we try to create the subscription.
+            // We now handle this in the `createUser` event below.
 
-                try {
-                    await prisma.$transaction(async tx => {
-                        await createDefaultFreeSubscriptionWithClient(user.id, tx);
-                    });
-                } catch (error: any) {
-                    // Another concurrent request might have created the subscription first.
-                    if (error?.code === 'P2002') {
-                        return true;
-                    }
-                    console.error('Failed to create default subscription for Google OAuth user', {
-                        userId: user.id,
-                        error: safeErrorForLog(error),
-                    });
-                    // If we cannot ensure a subscription exists, fail sign-in with a user-friendly error.
-                    try {
-                        const existing = await prisma.subscription.findUnique({
-                            where: { userId: user.id },
-                            select: { id: true },
-                        });
-                        if (existing) {
-                            return true;
-                        }
-                    } catch {
-                        // ignore secondary errors
-                    }
-                    return '/auth/error?error=SubscriptionInitFailed';
-                }
-            }
             return true;
         },
         async jwt({ token, user }) {
@@ -417,6 +383,31 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).role = token.role as Role;
             }
             return session;
+        },
+    },
+    events: {
+        async createUser({ user }: { user: NextAuthUser }) {
+            // Create default subscription immediately after user creation.
+            // This is safer than the signIn callback as we are guaranteed the user exists.
+            try {
+                if (!user.id) {
+                    console.warn('[auth][events] createUser called without user.id');
+                    return;
+                }
+                await prisma.$transaction(async tx => {
+                    await createDefaultFreeSubscriptionWithClient(user.id, tx);
+                });
+                console.info('[auth][events] Created default subscription for new user', {
+                    userId: user.id,
+                });
+            } catch (error) {
+                console.error('[auth][events] Failed to create default subscription', {
+                    userId: user.id,
+                    error: safeErrorForLog(error),
+                });
+                // We don't throw here to avoid crashing the auth flow, but this renders the user
+                // without a subscription. They might hit errors later, but at least they can login.
+            }
         },
     },
     debug: process.env.NODE_ENV === 'development' || process.env.NEXTAUTH_DEBUG === 'true',

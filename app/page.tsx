@@ -329,12 +329,12 @@ export default function Home() {
             const file =
                 normalizeFileResourceName(
                     videoRecord?.name ||
-                        videoRecord?.file ||
-                        firstEntry?.file ||
-                        firstEntry?.name ||
-                        videoRecord?.uri ||
-                        firstEntry?.uri ||
-                        null
+                    videoRecord?.file ||
+                    firstEntry?.file ||
+                    firstEntry?.name ||
+                    videoRecord?.uri ||
+                    firstEntry?.uri ||
+                    null
                 ) || null;
             const mimeType = videoRecord?.mimeType || firstEntry?.mimeType || undefined;
 
@@ -375,8 +375,23 @@ export default function Home() {
                     const fetchedConversations = data.conversations || [];
                     setConversations(fetchedConversations);
 
-                    if (fetchedConversations.length > 0 && !currentConversationIdRef.current) {
-                        loadConversation(fetchedConversations[0].id);
+                    // Check for restoration target
+                    if (!currentConversationIdRef.current) {
+                        // 1. Check URL param
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const urlId = urlParams.get('c');
+
+                        // 2. Check LocalStorage
+                        const storageId = localStorage.getItem('lastActiveConversationId');
+
+                        const targetId = urlId || storageId;
+
+                        if (targetId && fetchedConversations.some((c: any) => c.id === targetId)) {
+                            loadConversation(targetId);
+                        } else if (fetchedConversations.length > 0) {
+                            // 3. Fallback to latest
+                            loadConversation(fetchedConversations[0].id);
+                        }
                     }
                 }
             } catch (error) {
@@ -718,6 +733,12 @@ export default function Home() {
                 setCurrentConversationId(conversation.id);
                 currentConversationIdRef.current = conversation.id;
 
+                // Persist to URL and LocalStorage
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.set('c', conversation.id);
+                window.history.pushState({}, '', newUrl);
+                localStorage.setItem('lastActiveConversationId', conversation.id);
+
                 // Set mode from conversation if available
                 if (conversation.mode) {
                     const modeMap: Record<string, GenerationMode> = {
@@ -764,6 +785,12 @@ export default function Home() {
      * Start a new conversation
      */
     const startNewConversation = () => {
+        // Clear persistence
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('c');
+        window.history.pushState({}, '', newUrl);
+        localStorage.removeItem('lastActiveConversationId');
+
         // Reset to initial state
         const config = getInfluencerConfig(selectedInfluencer);
         const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
@@ -829,9 +856,9 @@ export default function Home() {
                     prev.map(m =>
                         m.id === messageId
                             ? {
-                                  ...m,
-                                  parts: [{ isError: true, text: timeoutError }],
-                              }
+                                ...m,
+                                parts: [{ isError: true, text: timeoutError }],
+                            }
                             : m
                     )
                 );
@@ -871,14 +898,14 @@ export default function Home() {
                     prev.map(m =>
                         m.id === messageId
                             ? {
-                                  ...m,
-                                  parts: [
-                                      {
-                                          isLoading: true,
-                                          status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)`,
-                                      },
-                                  ],
-                              }
+                                ...m,
+                                parts: [
+                                    {
+                                        isLoading: true,
+                                        status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)`,
+                                    },
+                                ],
+                            }
                             : m
                     )
                 );
@@ -897,9 +924,9 @@ export default function Home() {
                             prev.map(m =>
                                 m.id === messageId
                                     ? {
-                                          ...m,
-                                          parts: [{ isError: true, text: formattedError }],
-                                      }
+                                        ...m,
+                                        parts: [{ isError: true, text: formattedError }],
+                                    }
                                     : m
                             )
                         );
@@ -955,9 +982,9 @@ export default function Home() {
                             prev.map(m =>
                                 m.id === messageId
                                     ? {
-                                          ...m,
-                                          parts: videoParts,
-                                      }
+                                        ...m,
+                                        parts: videoParts,
+                                    }
                                     : m
                             )
                         );
@@ -966,8 +993,7 @@ export default function Home() {
                         return videoParts;
                     } catch (downloadError: any) {
                         const formattedError = await formatErrorMessage(
-                            `ビデオ生成エラー: ${
-                                downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
+                            `ビデオ生成エラー: ${downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
                             }`
                         );
                         setMessages(prev =>
@@ -1077,9 +1103,9 @@ export default function Home() {
                     prev.map(m =>
                         m.id === loadingMessageId
                             ? {
-                                  ...m,
-                                  parts: imageParts,
-                              }
+                                ...m,
+                                parts: imageParts,
+                            }
                             : m
                     )
                 );
@@ -1126,11 +1152,11 @@ export default function Home() {
                     prev.map(m =>
                         m.id === loadingMessageId
                             ? {
-                                  ...m,
-                                  parts: [
-                                      { isLoading: true, status: 'ビデオ生成を開始しました...' },
-                                  ],
-                              }
+                                ...m,
+                                parts: [
+                                    { isLoading: true, status: 'ビデオ生成を開始しました...' },
+                                ],
+                            }
                             : m
                     )
                 );
@@ -1157,14 +1183,26 @@ export default function Home() {
                             .filter(p => p.text || p.media)
                             .map(p => {
                                 if (p.text) return { text: p.text };
-                                if (p.media && p.media.type === 'image') {
-                                    return {
-                                        media: {
-                                            url: p.media.url,
-                                            mimeType: p.media.mimeType,
-                                            type: 'image',
-                                        },
-                                    };
+                                if (p.media) {
+                                    // Handle both image and video media types for history
+                                    if (p.media.type === 'image') {
+                                        return {
+                                            media: {
+                                                url: p.media.url,
+                                                mimeType: p.media.mimeType,
+                                                type: 'image',
+                                            },
+                                        };
+                                    }
+                                    if (p.media.type === 'video') {
+                                        return {
+                                            media: {
+                                                url: p.media.url,
+                                                mimeType: p.media.mimeType,
+                                                type: 'video',
+                                            },
+                                        };
+                                    }
                                 }
                                 return null;
                             })
@@ -1306,17 +1344,17 @@ export default function Home() {
                 prev.map(m =>
                     m.id === loadingMessageId
                         ? {
-                              ...m,
-                              parts: [
-                                  {
-                                      media: {
-                                          type: 'image',
-                                          url: data.imageUrl,
-                                          mimeType: 'image/png',
-                                      },
-                                  },
-                              ],
-                          }
+                            ...m,
+                            parts: [
+                                {
+                                    media: {
+                                        type: 'image',
+                                        url: data.imageUrl,
+                                        mimeType: 'image/png',
+                                    },
+                                },
+                            ],
+                        }
                         : m
                 )
             );
@@ -1347,9 +1385,8 @@ export default function Home() {
         <div className="flex h-screen bg-gray-900 text-white">
             {/* Sidebar */}
             <div
-                className={`${
-                    isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                } fixed md:relative md:translate-x-0 w-72 md:w-64 h-full bg-gray-800 border-r border-gray-700 transition-transform duration-300 z-50 flex flex-col safe-area-top`}
+                className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                    } fixed md:relative md:translate-x-0 w-72 md:w-64 h-full bg-gray-800 border-r border-gray-700 transition-transform duration-300 z-50 flex flex-col safe-area-top`}
             >
                 {/* Sidebar Header */}
                 <div className="p-4 border-b border-gray-700">
@@ -1381,11 +1418,10 @@ export default function Home() {
                                 <div
                                     key={conv.id}
                                     onClick={() => loadConversation(conv.id)}
-                                    className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors min-h-[56px] active:scale-[0.98] ${
-                                        conv.id === currentConversationId
-                                            ? 'bg-gray-700'
-                                            : 'hover:bg-gray-700/50 active:bg-gray-700'
-                                    }`}
+                                    className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors min-h-[56px] active:scale-[0.98] ${conv.id === currentConversationId
+                                        ? 'bg-gray-700'
+                                        : 'hover:bg-gray-700/50 active:bg-gray-700'
+                                        }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex-1 min-w-0">
