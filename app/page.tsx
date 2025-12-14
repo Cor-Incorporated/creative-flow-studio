@@ -17,6 +17,8 @@ import { AspectRatio, ContentPart, GenerationMode, Media, Message } from '@/type
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 
+const CONVERSATION_PARAM = 'c';
+
 export default function Home() {
     const { data: session, status } = useSession();
     const [messages, setMessages] = useState<Message[]>([
@@ -55,6 +57,18 @@ export default function Home() {
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
     const { showToast, ToastContainer } = useToast();
+
+    // Round 6 Fixes
+    const isMountedRef = useRef(true);
+    const loadSequenceRef = useRef(0);
+
+    // Track mount status
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     // Update ref immediately during render to avoid race conditions
     selectedInfluencerRef.current = selectedInfluencer;
@@ -372,6 +386,7 @@ export default function Home() {
                 });
                 if (response.ok) {
                     const data = await response.json();
+                    if (!isMountedRef.current) return;
                     const fetchedConversations = data.conversations || [];
                     setConversations(fetchedConversations);
 
@@ -379,7 +394,7 @@ export default function Home() {
                     if (!currentConversationIdRef.current) {
                         // 1. Check URL param
                         const urlParams = new URLSearchParams(window.location.search);
-                        const urlId = urlParams.get('c');
+                        const urlId = urlParams.get(CONVERSATION_PARAM);
 
                         // 2. Check LocalStorage
                         const storageId = localStorage.getItem('lastActiveConversationId');
@@ -729,14 +744,17 @@ export default function Home() {
         }
     };
 
-    const isLoadingConversationRef = useRef(false);
 
+
+    /**
+     * Helper to clear conversation persistence state
+     */
     /**
      * Helper to clear conversation persistence state
      */
     const clearConversationPersistence = () => {
         const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('c');
+        newUrl.searchParams.delete(CONVERSATION_PARAM);
         window.history.replaceState(window.history.state, '', newUrl);
         localStorage.removeItem('lastActiveConversationId');
     };
@@ -746,24 +764,26 @@ export default function Home() {
      */
     const loadConversation = async (conversationId: string) => {
         if (!session?.user) return;
-        if (isLoadingConversationRef.current) return;
 
-        isLoadingConversationRef.current = true;
+        // Monotonic sequence check to handle race conditions (last write wins)
+        const thisLoadSeq = ++loadSequenceRef.current;
+
+        // Optimistically set current ref to track user intent
+        currentConversationIdRef.current = conversationId;
 
         // Clean up previous blob URLs to prevent memory leaks upon switching conversations
         blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
         blobUrlsRef.current.clear();
 
-        // Optimistically set current ref to track user intent and prevent race conditions
-        currentConversationIdRef.current = conversationId;
-
         try {
             const response = await authedFetch(`/api/conversations/${conversationId}`);
 
-            // Race condition check: did the user switch conversations while fetching?
-            if (currentConversationIdRef.current !== conversationId) {
+            // Race condition check: check sequence number
+            if (loadSequenceRef.current !== thisLoadSeq) {
                 return;
             }
+            // Also check unmount
+            if (!isMountedRef.current) return;
 
             if (response.ok) {
                 const data = await response.json();
@@ -774,7 +794,7 @@ export default function Home() {
 
                 // Persist to URL and LocalStorage
                 const newUrl = new URL(window.location.href);
-                newUrl.searchParams.set('c', conversation.id);
+                newUrl.searchParams.set(CONVERSATION_PARAM, conversation.id);
                 // Preserve existing state object to avoid breaking router history
                 window.history.replaceState(window.history.state, '', newUrl);
 
@@ -817,9 +837,19 @@ export default function Home() {
                 }
 
                 setIsSidebarOpen(false); // Close sidebar on mobile
+            } else {
+                throw new Error('Failed to load conversation');
             }
-        } finally {
-            isLoadingConversationRef.current = false;
+        } catch (error) {
+            console.error('Error loading conversation:', error);
+            // Only show toast if it's the latest request
+            if (loadSequenceRef.current === thisLoadSeq && isMountedRef.current) {
+                showToast({
+                    type: 'error',
+                    message: '会話の読み込みに失敗しました',
+                });
+                // Optionally clear invalid state if it was a 404 (implied by API behavior but generic error here)
+            }
         }
     };
 
@@ -909,6 +939,10 @@ export default function Home() {
             }
 
             await new Promise(resolve => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
+
+            // Check if unmounted
+            if (!isMountedRef.current) return null;
+
             pollAttempts++;
 
             try {
