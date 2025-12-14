@@ -155,17 +155,12 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     const hashedPassword = await hashPassword(password);
-                    const user = await prisma.$transaction(async tx => {
-                        const created = await tx.user.create({
-                            data: {
-                                email,
-                                password: hashedPassword,
-                                name: sanitizeDisplayName(name, email),
-                            },
-                        });
-
-                        await createDefaultFreeSubscriptionWithClient(created.id, tx);
-                        return created;
+                    const user = await prisma.user.create({
+                        data: {
+                            email,
+                            password: hashedPassword,
+                            name: sanitizeDisplayName(name, email),
+                        },
                     });
 
                     console.info('[auth][credentials] register success', { emailId, userId: user.id });

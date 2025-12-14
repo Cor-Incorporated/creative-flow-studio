@@ -386,8 +386,23 @@ export default function Home() {
 
                         const targetId = urlId || storageId;
 
-                        if (targetId && fetchedConversations.some((c: any) => c.id === targetId)) {
-                            loadConversation(targetId);
+                        if (targetId) {
+                            if (fetchedConversations.some((c: any) => c.id === targetId)) {
+                                loadConversation(targetId);
+                            } else {
+                                // Target ID not found in user's conversations (invalid or deleted)
+                                // Clean up invalid state
+                                console.warn(`Conversation ${targetId} not found, clearing persistence`);
+                                const newUrl = new URL(window.location.href);
+                                newUrl.searchParams.delete('c');
+                                window.history.replaceState({}, '', newUrl);
+                                localStorage.removeItem('lastActiveConversationId');
+
+                                // Fallback to latest if available
+                                if (fetchedConversations.length > 0) {
+                                    loadConversation(fetchedConversations[0].id);
+                                }
+                            }
                         } else if (fetchedConversations.length > 0) {
                             // 3. Fallback to latest
                             loadConversation(fetchedConversations[0].id);
@@ -736,8 +751,12 @@ export default function Home() {
                 // Persist to URL and LocalStorage
                 const newUrl = new URL(window.location.href);
                 newUrl.searchParams.set('c', conversation.id);
-                window.history.pushState({}, '', newUrl);
-                localStorage.setItem('lastActiveConversationId', conversation.id);
+                window.history.replaceState({}, '', newUrl);
+
+                // Guard against race conditions: ensure we are still on the same conversation
+                if (currentConversationIdRef.current === conversation.id) {
+                    localStorage.setItem('lastActiveConversationId', conversation.id);
+                }
 
                 // Set mode from conversation if available
                 if (conversation.mode) {
@@ -788,7 +807,7 @@ export default function Home() {
         // Clear persistence
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('c');
-        window.history.pushState({}, '', newUrl);
+        window.history.replaceState({}, '', newUrl);
         localStorage.removeItem('lastActiveConversationId');
 
         // Reset to initial state
@@ -993,8 +1012,7 @@ export default function Home() {
                         return videoParts;
                     } catch (downloadError: any) {
                         const formattedError = await formatErrorMessage(
-                            `ビデオ生成エラー: ${downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
-                            }`
+                            `ビデオ生成エラー: ${downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED}`
                         );
                         setMessages(prev =>
                             prev.map(m =>
