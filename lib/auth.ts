@@ -388,7 +388,8 @@ export const authOptions: NextAuthOptions = {
     events: {
         async createUser({ user }: { user: NextAuthUser }) {
             // Create default subscription immediately after user creation (mostly for OAuth).
-            // This is safer than the signIn callback as we are guaranteed the user exists.
+            // NOTE: This event only fires for adapter-based auth (Google OAuth), not CredentialsProvider.
+            // CredentialsProvider handles subscription creation atomically in the `authorize` callback.
             try {
                 if (!user.id) {
                     console.warn('[auth][events] createUser called without user.id');

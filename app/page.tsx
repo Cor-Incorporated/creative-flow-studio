@@ -732,12 +732,16 @@ export default function Home() {
         }
     };
 
+    const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+
     /**
      * Load a conversation and display its messages
      */
     const loadConversation = async (conversationId: string) => {
         if (!session?.user) return;
+        if (isLoadingConversation) return;
 
+        setIsLoadingConversation(true);
         // Optimistically set current ref to track user intent and prevent race conditions
         currentConversationIdRef.current = conversationId;
 
@@ -759,7 +763,8 @@ export default function Home() {
                 // Persist to URL and LocalStorage
                 const newUrl = new URL(window.location.href);
                 newUrl.searchParams.set('c', conversation.id);
-                window.history.replaceState({}, '', newUrl);
+                // Preserve existing state object to avoid breaking router history
+                window.history.replaceState(window.history.state, '', newUrl);
 
                 // Safe to set localStorage as we verified we are still on the target conversation
                 localStorage.setItem('lastActiveConversationId', conversation.id);
@@ -801,8 +806,8 @@ export default function Home() {
 
                 setIsSidebarOpen(false); // Close sidebar on mobile
             }
-        } catch (error) {
-            console.error('Error loading conversation:', error);
+        } finally {
+            setIsLoadingConversation(false);
         }
     };
 
