@@ -749,6 +749,11 @@ export default function Home() {
         if (isLoadingConversationRef.current) return;
 
         isLoadingConversationRef.current = true;
+
+        // Clean up previous blob URLs to prevent memory leaks upon switching conversations
+        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+        blobUrlsRef.current.clear();
+
         // Optimistically set current ref to track user intent and prevent race conditions
         currentConversationIdRef.current = conversationId;
 

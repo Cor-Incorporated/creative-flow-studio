@@ -8,6 +8,7 @@ import { MAX_PASSWORD_LENGTH, MIN_AUTH_RESPONSE_TIME_MS, MIN_PASSWORD_LENGTH } f
 import { comparePassword, hashPassword, needsRehash } from './password';
 import { prisma } from './prisma';
 import { createDefaultFreeSubscriptionWithClient } from './subscription';
+import { safeErrorForLog } from './utils';
 
 function isBuildTime(): boolean {
     // Next.js sets NEXT_PHASE during build (e.g. "phase-production-build").
@@ -63,16 +64,7 @@ async function ensureMinDelay(startMs: number, minMs: number): Promise<void> {
     }
 }
 
-function safeErrorForLog(error: any): { name?: string; code?: string; message?: string } {
-    if (!error || typeof error !== 'object') {
-        return { message: String(error) };
-    }
-    return {
-        name: (error as any).name,
-        code: (error as any).code,
-        message: (error as any).message,
-    };
-}
+
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
