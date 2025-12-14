@@ -155,12 +155,17 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     const hashedPassword = await hashPassword(password);
-                    const user = await prisma.user.create({
-                        data: {
-                            email,
-                            password: hashedPassword,
-                            name: sanitizeDisplayName(name, email),
-                        },
+                    const user = await prisma.$transaction(async tx => {
+                        const created = await tx.user.create({
+                            data: {
+                                email,
+                                password: hashedPassword,
+                                name: sanitizeDisplayName(name, email),
+                            },
+                        });
+
+                        await createDefaultFreeSubscriptionWithClient(created.id, tx);
+                        return created;
                     });
 
                     console.info('[auth][credentials] register success', { emailId, userId: user.id });
@@ -382,13 +387,23 @@ export const authOptions: NextAuthOptions = {
     },
     events: {
         async createUser({ user }: { user: NextAuthUser }) {
-            // Create default subscription immediately after user creation.
+            // Create default subscription immediately after user creation (mostly for OAuth).
             // This is safer than the signIn callback as we are guaranteed the user exists.
             try {
                 if (!user.id) {
                     console.warn('[auth][events] createUser called without user.id');
                     return;
                 }
+
+                // Idempotency check: Account might have been created via credentials with atomic subscription
+                const existing = await prisma.subscription.findUnique({
+                    where: { userId: user.id },
+                    select: { id: true },
+                });
+                if (existing) {
+                    return;
+                }
+
                 await prisma.$transaction(async tx => {
                     await createDefaultFreeSubscriptionWithClient(user.id, tx);
                 });
@@ -400,8 +415,8 @@ export const authOptions: NextAuthOptions = {
                     userId: user.id,
                     error: safeErrorForLog(error),
                 });
-                // We don't throw here to avoid crashing the auth flow, but this renders the user
-                // without a subscription. They might hit errors later, but at least they can login.
+                // Note: We swallow this error. Monitoring should alert on this log.
+                // In future, consider a retry queue mechanism if this becomes frequent.
             }
         },
     },

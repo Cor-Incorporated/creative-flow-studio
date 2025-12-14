@@ -738,25 +738,31 @@ export default function Home() {
     const loadConversation = async (conversationId: string) => {
         if (!session?.user) return;
 
+        // Optimistically set current ref to track user intent and prevent race conditions
+        currentConversationIdRef.current = conversationId;
+
         try {
             const response = await authedFetch(`/api/conversations/${conversationId}`);
+
+            // Race condition check: did the user switch conversations while fetching?
+            if (currentConversationIdRef.current !== conversationId) {
+                return;
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 const conversation = data.conversation;
 
-                // Set current conversation ID
+                // Update UI state
                 setCurrentConversationId(conversation.id);
-                currentConversationIdRef.current = conversation.id;
 
                 // Persist to URL and LocalStorage
                 const newUrl = new URL(window.location.href);
                 newUrl.searchParams.set('c', conversation.id);
                 window.history.replaceState({}, '', newUrl);
 
-                // Guard against race conditions: ensure we are still on the same conversation
-                if (currentConversationIdRef.current === conversation.id) {
-                    localStorage.setItem('lastActiveConversationId', conversation.id);
-                }
+                // Safe to set localStorage as we verified we are still on the target conversation
+                localStorage.setItem('lastActiveConversationId', conversation.id);
 
                 // Set mode from conversation if available
                 if (conversation.mode) {
