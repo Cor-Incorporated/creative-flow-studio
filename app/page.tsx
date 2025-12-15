@@ -11,6 +11,7 @@ import {
     getInfluencerConfig,
     InfluencerId,
     MAX_VIDEO_POLL_ATTEMPTS,
+    UUID_REGEX,
     VIDEO_POLL_INTERVAL_MS
 } from '@/lib/constants';
 import { AspectRatio, ContentPart, GenerationMode, Media, Message } from '@/types/app';
@@ -18,7 +19,6 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 
 const CONVERSATION_PARAM = 'c';
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function Home() {
     const { data: session, status } = useSession();
@@ -949,6 +949,9 @@ export default function Home() {
         messageId: string,
         initialOperation?: any
     ): Promise<ContentPart[] | null> => {
+        // Capture current sequence to prevent race conditions
+        const thisLoadSeq = loadSequenceRef.current;
+
         let pollAttempts = 0;
         let done = false;
         let currentOperationName = operationName;
