@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Pricing Page
@@ -45,7 +45,7 @@ const PRICING_PLANS: PricingPlan[] = [
             '最大5MBファイル',
             'コミュニティサポート',
         ],
-        maxRequests: '50/月',
+        maxRequests: '50リクエスト/月',
     },
     {
         name: 'PRO',
@@ -76,7 +76,7 @@ const PRICING_PLANS: PricingPlan[] = [
             '専任サポート',
             'SLA保証',
         ],
-        maxRequests: '3,000/月 + 動画50本',
+        maxRequests: '3,000リクエスト/月 + 動画50本',
     },
 ];
 
@@ -181,11 +181,10 @@ export default function PricingPage() {
                     {pricingPlans.map(plan => (
                         <div
                             key={plan.name}
-                            className={`relative rounded-2xl p-8 ${
-                                plan.popular
+                            className={`relative rounded-2xl p-8 ${plan.popular
                                     ? 'bg-gradient-to-br from-blue-600 to-purple-600 shadow-2xl scale-105'
                                     : 'bg-gray-800 border border-gray-700'
-                            }`}
+                                }`}
                         >
                             {/* Popular Badge */}
                             {plan.popular && (
@@ -212,19 +211,18 @@ export default function PricingPage() {
                             <button
                                 onClick={() => handleSubscribe(plan.priceId, plan.name)}
                                 disabled={isLoading === plan.name || plan.name === 'FREE'}
-                                className={`w-full py-3 rounded-lg font-semibold mb-6 transition-all ${
-                                    plan.name === 'FREE'
+                                className={`w-full py-3 rounded-lg font-semibold mb-6 transition-all ${plan.name === 'FREE'
                                         ? 'bg-gray-600 cursor-not-allowed'
                                         : plan.popular
-                                          ? 'bg-white text-blue-600 hover:bg-gray-100'
-                                          : 'bg-blue-600 hover:bg-blue-700'
-                                } ${isLoading === plan.name ? 'opacity-50 cursor-wait' : ''}`}
+                                            ? 'bg-white text-blue-600 hover:bg-gray-100'
+                                            : 'bg-blue-600 hover:bg-blue-700'
+                                    } ${isLoading === plan.name ? 'opacity-50 cursor-wait' : ''}`}
                             >
                                 {isLoading === plan.name
                                     ? '処理中...'
                                     : plan.name === 'FREE'
-                                      ? '現在のプラン'
-                                      : 'アップグレード'}
+                                        ? '現在のプラン'
+                                        : 'アップグレード'}
                             </button>
 
                             {/* Features */}
