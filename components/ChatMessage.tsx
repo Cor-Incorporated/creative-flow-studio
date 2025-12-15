@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Message, Media, GroundingSource, ContentPart } from '@/types/app';
-import { PencilIcon, DownloadIcon, LoadingSpinner } from './icons';
-import { InfluencerId, INFLUENCERS } from '@/lib/constants';
+import { getInfluencerConfig, InfluencerId } from '@/lib/constants';
+import { ContentPart, GroundingSource, Media, Message } from '@/types/app';
 import Image from 'next/image';
+import React, { useState } from 'react';
+import { DownloadIcon, LoadingSpinner, PencilIcon } from './icons';
 
 interface ChatMessageProps {
     message: Message;
@@ -171,7 +171,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             );
         }
         // Default AI avatar for other influencers or none
-        const influencer = selectedInfluencer !== 'none' ? INFLUENCERS[selectedInfluencer] : null;
+        const influencer = getInfluencerConfig(selectedInfluencer);
         return (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
                 {influencer ? influencer.name.substring(0, 2) : 'AI'}

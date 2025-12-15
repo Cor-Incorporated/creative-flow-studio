@@ -11,11 +11,14 @@ import {
     getInfluencerConfig,
     InfluencerId,
     MAX_VIDEO_POLL_ATTEMPTS,
+    UUID_REGEX,
     VIDEO_POLL_INTERVAL_MS
 } from '@/lib/constants';
 import { AspectRatio, ContentPart, GenerationMode, Media, Message } from '@/types/app';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
+
+const CONVERSATION_PARAM = 'c';
 
 export default function Home() {
     const { data: session, status } = useSession();
@@ -55,6 +58,18 @@ export default function Home() {
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
     const { showToast, ToastContainer } = useToast();
+
+    // Round 6 Fixes
+    const isMountedRef = useRef(true);
+    const loadSequenceRef = useRef(0);
+
+    // Track mount status
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     // Update ref immediately during render to avoid race conditions
     selectedInfluencerRef.current = selectedInfluencer;
@@ -329,12 +344,12 @@ export default function Home() {
             const file =
                 normalizeFileResourceName(
                     videoRecord?.name ||
-                        videoRecord?.file ||
-                        firstEntry?.file ||
-                        firstEntry?.name ||
-                        videoRecord?.uri ||
-                        firstEntry?.uri ||
-                        null
+                    videoRecord?.file ||
+                    firstEntry?.file ||
+                    firstEntry?.name ||
+                    videoRecord?.uri ||
+                    firstEntry?.uri ||
+                    null
                 ) || null;
             const mimeType = videoRecord?.mimeType || firstEntry?.mimeType || undefined;
 
@@ -349,11 +364,26 @@ export default function Home() {
     // Cleanup all blob URLs on unmount
     useEffect(() => {
         return () => {
-            blobUrlsRef.current.forEach(url => {
-                URL.revokeObjectURL(url);
-            });
-            blobUrlsRef.current.clear();
+            cleanupBlobUrls();
         };
+    }, []);
+
+    // Handle browser back/forward navigation
+    useEffect(() => {
+        const handlePopState = () => {
+            const params = new URLSearchParams(window.location.search);
+            const urlId = params.get(CONVERSATION_PARAM);
+            // If URL changed and it's different from current, reload
+            if (urlId && urlId !== currentConversationIdRef.current) {
+                loadConversation(urlId);
+            } else if (!urlId && currentConversationIdRef.current) {
+                // If URL cleared (e.g. back to root), maybe start new or handle appropriately
+                startNewConversation();
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
     // Auto-scroll to bottom on new messages
@@ -372,11 +402,49 @@ export default function Home() {
                 });
                 if (response.ok) {
                     const data = await response.json();
+                    if (!isMountedRef.current) return;
                     const fetchedConversations = data.conversations || [];
                     setConversations(fetchedConversations);
 
-                    if (fetchedConversations.length > 0 && !currentConversationIdRef.current) {
-                        loadConversation(fetchedConversations[0].id);
+                    // Check for restoration target
+                    if (!currentConversationIdRef.current) {
+                        // Priority: 1. URL param > 2. LocalStorage > 3. Latest conversation
+
+                        // 1. Check URL param
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const urlId = urlParams.get(CONVERSATION_PARAM);
+
+                        // 2. Check LocalStorage
+                        const storageId = typeof window !== 'undefined' ? localStorage.getItem('lastActiveConversationId') : null;
+
+                        const targetId = urlId || storageId;
+
+                        if (targetId) {
+                            // Validate format if it came from URL to prevent XSS/invalid checks
+                            if (urlId && !UUID_REGEX.test(urlId)) {
+                                console.warn("Invalid conversation ID format in URL");
+                                clearConversationPersistence();
+                                return;
+                            }
+
+                            if (!isMountedRef.current) return;
+                            if (fetchedConversations.some((c: any) => c.id === targetId)) {
+                                loadConversation(targetId);
+                            } else {
+                                // Target ID not found in user's conversations (invalid or deleted)
+                                // Clean up invalid state
+                                console.warn(`Conversation ${targetId} not found, clearing persistence`);
+                                clearConversationPersistence();
+
+                                // Fallback to latest if available
+                                if (fetchedConversations.length > 0) {
+                                    loadConversation(fetchedConversations[0].id);
+                                }
+                            }
+                        } else if (fetchedConversations.length > 0) {
+                            // 3. Fallback to latest
+                            loadConversation(fetchedConversations[0].id);
+                        }
                     }
                 }
             } catch (error) {
@@ -702,21 +770,70 @@ export default function Home() {
         }
     };
 
+
+
+    /**
+     * Helper to clear conversation persistence state
+     */
+    const clearConversationPersistence = () => {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete(CONVERSATION_PARAM);
+        window.history.replaceState(window.history.state, '', newUrl);
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastActiveConversationId');
+        }
+    };
+
+    /**
+     * Helper to clean up blob URLs
+     */
+    const cleanupBlobUrls = () => {
+        // Create a copy to safely iterate even if deletions occur
+        const currentBlobs = new Set(blobUrlsRef.current);
+        currentBlobs.forEach(url => URL.revokeObjectURL(url));
+        blobUrlsRef.current.clear();
+    };
+
     /**
      * Load a conversation and display its messages
      */
     const loadConversation = async (conversationId: string) => {
         if (!session?.user) return;
 
+        // Monotonic sequence check to handle race conditions (last write wins)
+        const thisLoadSeq = ++loadSequenceRef.current;
+
+        // Clean up previous blob URLs to prevent memory leaks upon switching conversations
+        cleanupBlobUrls();
+
         try {
             const response = await authedFetch(`/api/conversations/${conversationId}`);
+
+            // Race condition check: check sequence number
+            if (loadSequenceRef.current !== thisLoadSeq) {
+                return;
+            }
+            // Also check unmount
+            if (!isMountedRef.current) return;
+
             if (response.ok) {
                 const data = await response.json();
                 const conversation = data.conversation;
 
-                // Set current conversation ID
+                // Update UI state
                 setCurrentConversationId(conversation.id);
                 currentConversationIdRef.current = conversation.id;
+
+                // Persist to URL and LocalStorage
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.set(CONVERSATION_PARAM, conversation.id);
+                // Preserve existing state object to avoid breaking router history
+                window.history.replaceState(window.history.state, '', newUrl);
+
+                // Safe to set localStorage as we verified we are still on the target conversation
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('lastActiveConversationId', conversation.id);
+                }
 
                 // Set mode from conversation if available
                 if (conversation.mode) {
@@ -754,9 +871,19 @@ export default function Home() {
                 }
 
                 setIsSidebarOpen(false); // Close sidebar on mobile
+            } else {
+                throw new Error('Failed to load conversation');
             }
         } catch (error) {
             console.error('Error loading conversation:', error);
+            // Only show toast if it's the latest request
+            if (loadSequenceRef.current === thisLoadSeq && isMountedRef.current) {
+                showToast({
+                    type: 'error',
+                    message: '会話の読み込みに失敗しました',
+                });
+                // Optionally clear invalid state if it was a 404 (implied by API behavior but generic error here)
+            }
         }
     };
 
@@ -764,6 +891,12 @@ export default function Home() {
      * Start a new conversation
      */
     const startNewConversation = () => {
+        // Clean up blob URLs to prevent memory leaks
+        cleanupBlobUrls();
+
+        // Clear persistence
+        clearConversationPersistence();
+
         // Reset to initial state
         const config = getInfluencerConfig(selectedInfluencer);
         const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
@@ -816,6 +949,9 @@ export default function Home() {
         messageId: string,
         initialOperation?: any
     ): Promise<ContentPart[] | null> => {
+        // Capture current sequence to prevent race conditions
+        const thisLoadSeq = loadSequenceRef.current;
+
         let pollAttempts = 0;
         let done = false;
         let currentOperationName = operationName;
@@ -829,9 +965,9 @@ export default function Home() {
                     prev.map(m =>
                         m.id === messageId
                             ? {
-                                  ...m,
-                                  parts: [{ isError: true, text: timeoutError }],
-                              }
+                                ...m,
+                                parts: [{ isError: true, text: timeoutError }],
+                            }
                             : m
                     )
                 );
@@ -839,6 +975,10 @@ export default function Home() {
             }
 
             await new Promise(resolve => setTimeout(resolve, VIDEO_POLL_INTERVAL_MS));
+
+            // Check if unmounted
+            if (!isMountedRef.current) return null;
+
             pollAttempts++;
 
             try {
@@ -871,14 +1011,14 @@ export default function Home() {
                     prev.map(m =>
                         m.id === messageId
                             ? {
-                                  ...m,
-                                  parts: [
-                                      {
-                                          isLoading: true,
-                                          status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)`,
-                                      },
-                                  ],
-                              }
+                                ...m,
+                                parts: [
+                                    {
+                                        isLoading: true,
+                                        status: `ビデオを処理中...(${validatedProgress.toFixed(0)}%)`,
+                                    },
+                                ],
+                            }
                             : m
                     )
                 );
@@ -897,9 +1037,9 @@ export default function Home() {
                             prev.map(m =>
                                 m.id === messageId
                                     ? {
-                                          ...m,
-                                          parts: [{ isError: true, text: formattedError }],
-                                      }
+                                        ...m,
+                                        parts: [{ isError: true, text: formattedError }],
+                                    }
                                     : m
                             )
                         );
@@ -955,9 +1095,9 @@ export default function Home() {
                             prev.map(m =>
                                 m.id === messageId
                                     ? {
-                                          ...m,
-                                          parts: videoParts,
-                                      }
+                                        ...m,
+                                        parts: videoParts,
+                                    }
                                     : m
                             )
                         );
@@ -966,9 +1106,7 @@ export default function Home() {
                         return videoParts;
                     } catch (downloadError: any) {
                         const formattedError = await formatErrorMessage(
-                            `ビデオ生成エラー: ${
-                                downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
-                            }`
+                            `ビデオ生成エラー: ${downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED}`
                         );
                         setMessages(prev =>
                             prev.map(m =>
@@ -1077,9 +1215,9 @@ export default function Home() {
                     prev.map(m =>
                         m.id === loadingMessageId
                             ? {
-                                  ...m,
-                                  parts: imageParts,
-                              }
+                                ...m,
+                                parts: imageParts,
+                            }
                             : m
                     )
                 );
@@ -1126,11 +1264,11 @@ export default function Home() {
                     prev.map(m =>
                         m.id === loadingMessageId
                             ? {
-                                  ...m,
-                                  parts: [
-                                      { isLoading: true, status: 'ビデオ生成を開始しました...' },
-                                  ],
-                              }
+                                ...m,
+                                parts: [
+                                    { isLoading: true, status: 'ビデオ生成を開始しました...' },
+                                ],
+                            }
                             : m
                     )
                 );
@@ -1157,14 +1295,30 @@ export default function Home() {
                             .filter(p => p.text || p.media)
                             .map(p => {
                                 if (p.text) return { text: p.text };
-                                if (p.media && p.media.type === 'image') {
-                                    return {
-                                        media: {
-                                            url: p.media.url,
-                                            mimeType: p.media.mimeType,
-                                            type: 'image',
-                                        },
-                                    };
+                                if (p.media) {
+                                    // Handle both image and video media types for history using switch for extensibility
+                                    const mediaType = p.media.type;
+                                    switch (mediaType) {
+                                        case 'image':
+                                            return {
+                                                media: {
+                                                    url: p.media.url,
+                                                    mimeType: p.media.mimeType,
+                                                    type: 'image',
+                                                },
+                                            };
+                                        case 'video':
+                                            return {
+                                                media: {
+                                                    url: p.media.url,
+                                                    mimeType: p.media.mimeType,
+                                                    type: 'video',
+                                                },
+                                            };
+                                        default:
+                                            console.warn(`Unknown media type in history: ${mediaType}`);
+                                            return null;
+                                    }
                                 }
                                 return null;
                             })
@@ -1306,17 +1460,17 @@ export default function Home() {
                 prev.map(m =>
                     m.id === loadingMessageId
                         ? {
-                              ...m,
-                              parts: [
-                                  {
-                                      media: {
-                                          type: 'image',
-                                          url: data.imageUrl,
-                                          mimeType: 'image/png',
-                                      },
-                                  },
-                              ],
-                          }
+                            ...m,
+                            parts: [
+                                {
+                                    media: {
+                                        type: 'image',
+                                        url: data.imageUrl,
+                                        mimeType: 'image/png',
+                                    },
+                                },
+                            ],
+                        }
                         : m
                 )
             );
@@ -1347,9 +1501,8 @@ export default function Home() {
         <div className="flex h-screen bg-gray-900 text-white">
             {/* Sidebar */}
             <div
-                className={`${
-                    isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-                } fixed md:relative md:translate-x-0 w-72 md:w-64 h-full bg-gray-800 border-r border-gray-700 transition-transform duration-300 z-50 flex flex-col safe-area-top`}
+                className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                    } fixed md:relative md:translate-x-0 w-72 md:w-64 h-full bg-gray-800 border-r border-gray-700 transition-transform duration-300 z-50 flex flex-col safe-area-top`}
             >
                 {/* Sidebar Header */}
                 <div className="p-4 border-b border-gray-700">
@@ -1381,11 +1534,10 @@ export default function Home() {
                                 <div
                                     key={conv.id}
                                     onClick={() => loadConversation(conv.id)}
-                                    className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors min-h-[56px] active:scale-[0.98] ${
-                                        conv.id === currentConversationId
-                                            ? 'bg-gray-700'
-                                            : 'hover:bg-gray-700/50 active:bg-gray-700'
-                                    }`}
+                                    className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors min-h-[56px] active:scale-[0.98] ${conv.id === currentConversationId
+                                        ? 'bg-gray-700'
+                                        : 'hover:bg-gray-700/50 active:bg-gray-700'
+                                        }`}
                                 >
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="flex-1 min-w-0">

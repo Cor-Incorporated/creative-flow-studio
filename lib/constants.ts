@@ -43,6 +43,9 @@ export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB file size limit
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 
+// Validation
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Credentials auth: minimum response time to mitigate timing-based account enumeration
 export const MIN_AUTH_RESPONSE_TIME_MS = 350;
 
