@@ -9,7 +9,13 @@ export function safeErrorForLog(error: any): { name?: string; code?: string; mes
       ...(Object.prototype.hasOwnProperty.call(error, 'code') ? { code: (error as any).code } : {}),
     };
   }
-  return {
-    message: String(error),
-  };
+  try {
+    return {
+      message: String(error),
+    };
+  } catch {
+    return {
+      message: 'Unknown error (failed to stringify)',
+    };
+  }
 }
