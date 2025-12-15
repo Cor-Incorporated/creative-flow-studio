@@ -36,8 +36,11 @@ export const dynamic = 'force-dynamic';
  * - Prisma Relations: https://www.prisma.io/docs/concepts/components/prisma-client/relation-queries
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    let id: string | undefined;
     try {
-        const { id } = await params;
+        const resolvedParams = await params;
+        id = resolvedParams.id;
+
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
@@ -74,7 +77,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     } catch (error: any) {
         // Safe logging - await params might fail if it's not a promise in very old versions,
         // but here we already awaited it.
-        console.error(`Error in GET /api/conversations`, error);
+        console.error(`Error in GET /api/conversations/${id || 'unknown'}:`, error);
         return NextResponse.json(
             {
                 error: 'Failed to retrieve conversation',
@@ -111,8 +114,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  * - Prisma Update: https://www.prisma.io/docs/concepts/components/prisma-client/crud#update
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    let id: string | undefined;
     try {
-        const { id } = await params;
+        const resolvedParams = await params;
+        id = resolvedParams.id;
+
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
@@ -173,7 +179,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             },
         });
     } catch (error: any) {
-        console.error(`Error in PATCH /api/conversations`, error);
+        console.error(`Error in PATCH /api/conversations/${id || 'unknown'}:`, error);
         return NextResponse.json(
             {
                 error: 'Failed to update conversation',
@@ -204,8 +210,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  * - Prisma Cascading Deletes: https://www.prisma.io/docs/concepts/components/prisma-schema/relations#cascading-deletes
  */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    let id: string | undefined;
     try {
-        const { id } = await params;
+        const resolvedParams = await params;
+        id = resolvedParams.id;
+
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
@@ -241,7 +250,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
             deletedId: id,
         });
     } catch (error: any) {
-        console.error(`Error in DELETE /api/conversations`, error);
+        console.error(`Error in DELETE /api/conversations/${id || 'unknown'}:`, error);
         return NextResponse.json(
             {
                 error: 'Failed to delete conversation',
