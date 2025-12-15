@@ -1,4 +1,7 @@
 export function safeErrorForLog(error: any): { name?: string; code?: string; message?: string } {
+  if (!error) {
+    return { message: 'Unknown error' };
+  }
   if (error instanceof Error) {
     return {
       name: error.name,

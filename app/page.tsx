@@ -18,6 +18,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
 
 const CONVERSATION_PARAM = 'c';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default function Home() {
     const { data: session, status } = useSession();
@@ -419,6 +420,13 @@ export default function Home() {
                         const targetId = urlId || storageId;
 
                         if (targetId) {
+                            // Validate format if it came from URL to prevent XSS/invalid checks
+                            if (urlId && !UUID_REGEX.test(urlId)) {
+                                console.warn("Invalid conversation ID format in URL");
+                                clearConversationPersistence();
+                                return;
+                            }
+
                             if (!isMountedRef.current) return;
                             if (fetchedConversations.some((c: any) => c.id === targetId)) {
                                 loadConversation(targetId);
@@ -780,7 +788,9 @@ export default function Home() {
      * Helper to clean up blob URLs
      */
     const cleanupBlobUrls = () => {
-        blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+        // Create a copy to safely iterate even if deletions occur
+        const currentBlobs = new Set(blobUrlsRef.current);
+        currentBlobs.forEach(url => URL.revokeObjectURL(url));
         blobUrlsRef.current.clear();
     };
 
@@ -1283,24 +1293,28 @@ export default function Home() {
                             .map(p => {
                                 if (p.text) return { text: p.text };
                                 if (p.media) {
-                                    // Handle both image and video media types for history
-                                    if (p.media.type === 'image') {
-                                        return {
-                                            media: {
-                                                url: p.media.url,
-                                                mimeType: p.media.mimeType,
-                                                type: 'image',
-                                            },
-                                        };
-                                    }
-                                    if (p.media.type === 'video') {
-                                        return {
-                                            media: {
-                                                url: p.media.url,
-                                                mimeType: p.media.mimeType,
-                                                type: 'video',
-                                            },
-                                        };
+                                    // Handle both image and video media types for history using switch for extensibility
+                                    const mediaType = p.media.type;
+                                    switch (mediaType) {
+                                        case 'image':
+                                            return {
+                                                media: {
+                                                    url: p.media.url,
+                                                    mimeType: p.media.mimeType,
+                                                    type: 'image',
+                                                },
+                                            };
+                                        case 'video':
+                                            return {
+                                                media: {
+                                                    url: p.media.url,
+                                                    mimeType: p.media.mimeType,
+                                                    type: 'video',
+                                                },
+                                            };
+                                        default:
+                                            console.warn(`Unknown media type in history: ${mediaType}`);
+                                            return null;
                                     }
                                 }
                                 return null;
