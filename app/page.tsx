@@ -767,9 +767,6 @@ export default function Home() {
     /**
      * Helper to clear conversation persistence state
      */
-    /**
-     * Helper to clear conversation persistence state
-     */
     const clearConversationPersistence = () => {
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete(CONVERSATION_PARAM);
@@ -796,9 +793,6 @@ export default function Home() {
         // Monotonic sequence check to handle race conditions (last write wins)
         const thisLoadSeq = ++loadSequenceRef.current;
 
-        // Optimistically set current ref to track user intent
-        currentConversationIdRef.current = conversationId;
-
         // Clean up previous blob URLs to prevent memory leaks upon switching conversations
         cleanupBlobUrls();
 
@@ -818,6 +812,7 @@ export default function Home() {
 
                 // Update UI state
                 setCurrentConversationId(conversation.id);
+                currentConversationIdRef.current = conversation.id;
 
                 // Persist to URL and LocalStorage
                 const newUrl = new URL(window.location.href);
