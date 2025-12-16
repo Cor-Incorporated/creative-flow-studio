@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies
 vi.mock('next-auth', () => ({
@@ -38,7 +38,7 @@ describe('PATCH /api/admin/users/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ role: 'PRO' }),
         });
-        const response = await PATCH(request, { params: { id: 'user_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'user_1' }) });
         const data = await response.json();
 
         // Assert
@@ -63,7 +63,7 @@ describe('PATCH /api/admin/users/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ role: 'PRO' }),
         });
-        const response = await PATCH(request, { params: { id: 'user_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'user_1' }) });
         const data = await response.json();
 
         // Assert
@@ -101,7 +101,7 @@ describe('PATCH /api/admin/users/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ role: 'PRO' }),
         });
-        const response = await PATCH(request, { params: { id: 'user_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'user_1' }) });
         const data = await response.json();
 
         // Assert
@@ -141,7 +141,7 @@ describe('PATCH /api/admin/users/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ role: 'PRO' }),
         });
-        const response = await PATCH(request, { params: { id: 'nonexistent' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'nonexistent' }) });
         const data = await response.json();
 
         // Assert
@@ -167,7 +167,7 @@ describe('PATCH /api/admin/users/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ role: 'INVALID_ROLE' }),
         });
-        const response = await PATCH(request, { params: { id: 'user_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'user_1' }) });
         const data = await response.json();
 
         // Assert

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies
 vi.mock('next-auth', () => ({
@@ -59,7 +59,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 content: [{ text: 'Hello AI' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -120,7 +120,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 ],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -168,7 +168,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 ],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -189,7 +189,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 content: [{ text: 'Hello' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -211,7 +211,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 content: [{ text: 'Hello' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'nonexistent' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'nonexistent' }) });
         const data = await response.json();
 
         // Assert
@@ -240,7 +240,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 content: [{ text: 'Hello' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -264,7 +264,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 content: [{ text: 'Hello' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -288,7 +288,7 @@ describe('POST /api/conversations/[id]/messages', () => {
                 content: [],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -336,7 +336,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Hello' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -379,7 +379,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Deep thinking query' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -422,7 +422,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Search for latest news' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -465,7 +465,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Generate an image of a cat' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -508,7 +508,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Create a video of ocean waves' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -550,7 +550,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Hello without mode' }],
             }),
         });
-        const response = await POST(request, { params: { id: 'conv_1' } });
+        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -593,7 +593,7 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
                 content: [{ text: 'Search results', sources: [{ uri: 'https://example.com' }] }],
             }),
         });
-        await POST(request, { params: { id: 'conv_1' } });
+        await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
 
         // Assert - Verify prisma.message.create was called with correct mode
         expect(prisma.message.create).toHaveBeenCalledTimes(1);

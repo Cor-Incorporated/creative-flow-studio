@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies
 vi.mock('next-auth', () => ({
@@ -64,7 +64,7 @@ describe('GET /api/conversations/[id]', () => {
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1');
-        const response = await GET(request, { params: { id: 'conv_1' } });
+        const response = await GET(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -90,7 +90,7 @@ describe('GET /api/conversations/[id]', () => {
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1');
-        const response = await GET(request, { params: { id: 'conv_1' } });
+        const response = await GET(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -106,7 +106,7 @@ describe('GET /api/conversations/[id]', () => {
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/nonexistent');
-        const response = await GET(request, { params: { id: 'nonexistent' } });
+        const response = await GET(request, { params: Promise.resolve({ id: 'nonexistent' }) });
         const data = await response.json();
 
         // Assert
@@ -132,7 +132,7 @@ describe('GET /api/conversations/[id]', () => {
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1');
-        const response = await GET(request, { params: { id: 'conv_1' } });
+        const response = await GET(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -166,7 +166,7 @@ describe('PATCH /api/conversations/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ title: 'Updated Title' }),
         });
-        const response = await PATCH(request, { params: { id: 'conv_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -188,7 +188,7 @@ describe('PATCH /api/conversations/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ title: 'New Title' }),
         });
-        const response = await PATCH(request, { params: { id: 'conv_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -207,7 +207,7 @@ describe('PATCH /api/conversations/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ title: 'New Title' }),
         });
-        const response = await PATCH(request, { params: { id: 'nonexistent' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'nonexistent' }) });
         const data = await response.json();
 
         // Assert
@@ -228,7 +228,7 @@ describe('PATCH /api/conversations/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ title: 'New Title' }),
         });
-        const response = await PATCH(request, { params: { id: 'conv_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -250,7 +250,7 @@ describe('PATCH /api/conversations/[id]', () => {
             method: 'PATCH',
             body: JSON.stringify({ title: longTitle }),
         });
-        const response = await PATCH(request, { params: { id: 'conv_1' } });
+        const response = await PATCH(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -277,7 +277,7 @@ describe('DELETE /api/conversations/[id]', () => {
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1', {
             method: 'DELETE',
         });
-        const response = await DELETE(request, { params: { id: 'conv_1' } });
+        const response = await DELETE(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -297,7 +297,7 @@ describe('DELETE /api/conversations/[id]', () => {
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1', {
             method: 'DELETE',
         });
-        const response = await DELETE(request, { params: { id: 'conv_1' } });
+        const response = await DELETE(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
@@ -315,7 +315,7 @@ describe('DELETE /api/conversations/[id]', () => {
         const request = new NextRequest('http://localhost:3000/api/conversations/nonexistent', {
             method: 'DELETE',
         });
-        const response = await DELETE(request, { params: { id: 'nonexistent' } });
+        const response = await DELETE(request, { params: Promise.resolve({ id: 'nonexistent' }) });
         const data = await response.json();
 
         // Assert
@@ -335,7 +335,7 @@ describe('DELETE /api/conversations/[id]', () => {
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1', {
             method: 'DELETE',
         });
-        const response = await DELETE(request, { params: { id: 'conv_1' } });
+        const response = await DELETE(request, { params: Promise.resolve({ id: 'conv_1' }) });
         const data = await response.json();
 
         // Assert
