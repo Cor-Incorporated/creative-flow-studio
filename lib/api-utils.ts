@@ -7,6 +7,8 @@ import type { Session } from 'next-auth';
 export type ApiErrorCode =
     | 'UNAUTHORIZED'
     | 'VALIDATION_ERROR'
+    | 'FORBIDDEN'
+    | 'NOT_FOUND'
     | 'FORBIDDEN_PLAN'
     | 'FORBIDDEN_ADMIN'
     | 'RATE_LIMIT_EXCEEDED'
