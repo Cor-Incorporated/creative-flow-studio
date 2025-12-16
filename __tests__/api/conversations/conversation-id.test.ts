@@ -7,13 +7,11 @@ vi.mock('next-auth', () => ({
 }));
 vi.mock('@/lib/prisma', () => ({
     prisma: {
+        $queryRaw: vi.fn(),
         conversation: {
             findUnique: vi.fn(),
             update: vi.fn(),
             delete: vi.fn(),
-        },
-        message: {
-            findMany: vi.fn(),
         },
     },
 }));
@@ -66,7 +64,7 @@ describe('GET /api/conversations/[id]', () => {
 
         vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
         vi.mocked(prisma.conversation.findUnique).mockResolvedValue(mockConversation as any);
-        vi.mocked(prisma.message.findMany).mockResolvedValue(mockMessages as any);
+        vi.mocked(prisma.$queryRaw).mockResolvedValue(mockMessages as any);
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1');
@@ -89,17 +87,8 @@ describe('GET /api/conversations/[id]', () => {
                 updatedAt: true,
             },
         });
-        expect(prisma.message.findMany).toHaveBeenCalledWith({
-            where: { conversationId: 'conv_1' },
-            orderBy: { createdAt: 'asc' },
-            select: {
-                id: true,
-                role: true,
-                mode: true,
-                content: true,
-                createdAt: true,
-            },
-        });
+        expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+        expect(prisma.$queryRaw.mock.calls[0][1]).toBe('conv_1');
     });
 
     it('should return 401 if not authenticated', async () => {

@@ -76,17 +76,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         }
 
         // 5. Fetch messages separately (ordered by createdAt ASC)
-        const messages = await prisma.message.findMany({
-            where: { conversationId: id },
-            orderBy: { createdAt: 'asc' },
-            select: {
-                id: true,
-                role: true,
-                mode: true,
-                content: true,
-                createdAt: true,
-            },
-        });
+        //
+        // NOTE: In some Postgres-compatible environments, Prisma's generated SQL for
+        // `message.findMany()` can fail with `WITHIN GROUP is required for ordered-set aggregate mode`
+        // (Postgres error 42809). Using a parameterized raw query avoids that query-generation path.
+        const messages = await prisma.$queryRaw<
+            Array<{
+                id: string;
+                role: string;
+                mode: string;
+                content: any;
+                createdAt: Date;
+            }>
+        >`
+            SELECT "id", "role", "mode", "content", "createdAt"
+            FROM "messages"
+            WHERE "conversationId" = ${id}
+            ORDER BY "createdAt" ASC
+        `;
 
         // 6. Return conversation with messages
         return NextResponse.json({
