@@ -213,11 +213,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {/* Uploaded Media Preview */}
             {uploadedMedia && (
                 <div className="mx-4 mt-2 relative inline-block">
-                    <img
-                        src={uploadedMedia.url}
-                        alt="upload preview"
-                        className="max-h-20 rounded-lg border border-gray-700"
-                    />
+                    {uploadedMedia.type === 'video' ? (
+                        <video
+                            src={uploadedMedia.url}
+                            controls
+                            className="max-h-20 rounded-lg border border-gray-700"
+                        />
+                    ) : (
+                        <img
+                            src={uploadedMedia.url}
+                            alt="upload preview"
+                            className="max-h-20 rounded-lg border border-gray-700"
+                        />
+                    )}
                     <button
                         onClick={() => setUploadedMedia(null)}
                         className="absolute -top-2 -right-2 bg-gray-800 hover:bg-gray-700 rounded-full p-1 text-white border border-gray-600"

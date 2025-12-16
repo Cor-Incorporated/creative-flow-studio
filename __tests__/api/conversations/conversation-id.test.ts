@@ -12,6 +12,9 @@ vi.mock('@/lib/prisma', () => ({
             update: vi.fn(),
             delete: vi.fn(),
         },
+        message: {
+            findMany: vi.fn(),
+        },
     },
 }));
 
@@ -43,24 +46,27 @@ describe('GET /api/conversations/[id]', () => {
             mode: 'CHAT',
             createdAt: new Date('2025-11-13'),
             updatedAt: new Date('2025-11-13'),
-            messages: [
-                {
-                    id: 'msg_1',
-                    role: 'USER',
-                    content: [{ text: 'Hello' }],
-                    createdAt: new Date('2025-11-13'),
-                },
-                {
-                    id: 'msg_2',
-                    role: 'MODEL',
-                    content: [{ text: 'Hi there!' }],
-                    createdAt: new Date('2025-11-13'),
-                },
-            ],
         };
+        const mockMessages = [
+            {
+                id: 'msg_1',
+                role: 'USER',
+                mode: 'CHAT',
+                content: [{ text: 'Hello' }],
+                createdAt: new Date('2025-11-13'),
+            },
+            {
+                id: 'msg_2',
+                role: 'MODEL',
+                mode: 'CHAT',
+                content: [{ text: 'Hi there!' }],
+                createdAt: new Date('2025-11-13'),
+            },
+        ];
 
         vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
         vi.mocked(prisma.conversation.findUnique).mockResolvedValue(mockConversation as any);
+        vi.mocked(prisma.message.findMany).mockResolvedValue(mockMessages as any);
 
         // Act
         const request = new NextRequest('http://localhost:3000/api/conversations/conv_1');
@@ -74,12 +80,24 @@ describe('GET /api/conversations/[id]', () => {
         expect(data.conversation.messages[0].role).toBe('USER');
         expect(prisma.conversation.findUnique).toHaveBeenCalledWith({
             where: { id: 'conv_1' },
-            include: {
-                messages: {
-                    orderBy: {
-                        createdAt: 'asc',
-                    },
-                },
+            select: {
+                id: true,
+                title: true,
+                mode: true,
+                userId: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        expect(prisma.message.findMany).toHaveBeenCalledWith({
+            where: { conversationId: 'conv_1' },
+            orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                role: true,
+                mode: true,
+                content: true,
+                createdAt: true,
             },
         });
     });
