@@ -47,15 +47,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // 2. Fetch conversation with messages
+        // 2. Fetch conversation (without nested include to avoid cross-DB incompatibilities)
+        // NOTE: We intentionally fetch messages in a separate query below.
+        // In some Postgres environments, Prisma's nested include SQL can fail unexpectedly.
         const conversation = await prisma.conversation.findUnique({
             where: { id },
-            include: {
-                messages: {
-                    orderBy: {
-                        createdAt: 'asc',
-                    },
-                },
+            select: {
+                id: true,
+                title: true,
+                mode: true,
+                userId: true,
+                createdAt: true,
+                updatedAt: true,
             },
         });
 
@@ -72,8 +75,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             );
         }
 
-        // 5. Return conversation with messages
-        return NextResponse.json({ conversation });
+        // 5. Fetch messages separately (ordered by createdAt ASC)
+        const messages = await prisma.message.findMany({
+            where: { conversationId: id },
+            orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                role: true,
+                mode: true,
+                content: true,
+                createdAt: true,
+            },
+        });
+
+        // 6. Return conversation with messages
+        return NextResponse.json({
+            conversation: {
+                ...conversation,
+                messages,
+            },
+        });
     } catch (error: any) {
         // Safe logging - await params might fail if it's not a promise in very old versions,
         // but here we already awaited it.

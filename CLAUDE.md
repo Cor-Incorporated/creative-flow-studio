@@ -314,6 +314,15 @@ Selectable AI persona mode that applies different influencer speaking styles.
 
 ESLint disabled during builds (`next.config.js`). Run `npm run lint` separately.
 
+### Prisma (Cloud Run) で会話詳細が500になる（ネスト include の回避）
+
+Cloud Run（Postgres）環境で、Prismaの **ネストした `include`** が環境依存のSQLを生成し、`42809 WITHIN GROUP is required...` のようなエラーで **500** になることがあります。
+
+- **推奨パターン（Cloud Run）**: `include` で関連をネスト取得しない  
+  - 例: `Conversation` を `select` で取得 → `Message` を `findMany` で別クエリ取得（`orderBy createdAt asc`）
+- **一覧系エンドポイント**（例: `/api/conversations`）は **明示 `select`** と `_count` を使う（安易に `include` を多用しない）
+- **備考**: 本対応は PR #33（`feature/fix-conversation-detail-500`）で適用済み
+
 ### Prisma Client Not Found
 
 Run `npm run prisma:generate` or `npm run build`.
