@@ -4,11 +4,63 @@
 
 Next.js App RouterアプリケーションのAPI Routes、UIコンポーネント、統合機能のテスト戦略を定義します。
 
+**Current Status (2025-12-17)**: 519 tests passing ✅
+
+**Recent Updates:**
+- Added comprehensive mode switching tests (21 tests)
+- Added multi-mode conversation flow integration tests (57 tests)
+- Added E2E mode switching tests (3 tests)
+- Total test count increased from 185 to 519
+
 **実装根拠:**
 - [Next.js Testing with Vitest](https://nextjs.org/docs/app/guides/testing/vitest)
 - [next-test-api-route-handler](https://www.npmjs.com/package/next-test-api-route-handler)
 - [API Testing with Vitest in Next.js (2025)](https://medium.com/@sanduni.s/api-testing-with-vitest-in-next-js-a-practical-guide-to-mocking-vs-spying-5e5b37677533)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+
+---
+
+## Recent Bug Fixes & Test Coverage (2025-12-17)
+
+### Mode Switching Bug Fixes
+
+Fixed critical bugs in mode switching functionality to ensure proper conversation history and mode persistence:
+
+1. **BUG-1 & BUG-5: saveMessage mode parameter**
+   - Fixed `saveMessage` calls to pass explicit mode parameter instead of relying on state
+   - Prevents mode mismatch in database
+   - Updated `app/page.tsx` in all generation handlers
+
+2. **BUG-2: History filtering**
+   - Added filtering to exclude image/video-only messages from chat history
+   - Created `getChatHistory()` helper function that filters by mode
+   - Prevents image/video content from interfering with text-only chat context
+
+3. **BUG-3: Video generation race condition**
+   - Fixed async polling race condition by capturing mode value before async operations
+   - Prevents mode from changing during video generation polling
+
+4. **BUG-4: Auto mode switch for image uploads**
+   - Added automatic mode switch to 'search' when images are uploaded
+   - Updated `ChatInput.tsx` to detect image uploads and switch mode
+   - Includes toast notification to inform users
+
+### New Test Files
+
+1. **`__tests__/app/page-mode-handling.test.ts`** (21 tests)
+   - Mode switching and conversation history tests
+   - Validates mode persistence across conversations
+   - Tests history filtering for different modes
+
+2. **`__tests__/scenarios/multi-mode-flow.test.ts`** (57 tests)
+   - Multi-mode conversation flow integration tests
+   - Tests complex user journeys across different modes
+   - Validates data consistency across mode switches
+
+3. **`e2e/mode-switching.spec.ts`** (3 tests)
+   - End-to-end mode switching tests
+   - Browser-based validation of mode switching UX
+   - Tests persistence and visual feedback
 
 ---
 

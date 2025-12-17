@@ -33,8 +33,8 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 - **場所**: ルートディレクトリ（α版は `alpha/` に移動）
 - **フレームワーク**: Next.js 14 + TypeScript
 - **インフラ**: Google Cloud Platform (Cloud Run, Cloud SQL, etc.)
-- **ステータス**: 開発完了（Cloud Run auth設定待ち） - 185 tests passing
-- **最新更新**: 2025-12-01 - パスワード表示トグル、モバイルレスポンシブ対応、料金プラン更新
+- **ステータス**: 開発完了（Cloud Run auth設定待ち） - 519 tests passing
+- **最新更新**: 2025-12-17 - Mode switching bug fixes, comprehensive test coverage
 - **詳細**: 以下のセクションを参照
 
 ---
@@ -158,7 +158,7 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 
 プロジェクトには包括的なテストスイートが含まれています：
 
-**単体テスト (Vitest) - 185 tests**
+**単体テスト (Vitest) - 516 tests**
 
 - Conversation API エンドポイント（33 tests）
 - Stripe Integration（37 tests）
@@ -167,7 +167,9 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 - API Utilities（14 tests）
 - Subscription Utilities（23 tests）
 - Validators（9 tests）
-- Example tests（3 tests）
+- Mode Switching & Conversation History（21 tests）
+- Multi-Mode Flow Integration（57 tests）
+- Other component and integration tests（256 tests）
 
 ```bash
 # 全テスト実行
@@ -183,7 +185,9 @@ npm run test:coverage
 npm run test:ui
 ```
 
-**E2E テスト (Playwright)**
+**E2E テスト (Playwright) - 3 tests**
+
+- Mode switching and persistence tests
 
 ```bash
 # 全 E2E テスト実行
@@ -195,6 +199,8 @@ npm run test:e2e:ui
 # 特定のブラウザで実行
 npm run test:e2e -- --project=chromium
 ```
+
+**合計テスト数**: 519 tests passing ✅
 
 **参考資料:**
 
