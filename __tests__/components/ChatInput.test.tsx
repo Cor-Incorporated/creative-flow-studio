@@ -12,7 +12,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { GenerationMode, AspectRatio, Media } from '@/types/app';
 import type { InfluencerId } from '@/lib/constants';
 
@@ -502,6 +501,92 @@ describe('ChatInput Component', () => {
             const clearButton = screen.getByLabelText('クリア');
             // Clear button should always be enabled
             expect(clearButton).not.toBeDisabled();
+        });
+    });
+
+    describe('Mode Auto-Switching', () => {
+        it('should auto-switch to video mode when video file is uploaded', async () => {
+            const setMode = vi.fn();
+            const props = createDefaultProps({ setMode, mode: 'chat' });
+            render(<ChatInput {...props} />);
+
+            // Create a mock video file
+            const videoFile = new File([''], 'test.mp4', { type: 'video/mp4' });
+            Object.defineProperty(videoFile, 'size', { value: 1024 }); // Small file size
+
+            // Find file input and trigger upload
+            const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+            expect(fileInput).not.toBeNull();
+
+            // Trigger change event with the video file
+            Object.defineProperty(fileInput, 'files', { value: [videoFile] });
+            fireEvent.change(fileInput);
+
+            // Wait for async file processing
+            await waitFor(() => {
+                expect(setMode).toHaveBeenCalledWith('video');
+            });
+        });
+
+        it('should auto-switch to image mode when image file is uploaded', async () => {
+            const setMode = vi.fn();
+            const props = createDefaultProps({ setMode, mode: 'chat' });
+            render(<ChatInput {...props} />);
+
+            // Create a mock image file
+            const imageFile = new File([''], 'test.png', { type: 'image/png' });
+            Object.defineProperty(imageFile, 'size', { value: 1024 }); // Small file size
+
+            // Find file input and trigger upload
+            const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+            expect(fileInput).not.toBeNull();
+
+            // Trigger change event with the image file
+            Object.defineProperty(fileInput, 'files', { value: [imageFile] });
+            fireEvent.change(fileInput);
+
+            // Wait for async file processing
+            await waitFor(() => {
+                expect(setMode).toHaveBeenCalledWith('image');
+            });
+        });
+
+        it('should not switch mode if already in video mode when uploading video', async () => {
+            const setMode = vi.fn();
+            const props = createDefaultProps({ setMode, mode: 'video' });
+            render(<ChatInput {...props} />);
+
+            // Create a mock video file
+            const videoFile = new File([''], 'test.mp4', { type: 'video/mp4' });
+            Object.defineProperty(videoFile, 'size', { value: 1024 });
+
+            const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+            Object.defineProperty(fileInput, 'files', { value: [videoFile] });
+            fireEvent.change(fileInput);
+
+            // Should still call setMode('video') but the mode is already video
+            await waitFor(() => {
+                expect(setMode).toHaveBeenCalledWith('video');
+            });
+        });
+
+        it('should not switch mode if already in image mode when uploading image', async () => {
+            const setMode = vi.fn();
+            const props = createDefaultProps({ setMode, mode: 'image' });
+            render(<ChatInput {...props} />);
+
+            // Create a mock image file
+            const imageFile = new File([''], 'test.jpg', { type: 'image/jpeg' });
+            Object.defineProperty(imageFile, 'size', { value: 1024 });
+
+            const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+            Object.defineProperty(fileInput, 'files', { value: [imageFile] });
+            fireEvent.change(fileInput);
+
+            // Should still call setMode('image') but the mode is already image
+            await waitFor(() => {
+                expect(setMode).toHaveBeenCalledWith('image');
+            });
         });
     });
 
