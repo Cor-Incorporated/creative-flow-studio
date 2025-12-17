@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { FinishReason } from '@google/genai';
 import { POST } from '@/app/api/gemini/image/route';
 import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage } from '@/lib/subscription';
 
@@ -241,10 +242,10 @@ describe('POST /api/gemini/image', () => {
                 candidates: [
                     {
                         content: { parts: [] },
-                        finishReason: 'SAFETY',
+                        finishReason: FinishReason.SAFETY,
                     },
                 ],
-            });
+            } as any);
 
             const request = new NextRequest('http://localhost:3000/api/gemini/image', {
                 method: 'POST',
@@ -272,10 +273,10 @@ describe('POST /api/gemini/image', () => {
                 candidates: [
                     {
                         content: { parts: [] },
-                        finishReason: 'RECITATION',
+                        finishReason: FinishReason.RECITATION,
                     },
                 ],
-            });
+            } as any);
 
             const request = new NextRequest('http://localhost:3000/api/gemini/image', {
                 method: 'POST',

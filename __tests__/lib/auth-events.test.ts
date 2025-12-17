@@ -33,6 +33,7 @@ describe('authOptions.events.createUser', () => {
     id: 'user-123',
     email: 'test@example.com',
     name: 'Test User',
+    role: 'USER' as const,
   };
 
   beforeEach(() => {
