@@ -16,7 +16,7 @@ BulnaAI is a multimodal AI SaaS application that integrates multiple Google Gemi
 
 ---
 
-## Current Status (2025-12-01)
+## Current Status (2025-12-17)
 
 ### ✅ Completed Features
 
@@ -36,8 +36,9 @@ BulnaAI is a multimodal AI SaaS application that integrates multiple Google Gemi
 | Chat Sidebar (New chat, History, Delete)                     | ✅      | -     |
 | Password Visibility Toggle                                   | ✅      | -     |
 | Mobile Responsive Design                                     | ✅      | -     |
+| Mode Switching (Chat/Pro/Search/Image/Video)                 | ✅      | 360   |
 
-**Total Tests**: 185 passing ✅
+**Total Tests**: 519 passing ✅
 
 ### 🔄 Pending (Infrastructure - Cursor)
 
@@ -352,10 +353,45 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
 
 ## Session Notes
 
-**Last Updated**: 2025-12-01
-**Current Focus**: Mobile responsive improvements and pricing plan updates
+**Last Updated**: 2025-12-17
+**Current Focus**: Mode switching bug fixes and comprehensive test coverage
 
 **Recent Changes (This Session):**
+
+### Mode Switching Bug Fixes (2025-12-17)
+
+Fixed critical bugs in mode switching functionality to ensure proper conversation history and mode persistence:
+
+1. **BUG-1 & BUG-5: saveMessage mode parameter** - Fixed `saveMessage` calls to pass explicit mode parameter instead of relying on state, preventing mode mismatch in database
+   - Updated `app/page.tsx` in all generation handlers (handleSend, handleImageGeneration, handleVideoGeneration)
+   - Ensures saved messages always reflect the actual mode used for generation
+
+2. **BUG-2: History filtering** - Added filtering to exclude image/video-only messages from chat history
+   - Created `getChatHistory()` helper function that filters by mode
+   - Prevents image/video content from interfering with text-only chat context
+   - Only includes messages with mode 'chat', 'pro', or 'search'
+
+3. **BUG-3: Video generation race condition** - Fixed async polling race condition by capturing mode value before async operations
+   - Stored `currentMode` in local variable before `pollVideoStatus` call
+   - Prevents mode from changing during video generation polling
+   - Ensures video completion uses correct mode for saving
+
+4. **BUG-4: Auto mode switch for image uploads** - Added automatic mode switch to 'image' when images are uploaded
+   - Updated `ChatInput.tsx` to detect image uploads and switch mode
+   - Provides consistent UX with video uploads (which already auto-switched)
+   - Applies to both file uploads and clipboard paste
+
+### New Test Files Added
+
+- `__tests__/app/page-mode-handling.test.ts` - Mode switching and conversation history tests (21 tests)
+- `__tests__/scenarios/multi-mode-flow.test.ts` - Multi-mode conversation flow integration tests (57 tests)
+- `e2e/mode-switching.spec.ts` - End-to-end mode switching tests (3 tests)
+
+**Test Status**: 519/519 passing ✅ (increased from 185)
+
+---
+
+### Previous Session (2025-12-01)
 
 - Fixed Tailwind v4 CSS issues - added `@source` directives for `lib` and `types` directories
 - Added Email/Password authentication with CredentialsProvider
@@ -366,7 +402,6 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
 - Refactored DJ Shacho Mode to Influencer Mode
   - New `INFLUENCERS` config object in `lib/constants.ts`
   - Dropdown selector instead of toggle
-
   - Updated ChatInput, ChatMessage, and page.tsx components
 - Added Admin Dashboard documentation (`docs/admin-dashboard.md`)
 - Updated CLAUDE.md with new features
@@ -394,5 +429,3 @@ Use `/api/gemini/video/download` proxy, NOT direct URI.
 npm run prisma:migrate
 # Creates migration for new `password` field on User model
 ```
-
-**Test Status**: 185/185 passing ✅

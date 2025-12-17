@@ -37,3 +37,4 @@ echo "次のステップ: terraform plan で変更内容を確認"
 
 
 
+

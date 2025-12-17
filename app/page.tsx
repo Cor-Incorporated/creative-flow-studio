@@ -1157,8 +1157,8 @@ export default function Home() {
             (await createOrGetConversation(isNewConversation ? prompt : undefined)) ||
             currentConversationIdRef.current;
 
-        // Save user message
-        await saveMessage('USER', userParts, activeConversationId);
+        // Save user message with explicit mode
+        await saveMessage('USER', userParts, activeConversationId, mode);
 
         const loadingMessageId = Date.now().toString() + '-loading';
         setMessages(prev => [
@@ -1222,9 +1222,12 @@ export default function Home() {
                     )
                 );
 
-                // Save model response (image)
-                await saveMessage('MODEL', imageParts);
+                // Save model response (image) with explicit 'image' mode
+                await saveMessage('MODEL', imageParts, undefined, 'image');
             } else if (mode === 'video') {
+                // Capture mode before async operations to prevent race condition during polling
+                const videoRequestMode: GenerationMode = mode;
+
                 // Call video generation API
                 const response = await authedFetch('/api/gemini/video', {
                     method: 'POST',
@@ -1282,49 +1285,29 @@ export default function Home() {
                 const videoParts = await pollVideoStatus(operationName, loadingMessageId, data.operation);
 
                 // Save model response (video) if successfully generated
+                // Use captured videoRequestMode to prevent race condition
                 if (videoParts) {
-                    await saveMessage('MODEL', videoParts);
+                    await saveMessage('MODEL', videoParts, undefined, videoRequestMode);
                 }
             } else {
                 // Chat, Pro, or Search mode - call chat API
+                // Filter history to only include text-based messages
+                // Exclude generated images/videos to prevent history contamination
                 const history = messages
-                    .filter(m => m.role === 'user' || m.role === 'model')
+                    .filter(m => {
+                        if (m.role !== 'user' && m.role !== 'model') return false;
+                        // Only include messages that have text content (excluding loading/error states)
+                        const hasTextContent = m.parts.some(
+                            p => p.text && !p.isError && !p.isLoading
+                        );
+                        return hasTextContent;
+                    })
                     .map(m => ({
                         role: m.role,
                         parts: m.parts
-                            .filter(p => p.text || p.media)
-                            .map(p => {
-                                if (p.text) return { text: p.text };
-                                if (p.media) {
-                                    // Handle both image and video media types for history using switch for extensibility
-                                    const mediaType = p.media.type;
-                                    switch (mediaType) {
-                                        case 'image':
-                                            return {
-                                                media: {
-                                                    url: p.media.url,
-                                                    mimeType: p.media.mimeType,
-                                                    type: 'image',
-                                                },
-                                            };
-                                        case 'video':
-                                            return {
-                                                media: {
-                                                    url: p.media.url,
-                                                    mimeType: p.media.mimeType,
-                                                    type: 'video',
-                                                },
-                                            };
-                                        default:
-                                            console.warn(`Unknown media type in history: ${mediaType}`);
-                                            return null;
-                                    }
-                                }
-                                return null;
-                            })
-                            .filter(
-                                (part): part is { text: string } | { media: Media } => part !== null
-                            ),
+                            // Only include text parts, exclude media (generated images/videos)
+                            .filter(p => p.text && !p.isError && !p.isLoading)
+                            .map(p => ({ text: p.text! })),
                     }))
                     .filter(m => m.parts.length > 0);
 
@@ -1383,8 +1366,8 @@ export default function Home() {
                     )
                 );
 
-                // Save model response (text)
-                await saveMessage('MODEL', textParts);
+                // Save model response (text) with explicit mode
+                await saveMessage('MODEL', textParts, undefined, mode);
             }
 
             // Clear retry state on success

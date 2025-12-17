@@ -116,7 +116,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
             const url = await fileToBase64(file);
             const type = isVideo ? 'video' : 'image';
             setUploadedMedia({ url, mimeType: file.type, type });
+            // Auto-switch mode based on uploaded media type
             if (type === 'video') setMode('video');
+            if (type === 'image') setMode('image');
             setIsMenuOpen(false);
         }
     };
@@ -159,6 +161,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     setValidationError(null);
                     const url = await fileToBase64(file);
                     setUploadedMedia({ url, mimeType: file.type, type: 'image' });
+                    // Auto-switch to image mode on paste
+                    setMode('image');
                 }
                 break;
             }
