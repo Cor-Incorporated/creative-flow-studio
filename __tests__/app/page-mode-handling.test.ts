@@ -20,32 +20,78 @@ interface TestMessage {
 }
 
 /**
- * Simulates the history construction logic from page.tsx (lines 1296-1312)
- * This is extracted to enable unit testing without full component rendering
+ * Simulates the history construction logic from page.tsx
+ * Builds balanced history: only include user+model pairs where both have text
+ * This prevents unbalanced history when media-only responses are filtered out
  */
 function buildChatHistory(messages: TestMessage[]): Array<{ role: string; parts: Array<{ text: string }> }> {
-    return messages
-        .filter(m => {
-            if (m.role !== 'user' && m.role !== 'model') return false;
-            // Only include messages that have text content (excluding loading/error states)
-            const hasTextContent = m.parts.some(
-                p => p.text && !p.isError && !p.isLoading
-            );
-            return hasTextContent;
-        })
-        .map(m => ({
-            role: m.role,
-            parts: m.parts
-                // Only include text parts, exclude media (generated images/videos)
-                .filter(p => p.text && !p.isError && !p.isLoading)
-                .map(p => ({ text: p.text! })),
-        }))
-        .filter(m => m.parts.length > 0);
+    const history: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+
+    // Helper to check if message has text content
+    const hasTextContent = (msg: TestMessage) =>
+        msg.parts.some(p => p.text && !p.isError && !p.isLoading);
+
+    // Helper to extract text parts from message
+    const getTextParts = (msg: TestMessage) =>
+        msg.parts
+            .filter(p => p.text && !p.isError && !p.isLoading)
+            .map(p => ({ text: p.text! }));
+
+    // Process messages in pairs to ensure balanced history
+    const conversationMessages = messages.filter(
+        m => m.role === 'user' || m.role === 'model'
+    );
+
+    for (let i = 0; i < conversationMessages.length; i++) {
+        const msg = conversationMessages[i];
+
+        if (msg.role === 'user') {
+            // Check if this user message has text
+            if (!hasTextContent(msg)) continue;
+
+            // Check if the next message is a model response with text
+            const nextMsg = conversationMessages[i + 1];
+            if (nextMsg && nextMsg.role === 'model' && hasTextContent(nextMsg)) {
+                // Both have text - include the pair
+                history.push({ role: 'user', parts: getTextParts(msg) });
+                history.push({ role: 'model', parts: getTextParts(nextMsg) });
+                i++; // Skip the model message since we processed it
+            }
+            // If model response is media-only, skip both messages
+        }
+        // Skip standalone model messages (shouldn't happen in normal flow)
+    }
+
+    return history;
 }
 
 describe('Page Mode Handling', () => {
     describe('buildChatHistory (history construction)', () => {
-        it('should include text-based user messages', () => {
+        it('should include complete user+model pairs with text', () => {
+            const messages: TestMessage[] = [
+                {
+                    id: '1',
+                    role: 'user',
+                    parts: [{ text: 'Hello, how are you?' }],
+                },
+                {
+                    id: '2',
+                    role: 'model',
+                    parts: [{ text: 'I am doing well, thank you!' }],
+                },
+            ];
+
+            const history = buildChatHistory(messages);
+
+            // Should include the complete pair
+            expect(history).toHaveLength(2);
+            expect(history[0].role).toBe('user');
+            expect(history[0].parts[0].text).toBe('Hello, how are you?');
+            expect(history[1].role).toBe('model');
+            expect(history[1].parts[0].text).toBe('I am doing well, thank you!');
+        });
+
+        it('should NOT include standalone user messages without model response', () => {
             const messages: TestMessage[] = [
                 {
                     id: '1',
@@ -56,12 +102,12 @@ describe('Page Mode Handling', () => {
 
             const history = buildChatHistory(messages);
 
-            expect(history).toHaveLength(1);
-            expect(history[0].role).toBe('user');
-            expect(history[0].parts[0].text).toBe('Hello, how are you?');
+            // Standalone user message without model response should be excluded
+            // to prevent unbalanced history
+            expect(history).toHaveLength(0);
         });
 
-        it('should include text-based model messages', () => {
+        it('should NOT include standalone model messages', () => {
             const messages: TestMessage[] = [
                 {
                     id: '1',
@@ -72,12 +118,11 @@ describe('Page Mode Handling', () => {
 
             const history = buildChatHistory(messages);
 
-            expect(history).toHaveLength(1);
-            expect(history[0].role).toBe('model');
-            expect(history[0].parts[0].text).toBe('I am doing well, thank you!');
+            // Standalone model message without preceding user message should be excluded
+            expect(history).toHaveLength(0);
         });
 
-        it('should exclude image-only messages (generated images)', () => {
+        it('should exclude BOTH user and model when model response is image-only', () => {
             const messages: TestMessage[] = [
                 {
                     id: '1',
@@ -101,12 +146,12 @@ describe('Page Mode Handling', () => {
 
             const history = buildChatHistory(messages);
 
-            // Should only include the user's text message, not the image response
-            expect(history).toHaveLength(1);
-            expect(history[0].role).toBe('user');
+            // Both messages should be excluded to maintain balanced history
+            // Model response has no text, so the pair is skipped
+            expect(history).toHaveLength(0);
         });
 
-        it('should exclude video-only messages (generated videos)', () => {
+        it('should exclude BOTH user and model when model response is video-only', () => {
             const messages: TestMessage[] = [
                 {
                     id: '1',
@@ -130,9 +175,9 @@ describe('Page Mode Handling', () => {
 
             const history = buildChatHistory(messages);
 
-            // Should only include the user's text message, not the video response
-            expect(history).toHaveLength(1);
-            expect(history[0].role).toBe('user');
+            // Both messages should be excluded to maintain balanced history
+            // Model response has no text, so the pair is skipped
+            expect(history).toHaveLength(0);
         });
 
         it('should exclude loading messages', () => {
@@ -197,7 +242,7 @@ describe('Page Mode Handling', () => {
                     role: 'user',
                     parts: [{ text: 'Generate an image of sunny weather' }],
                 },
-                // Model returns generated image (should be excluded)
+                // Model returns generated image (should be excluded WITH user message)
                 {
                     id: '4',
                     role: 'model',
@@ -211,7 +256,7 @@ describe('Page Mode Handling', () => {
                         },
                     ],
                 },
-                // User asks for chat again
+                // User asks for chat again (standalone - no model response yet)
                 {
                     id: '5',
                     role: 'user',
@@ -221,13 +266,14 @@ describe('Page Mode Handling', () => {
 
             const history = buildChatHistory(messages);
 
-            // Should include: message 1, 2, 3, 5 (all text)
-            // Should exclude: message 4 (image only)
-            expect(history).toHaveLength(4);
+            // With pair-based logic:
+            // - Pair 1 (msg1 + msg2): Both have text → INCLUDE
+            // - Pair 2 (msg3 + msg4): msg4 has no text → SKIP BOTH
+            // - msg5: No following model response → SKIP
+            // Result: Only 2 messages (the first complete text pair)
+            expect(history).toHaveLength(2);
             expect(history[0].parts[0].text).toBe('What is the weather today?');
             expect(history[1].parts[0].text).toBe('I cannot check the current weather...');
-            expect(history[2].parts[0].text).toBe('Generate an image of sunny weather');
-            expect(history[3].parts[0].text).toBe('Can you describe the image?');
         });
 
         it('should only include text from messages with mixed content', () => {
@@ -246,14 +292,20 @@ describe('Page Mode Handling', () => {
                         },
                     ],
                 },
+                {
+                    id: '2',
+                    role: 'model',
+                    parts: [{ text: 'I can see the image you uploaded.' }],
+                },
             ];
 
             const history = buildChatHistory(messages);
 
-            // Should include the message but only the text part
-            expect(history).toHaveLength(1);
+            // Should include the pair, but only text parts from user message
+            expect(history).toHaveLength(2);
             expect(history[0].parts).toHaveLength(1);
             expect(history[0].parts[0].text).toBe('Here is an image:');
+            expect(history[1].parts[0].text).toBe('I can see the image you uploaded.');
         });
 
         it('should handle empty messages array', () => {

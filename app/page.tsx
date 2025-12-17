@@ -1291,25 +1291,44 @@ export default function Home() {
                 }
             } else {
                 // Chat, Pro, or Search mode - call chat API
-                // Filter history to only include text-based messages
-                // Exclude generated images/videos to prevent history contamination
-                const history = messages
-                    .filter(m => {
-                        if (m.role !== 'user' && m.role !== 'model') return false;
-                        // Only include messages that have text content (excluding loading/error states)
-                        const hasTextContent = m.parts.some(
-                            p => p.text && !p.isError && !p.isLoading
-                        );
-                        return hasTextContent;
-                    })
-                    .map(m => ({
-                        role: m.role,
-                        parts: m.parts
-                            // Only include text parts, exclude media (generated images/videos)
-                            .filter(p => p.text && !p.isError && !p.isLoading)
-                            .map(p => ({ text: p.text! })),
-                    }))
-                    .filter(m => m.parts.length > 0);
+                // Build balanced history: only include user+model pairs where both have text
+                // This prevents unbalanced history when media-only responses are filtered out
+                const history: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+
+                // Helper to check if message has text content
+                const hasTextContent = (msg: Message) =>
+                    msg.parts.some(p => p.text && !p.isError && !p.isLoading);
+
+                // Helper to extract text parts from message
+                const getTextParts = (msg: Message) =>
+                    msg.parts
+                        .filter(p => p.text && !p.isError && !p.isLoading)
+                        .map(p => ({ text: p.text! }));
+
+                // Process messages in pairs to ensure balanced history
+                const conversationMessages = messages.filter(
+                    m => m.role === 'user' || m.role === 'model'
+                );
+
+                for (let i = 0; i < conversationMessages.length; i++) {
+                    const msg = conversationMessages[i];
+
+                    if (msg.role === 'user') {
+                        // Check if this user message has text
+                        if (!hasTextContent(msg)) continue;
+
+                        // Check if the next message is a model response with text
+                        const nextMsg = conversationMessages[i + 1];
+                        if (nextMsg && nextMsg.role === 'model' && hasTextContent(nextMsg)) {
+                            // Both have text - include the pair
+                            history.push({ role: 'user', parts: getTextParts(msg) });
+                            history.push({ role: 'model', parts: getTextParts(nextMsg) });
+                            i++; // Skip the model message since we processed it
+                        }
+                        // If model response is media-only, skip both messages
+                    }
+                    // Skip standalone model messages (shouldn't happen in normal flow)
+                }
 
                 const response = await authedFetch('/api/gemini/chat', {
                     method: 'POST',
