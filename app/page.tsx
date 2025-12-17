@@ -1226,7 +1226,7 @@ export default function Home() {
                 await saveMessage('MODEL', imageParts, undefined, 'image');
             } else if (mode === 'video') {
                 // Capture mode before async operations to prevent race condition during polling
-                const videoRequestMode = mode;
+                const videoRequestMode: GenerationMode = mode;
 
                 // Call video generation API
                 const response = await authedFetch('/api/gemini/video', {

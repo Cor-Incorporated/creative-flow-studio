@@ -27,12 +27,14 @@ jobs:
         run: npx prisma generate
 
       - name: Run ESLint
-        run: npm run lint || echo "ESLint has known issues, continuing..."
+        # ESLint 9 has compatibility issues with some plugins - non-blocking for now
+        # TODO: Fix ESLint configuration for full compatibility
+        run: npm run lint
         continue-on-error: true
 
       - name: Run TypeScript type check
-        run: npm run type-check || echo "TypeScript has known issues in test files, continuing..."
-        continue-on-error: true
+        # Type check is blocking - all type errors must be resolved
+        run: npm run type-check
 
   test:
     name: Unit Tests

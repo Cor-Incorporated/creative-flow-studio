@@ -376,10 +376,10 @@ Fixed critical bugs in mode switching functionality to ensure proper conversatio
    - Prevents mode from changing during video generation polling
    - Ensures video completion uses correct mode for saving
 
-4. **BUG-4: Auto mode switch for image uploads** - Added automatic mode switch to 'search' when images are uploaded
+4. **BUG-4: Auto mode switch for image uploads** - Added automatic mode switch to 'image' when images are uploaded
    - Updated `ChatInput.tsx` to detect image uploads and switch mode
-   - Provides better UX by automatically enabling multimodal analysis
-   - Includes toast notification to inform users of the mode switch
+   - Provides consistent UX with video uploads (which already auto-switched)
+   - Applies to both file uploads and clipboard paste
 
 ### New Test Files Added
 
