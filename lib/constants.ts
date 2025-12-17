@@ -110,6 +110,8 @@ export const ERROR_MESSAGES = {
     SAFETY_BLOCKED: '安全フィルターにより処理がブロックされました。別の内容でお試しください。',
     RECITATION_BLOCKED: '著作権保護のため、この内容は生成できません。',
     UNSAFE_INPUT: '入力内容がガイドラインに違反しています。別のプロンプトでお試しください。',
+    // Media reference errors
+    NO_IMAGE_TO_REFERENCE: '参照できる画像がありません。まず画像を生成してください。',
 };
 
 // Aspect Ratios
