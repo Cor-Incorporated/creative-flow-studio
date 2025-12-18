@@ -13,7 +13,6 @@ import { fileToBase64 } from '@/lib/fileUtils';
 import { AspectRatio, GenerationMode, Media } from '@/types/app';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    BoltIcon,
     ChatBubbleIcon,
     MagnifyingGlassIcon,
     PhotoIcon,
@@ -42,7 +41,6 @@ interface ChatInputProps {
 
 const MODE_CONFIG = {
     chat: { label: 'チャット', icon: ChatBubbleIcon, color: 'bg-blue-600' },
-    pro: { label: 'プロ', icon: BoltIcon, color: 'bg-purple-600' },
     search: { label: '検索', icon: MagnifyingGlassIcon, color: 'bg-green-600' },
     image: { label: '画像', icon: PhotoIcon, color: 'bg-orange-600' },
     video: { label: '動画', icon: VideoCameraIcon, color: 'bg-pink-600' },
@@ -116,9 +114,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
             const url = await fileToBase64(file);
             const type = isVideo ? 'video' : 'image';
             setUploadedMedia({ url, mimeType: file.type, type });
-            // Auto-switch mode based on uploaded media type
-            if (type === 'video') setMode('video');
-            if (type === 'image') setMode('image');
+            // Note: Auto-mode switch removed to allow media attachment in any mode
+            // Users can now attach images/videos in chat mode for analysis
             setIsMenuOpen(false);
         }
     };
@@ -161,8 +158,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     setValidationError(null);
                     const url = await fileToBase64(file);
                     setUploadedMedia({ url, mimeType: file.type, type: 'image' });
-                    // Auto-switch to image mode on paste
-                    setMode('image');
+                    // Note: Auto-mode switch removed to allow pasted images in any mode
                 }
                 break;
             }
@@ -264,7 +260,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                         {/* Mode Selection */}
                                         <div className="p-2 border-b border-gray-700">
                                             <p className="text-xs text-gray-400 px-2 mb-2">モード選択</p>
-                                            <div className="grid grid-cols-5 gap-1">
+                                            <div className="grid grid-cols-4 gap-1">
                                                 {(Object.keys(MODE_CONFIG) as GenerationMode[]).map((m) => {
                                                     const config = MODE_CONFIG[m];
                                                     const Icon = config.icon;

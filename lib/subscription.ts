@@ -103,13 +103,13 @@ export async function getMonthlyUsageCount(userId: string): Promise<number> {
  * ADMIN users bypass all limits and have access to all features
  *
  * @param userId - User ID
- * @param action - Action type (e.g., 'image_generation', 'video_generation', 'pro_mode')
+ * @param action - Action type (e.g., 'image_generation', 'video_generation', 'chat')
  * @returns Object with allowed status, plan details, and usage count
  * @throws Error if subscription is invalid or limits exceeded (unless user is ADMIN)
  */
 export async function checkSubscriptionLimits(
     userId: string,
-    action: 'image_generation' | 'video_generation' | 'pro_mode' | 'chat'
+    action: 'image_generation' | 'video_generation' | 'chat'
 ): Promise<{
     allowed: boolean;
     plan: Plan;
@@ -160,11 +160,6 @@ export async function checkSubscriptionLimits(
         case 'video_generation':
             if (!features.allowVideoGeneration) {
                 throw new Error('Video generation not available in current plan');
-            }
-            break;
-        case 'pro_mode':
-            if (!features.allowProMode) {
-                throw new Error('Pro mode not available in current plan');
             }
             break;
         case 'chat':

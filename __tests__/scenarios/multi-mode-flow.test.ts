@@ -208,13 +208,13 @@ describe('Multi-Mode Conversation Flows', () => {
             currentMode = 'image';
 
             await new Promise(resolve => setTimeout(resolve, 5));
-            currentMode = 'pro';
+            currentMode = 'search';
 
             // Video completes
             const savedMode = videoRequestMode;
 
             expect(savedMode).toBe('video');
-            expect(currentMode).toBe('pro');
+            expect(currentMode).toBe('search');
         });
     });
 

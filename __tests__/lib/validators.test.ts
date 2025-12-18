@@ -74,7 +74,7 @@ describe('Validators', () => {
         });
 
         it('should validate all mode values', () => {
-            const modes = ['chat', 'pro', 'search', 'image', 'video'];
+            const modes = ['chat', 'search', 'image', 'video'];
             for (const mode of modes) {
                 const result = UsageLogMetadataSchema.safeParse({ mode });
                 expect(result.success).toBe(true);
@@ -199,7 +199,7 @@ describe('Validators', () => {
         });
 
         it('should validate all mode values', () => {
-            const modes = ['CHAT', 'PRO', 'SEARCH', 'IMAGE', 'VIDEO'];
+            const modes = ['CHAT', 'SEARCH', 'IMAGE', 'VIDEO'];
             for (const mode of modes) {
                 const result = createConversationSchema.safeParse({ mode });
                 expect(result.success).toBe(true);
@@ -277,16 +277,6 @@ describe('Validators', () => {
             expect(result.success).toBe(true);
         });
 
-        it('should accept mode="PRO"', () => {
-            const data = {
-                role: 'USER',
-                mode: 'PRO',
-                content: [{ text: 'Hello' }],
-            };
-            const result = createMessageSchema.safeParse(data);
-            expect(result.success).toBe(true);
-        });
-
         it('should accept mode="SEARCH"', () => {
             const data = {
                 role: 'USER',
@@ -342,8 +332,8 @@ describe('Validators', () => {
         it('should accept mode with text content', () => {
             const data = {
                 role: 'MODEL',
-                mode: 'PRO',
-                content: [{ text: 'This is a pro mode response with thinking' }],
+                mode: 'SEARCH',
+                content: [{ text: 'This is a search mode response' }],
             };
             const result = createMessageSchema.safeParse(data);
             expect(result.success).toBe(true);

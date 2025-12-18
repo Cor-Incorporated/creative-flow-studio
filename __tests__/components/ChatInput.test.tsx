@@ -504,8 +504,11 @@ describe('ChatInput Component', () => {
         });
     });
 
-    describe('Mode Auto-Switching', () => {
-        it('should auto-switch to video mode when video file is uploaded', async () => {
+    describe('Mode Behavior with File Upload', () => {
+        // Note: Auto-mode switching was removed to allow media attachment in any mode
+        // Users can now attach images/videos in chat mode for analysis
+
+        it('should NOT auto-switch to video mode when video file is uploaded', async () => {
             const setMode = vi.fn();
             const props = createDefaultProps({ setMode, mode: 'chat' });
             render(<ChatInput {...props} />);
@@ -522,13 +525,17 @@ describe('ChatInput Component', () => {
             Object.defineProperty(fileInput, 'files', { value: [videoFile] });
             fireEvent.change(fileInput);
 
-            // Wait for async file processing
+            // Wait for async file processing (video element should be rendered)
             await waitFor(() => {
-                expect(setMode).toHaveBeenCalledWith('video');
+                const videoElement = document.querySelector('video');
+                expect(videoElement).not.toBeNull();
             });
+
+            // Mode should NOT be changed
+            expect(setMode).not.toHaveBeenCalled();
         });
 
-        it('should auto-switch to image mode when image file is uploaded', async () => {
+        it('should NOT auto-switch to image mode when image file is uploaded', async () => {
             const setMode = vi.fn();
             const props = createDefaultProps({ setMode, mode: 'chat' });
             render(<ChatInput {...props} />);
@@ -545,15 +552,18 @@ describe('ChatInput Component', () => {
             Object.defineProperty(fileInput, 'files', { value: [imageFile] });
             fireEvent.change(fileInput);
 
-            // Wait for async file processing
+            // Wait for async file processing (file should be displayed)
             await waitFor(() => {
-                expect(setMode).toHaveBeenCalledWith('image');
+                expect(screen.getByAltText('upload preview')).toBeInTheDocument();
             });
+
+            // Mode should NOT be changed
+            expect(setMode).not.toHaveBeenCalled();
         });
 
-        it('should not switch mode if already in video mode when uploading video', async () => {
+        it('should maintain current mode when uploading video in chat mode', async () => {
             const setMode = vi.fn();
-            const props = createDefaultProps({ setMode, mode: 'video' });
+            const props = createDefaultProps({ setMode, mode: 'chat' });
             render(<ChatInput {...props} />);
 
             // Create a mock video file
@@ -564,15 +574,18 @@ describe('ChatInput Component', () => {
             Object.defineProperty(fileInput, 'files', { value: [videoFile] });
             fireEvent.change(fileInput);
 
-            // Should still call setMode('video') but the mode is already video
+            // Wait for async file processing
             await waitFor(() => {
-                expect(setMode).toHaveBeenCalledWith('video');
+                expect(document.querySelector('video')).toBeTruthy();
             });
+
+            // Mode should NOT be changed - user can analyze video in chat mode
+            expect(setMode).not.toHaveBeenCalled();
         });
 
-        it('should not switch mode if already in image mode when uploading image', async () => {
+        it('should maintain current mode when uploading image in chat mode', async () => {
             const setMode = vi.fn();
-            const props = createDefaultProps({ setMode, mode: 'image' });
+            const props = createDefaultProps({ setMode, mode: 'chat' });
             render(<ChatInput {...props} />);
 
             // Create a mock image file
@@ -583,10 +596,13 @@ describe('ChatInput Component', () => {
             Object.defineProperty(fileInput, 'files', { value: [imageFile] });
             fireEvent.change(fileInput);
 
-            // Should still call setMode('image') but the mode is already image
+            // Wait for async file processing
             await waitFor(() => {
-                expect(setMode).toHaveBeenCalledWith('image');
+                expect(screen.getByAltText('upload preview')).toBeInTheDocument();
             });
+
+            // Mode should NOT be changed - user can analyze image in chat mode
+            expect(setMode).not.toHaveBeenCalled();
         });
     });
 

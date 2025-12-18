@@ -14,6 +14,7 @@ import {
     UUID_REGEX,
     VIDEO_POLL_INTERVAL_MS
 } from '@/lib/constants';
+import { detectMediaReference, shouldAutoInjectImage, shouldAutoInjectVideo } from '@/lib/mediaReference';
 import { AspectRatio, ContentPart, GenerationMode, Media, Message } from '@/types/app';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
@@ -54,6 +55,9 @@ export default function Home() {
     // Retry state for failed messages
     const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
     const [lastFailedMedia, setLastFailedMedia] = useState<Media | null>(null);
+    // Store last generated image/video for natural language reference
+    const [lastGeneratedImage, setLastGeneratedImage] = useState<Media | null>(null);
+    const [lastGeneratedVideo, setLastGeneratedVideo] = useState<Media | null>(null);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
@@ -839,7 +843,6 @@ export default function Home() {
                 if (conversation.mode) {
                     const modeMap: Record<string, GenerationMode> = {
                         'CHAT': 'chat',
-                        'PRO': 'pro',
                         'SEARCH': 'search',
                         'IMAGE': 'image',
                         'VIDEO': 'video',
@@ -914,6 +917,8 @@ export default function Home() {
                 ],
             },
         ]);
+        setLastGeneratedImage(null); // Clear image reference for new conversation
+        setLastGeneratedVideo(null); // Clear video reference for new conversation
         setIsSidebarOpen(false);
     };
 
@@ -1102,6 +1107,13 @@ export default function Home() {
                             )
                         );
 
+                        // Store generated video for natural language reference
+                        setLastGeneratedVideo({
+                            type: 'video',
+                            url: videoDataUrl,
+                            mimeType: downloadTarget.mimeType || 'video/mp4',
+                        });
+
                         // Return video parts for saving
                         return videoParts;
                     } catch (downloadError: any) {
@@ -1143,11 +1155,60 @@ export default function Home() {
             return;
         }
 
+        // Detect natural language references to previously generated images/videos
+        const { hasImageReference, hasVideoReference } = detectMediaReference(prompt);
+        const imageReferenceCheck = shouldAutoInjectImage(prompt, lastGeneratedImage);
+        const videoReferenceCheck = shouldAutoInjectVideo(prompt, lastGeneratedVideo);
+
+        // Handle case: User references image but none exists
+        if (hasImageReference && !lastGeneratedImage) {
+            showToast({
+                message: ERROR_MESSAGES.NO_IMAGE_TO_REFERENCE,
+                type: 'warning',
+                duration: 5000,
+            });
+            return;
+        }
+
+        // Handle case: User references video but none exists
+        if (hasVideoReference && !lastGeneratedVideo) {
+            showToast({
+                message: ERROR_MESSAGES.NO_VIDEO_TO_REFERENCE,
+                type: 'warning',
+                duration: 5000,
+            });
+            return;
+        }
+
+        // Determine effective mode and media based on natural language detection
+        let effectiveMode = mode;
+        let effectiveMedia = uploadedMedia;
+
+        // Check image reference first
+        if (imageReferenceCheck.inject && !uploadedMedia) {
+            if (imageReferenceCheck.forVideo) {
+                // Auto-switch to video mode for video generation from image
+                effectiveMode = 'video';
+                setMode('video');
+                effectiveMedia = lastGeneratedImage!;
+            } else if (imageReferenceCheck.forAnalysis) {
+                // Include image in chat analysis
+                effectiveMedia = lastGeneratedImage!;
+            }
+        }
+        // Check video reference (video analysis)
+        else if (videoReferenceCheck.inject && !uploadedMedia) {
+            if (videoReferenceCheck.forAnalysis) {
+                // Include video in chat analysis
+                effectiveMedia = lastGeneratedVideo!;
+            }
+        }
+
         setIsLoading(true);
 
         const userParts: ContentPart[] = [];
         if (prompt) userParts.push({ text: prompt });
-        if (uploadedMedia) userParts.push({ media: uploadedMedia });
+        if (effectiveMedia) userParts.push({ media: effectiveMedia });
         addMessage({ role: 'user', parts: userParts });
 
         // Create or get conversation for authenticated users
@@ -1157,8 +1218,8 @@ export default function Home() {
             (await createOrGetConversation(isNewConversation ? prompt : undefined)) ||
             currentConversationIdRef.current;
 
-        // Save user message with explicit mode
-        await saveMessage('USER', userParts, activeConversationId, mode);
+        // Save user message with explicit mode (use effectiveMode for auto-switched cases)
+        await saveMessage('USER', userParts, activeConversationId, effectiveMode);
 
         const loadingMessageId = Date.now().toString() + '-loading';
         setMessages(prev => [
@@ -1170,7 +1231,7 @@ export default function Home() {
             const systemInstruction = influencerConfig?.systemPrompt || undefined;
             const temperature = influencerConfig?.temperature || undefined;
 
-            if (mode === 'image') {
+            if (effectiveMode === 'image') {
                 // Call image generation API
                 const response = await authedFetch('/api/gemini/image', {
                     method: 'POST',
@@ -1222,11 +1283,18 @@ export default function Home() {
                     )
                 );
 
+                // Store generated image for natural language reference
+                setLastGeneratedImage({
+                    type: 'image',
+                    url: data.imageUrl,
+                    mimeType: 'image/png',
+                });
+
                 // Save model response (image) with explicit 'image' mode
                 await saveMessage('MODEL', imageParts, undefined, 'image');
-            } else if (mode === 'video') {
+            } else if (effectiveMode === 'video') {
                 // Capture mode before async operations to prevent race condition during polling
-                const videoRequestMode: GenerationMode = mode;
+                const videoRequestMode: GenerationMode = effectiveMode;
 
                 // Call video generation API
                 const response = await authedFetch('/api/gemini/video', {
@@ -1235,7 +1303,7 @@ export default function Home() {
                     body: JSON.stringify({
                         prompt,
                         aspectRatio: aspectRatio === '16:9' ? '16:9' : '9:16',
-                        media: uploadedMedia,
+                        media: effectiveMedia,
                     }),
                 });
 
@@ -1317,10 +1385,10 @@ export default function Home() {
                     body: JSON.stringify({
                         prompt,
                         history,
-                        mode,
+                        mode: effectiveMode,
                         systemInstruction,
                         temperature,
-                        media: uploadedMedia,
+                        media: effectiveMedia,
                     }),
                 });
 
@@ -1367,7 +1435,7 @@ export default function Home() {
                 );
 
                 // Save model response (text) with explicit mode
-                await saveMessage('MODEL', textParts, undefined, mode);
+                await saveMessage('MODEL', textParts, undefined, effectiveMode);
             }
 
             // Clear retry state on success
@@ -1376,7 +1444,7 @@ export default function Home() {
         } catch (error: any) {
             // Store failed prompt and media for retry
             setLastFailedPrompt(prompt);
-            setLastFailedMedia(uploadedMedia || null);
+            setLastFailedMedia(effectiveMedia || null);
 
             const shouldUseDjShachoStyle = mode === 'image' || mode === 'video';
             await handleApiError(error, `mode: ${mode}`, shouldUseDjShachoStyle);
