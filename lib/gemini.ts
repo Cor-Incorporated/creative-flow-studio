@@ -1,7 +1,7 @@
 // Gemini API Service (Gemini 3 version)
 import { GoogleGenAI, Modality } from '@google/genai';
 import type { AspectRatio, Media } from '../types/app';
-import { ERROR_MESSAGES, GEMINI_MODELS } from './constants';
+import { ERROR_MESSAGES, GEMINI_MODELS, VALID_IMAGE_ASPECT_RATIOS } from './constants';
 
 // Get AI client with API key from environment
 const getAiClient = () => {
@@ -83,19 +83,7 @@ export const generateImage = async (
 ) => {
     const ai = getAiClient();
 
-    // Validate aspect ratio (Gemini 3 Pro Image supports more ratios)
-    const VALID_IMAGE_ASPECT_RATIOS = [
-        '1:1',
-        '16:9',
-        '9:16',
-        '4:3',
-        '3:4',
-        '2:3',
-        '3:2',
-        '4:5',
-        '5:4',
-        '21:9',
-    ] as const;
+    // Validate aspect ratio (Gemini 3 Pro Image supports extended ratios)
     const normalizedAspectRatio = VALID_IMAGE_ASPECT_RATIOS.includes(aspectRatio as any)
         ? aspectRatio
         : '1:1';

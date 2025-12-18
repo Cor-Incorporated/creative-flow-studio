@@ -83,6 +83,8 @@ jobs:
 
       - name: Validate Prisma schema
         run: npx prisma validate
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
 
       - name: Check Prisma schema formatting
         run: npx prisma format --check || echo "Schema formatting check (non-blocking)"
