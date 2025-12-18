@@ -86,6 +86,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Close menu with Escape key
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isMenuOpen) {
+                setIsMenuOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [isMenuOpen]);
+
     const handleFileChange = async (files: FileList | null) => {
         if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length });
         if (files && files[0]) {
@@ -426,7 +437,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                 rows={1}
                                 disabled={isLoading}
                                 style={{ fontSize: '16px' }}
+                                aria-label="メッセージ入力フィールド"
+                                aria-describedby="input-help"
+                                aria-busy={isLoading}
                             />
+                            <span id="input-help" className="sr-only">
+                                Ctrl+Enter (Windows) または Cmd+Enter (Mac) で送信。画像やビデオを貼り付けることもできます。
+                            </span>
 
                             {/* Send Button */}
                             <button

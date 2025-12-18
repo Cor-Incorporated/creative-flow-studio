@@ -40,7 +40,7 @@ vi.mock('@/lib/gemini', () => ({
 }));
 
 // Import mocked functions for direct access in tests
-import { generateChatResponse } from '@/lib/gemini';
+import { generateChatResponse, generateSearchGroundedResponse } from '@/lib/gemini';
 
 describe('POST /api/gemini/chat', () => {
     beforeEach(() => {
@@ -248,6 +248,95 @@ describe('POST /api/gemini/chat', () => {
             expect(typeof data.requestId).toBe('string');
             expect(data.requestId.length).toBeGreaterThan(0);
             expect(response.headers.get('X-Request-Id')).toBe(data.requestId);
+        });
+    });
+
+    describe('Search mode with history', () => {
+        beforeEach(() => {
+            (getServerSession as any).mockResolvedValue({
+                user: { id: 'user-1', email: 'test@example.com' },
+            });
+
+            (checkSubscriptionLimits as any).mockResolvedValue({
+                allowed: true,
+                plan: { name: 'PRO' },
+                usageCount: 50,
+                limit: 1000,
+            });
+        });
+
+        it('should pass history to generateSearchGroundedResponse for context', async () => {
+            const conversationHistory = [
+                { role: 'user', parts: [{ text: 'What is the latest Google AI model?' }] },
+                { role: 'model', parts: [{ text: 'The latest is Gemini 2.0 Flash.' }] },
+            ];
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Is that really the most recent one?',
+                    mode: 'search',
+                    history: conversationHistory,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+
+            // Verify generateSearchGroundedResponse was called with history as first parameter
+            expect(generateSearchGroundedResponse).toHaveBeenCalledWith(
+                conversationHistory,
+                'Is that really the most recent one?',
+                undefined, // systemInstruction
+                undefined  // temperature
+            );
+        });
+
+        it('should pass empty history array when no history provided', async () => {
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Search for latest news',
+                    mode: 'search',
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+
+            // Verify generateSearchGroundedResponse was called with empty history
+            expect(generateSearchGroundedResponse).toHaveBeenCalledWith(
+                [], // empty history (default)
+                'Search for latest news',
+                undefined, // systemInstruction
+                undefined  // temperature
+            );
+        });
+
+        it('should pass systemInstruction and temperature to search mode', async () => {
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Search query',
+                    mode: 'search',
+                    history: [],
+                    systemInstruction: 'Be concise',
+                    temperature: 0.5,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+
+            expect(generateSearchGroundedResponse).toHaveBeenCalledWith(
+                [],
+                'Search query',
+                'Be concise',
+                0.5
+            );
         });
     });
 });
