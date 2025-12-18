@@ -28,11 +28,6 @@ vi.mock('@/lib/gemini', () => ({
         candidates: [{ content: { parts: [{ text: 'Chat response' }] }, finishReason: 'STOP' }],
         text: 'Chat response',
     }),
-    generateProResponse: vi.fn().mockResolvedValue({
-        candidates: [{ content: { parts: [{ text: 'Pro response' }] }, finishReason: 'STOP' }],
-        text: 'Pro response',
-        thinking: 'Thinking process',
-    }),
     generateSearchGroundedResponse: vi.fn().mockResolvedValue({
         candidates: [{ content: { parts: [{ text: 'Search response' }] }, finishReason: 'STOP' }],
         text: 'Search response',
@@ -45,7 +40,7 @@ vi.mock('@/lib/gemini', () => ({
 }));
 
 // Import mocked functions for direct access in tests
-import { generateChatResponse, generateProResponse } from '@/lib/gemini';
+import { generateChatResponse } from '@/lib/gemini';
 
 describe('POST /api/gemini/chat', () => {
     beforeEach(() => {
@@ -72,29 +67,6 @@ describe('POST /api/gemini/chat', () => {
         expect(data.code).toBe('UNAUTHORIZED');
         expect(typeof data.requestId).toBe('string');
         expect(response.headers.get('X-Request-Id')).toBeTruthy();
-    });
-
-    it('should return 403 if plan does not allow Pro mode', async () => {
-        (getServerSession as any).mockResolvedValue({
-            user: { id: 'user-1', email: 'test@example.com' },
-        });
-
-        (checkSubscriptionLimits as any).mockRejectedValue(
-            new Error('Pro mode not available in current plan')
-        );
-
-        const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
-            method: 'POST',
-            body: JSON.stringify({ prompt: 'Hello', mode: 'pro' }),
-        });
-
-        const response = await POST(request);
-
-        expect(response.status).toBe(403);
-        const data = await response.json();
-        expect(data.error).toContain('not available in current plan');
-        expect(data.code).toBe('FORBIDDEN_PLAN');
-        expect(typeof data.requestId).toBe('string');
     });
 
     it('should return 429 if monthly limit exceeded', async () => {
@@ -159,41 +131,6 @@ describe('POST /api/gemini/chat', () => {
             expect.objectContaining({
                 mode: 'chat',
                 resourceType: 'gemini-3-flash', // Gemini 3
-            })
-        );
-    });
-
-    it('should generate Pro response and log usage', async () => {
-        (getServerSession as any).mockResolvedValue({
-            user: { id: 'user-pro', email: 'pro@example.com' },
-        });
-
-        (checkSubscriptionLimits as any).mockResolvedValue({
-            allowed: true,
-            plan: { name: 'PRO' },
-            usageCount: 100,
-            limit: 1000,
-        });
-
-        const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
-            method: 'POST',
-            body: JSON.stringify({ prompt: 'Complex question', mode: 'pro' }),
-        });
-
-        const response = await POST(request);
-
-        expect(response.status).toBe(200);
-
-        // Verify checkSubscriptionLimits was called with pro_mode
-        expect(checkSubscriptionLimits).toHaveBeenCalledWith('user-pro', 'pro_mode');
-
-        // Verify logUsage was called with pro_mode
-        expect(logUsage).toHaveBeenCalledWith(
-            'user-pro',
-            'pro_mode',
-            expect.objectContaining({
-                mode: 'pro',
-                resourceType: 'gemini-3-pro', // Gemini 3
             })
         );
     });

@@ -1,7 +1,7 @@
 // Application types for BulnaAI (migrated from alpha/types.ts)
 
 export type Role = 'user' | 'model';
-export type GenerationMode = 'chat' | 'pro' | 'search' | 'image' | 'video';
+export type GenerationMode = 'chat' | 'search' | 'image' | 'video';
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
 
 // Re-export InfluencerId from constants for convenience

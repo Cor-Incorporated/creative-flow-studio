@@ -1,7 +1,7 @@
 // Gemini API Service (Gemini 3 version)
 import { GoogleGenAI, Modality } from '@google/genai';
 import type { AspectRatio, Media } from '../types/app';
-import { ERROR_MESSAGES, GEMINI_MODELS, THINKING_LEVELS, type ThinkingLevel } from './constants';
+import { ERROR_MESSAGES, GEMINI_MODELS } from './constants';
 
 // Get AI client with API key from environment
 const getAiClient = () => {
@@ -44,36 +44,6 @@ export const generateChatResponse = async (
 
     const chat = ai.chats.create(chatConfig);
     const result = await chat.sendMessage({ message: prompt });
-    return result;
-};
-
-// Pro mode: Uses gemini-3-pro-preview with thinking process
-export const generateProResponse = async (
-    prompt: string,
-    systemInstruction?: string,
-    temperature?: number,
-    thinkingLevel: ThinkingLevel = THINKING_LEVELS.HIGH
-) => {
-    const ai = getAiClient();
-    const requestConfig: any = {
-        model: GEMINI_MODELS.PRO,
-        contents: {
-            parts: [{ text: prompt }],
-        },
-        config: {
-            // Gemini 3 uses thinkingLevel instead of thinkingBudget
-            thinkingConfig: { thinkingLevel },
-        },
-    };
-
-    if (systemInstruction) {
-        requestConfig.config.systemInstruction = [systemInstruction];
-    }
-    if (temperature !== undefined) {
-        requestConfig.config = { ...requestConfig.config, temperature };
-    }
-
-    const result = await ai.models.generateContent(requestConfig);
     return result;
 };
 
@@ -143,25 +113,25 @@ export const generateImage = async (
         },
     });
 
-    // Extract image from response parts
-    const parts = result?.candidates?.[0]?.content?.parts || result?.parts;
-    if (!parts || parts.length === 0) {
+    // Extract image from response candidates
+    const candidate = result?.candidates?.[0];
+    if (!candidate?.content?.parts || candidate.content.parts.length === 0) {
         throw new Error(ERROR_MESSAGES.IMAGE_NO_IMAGES);
     }
 
     // Find the image part in response
-    const imagePart = parts.find((part: any) => part.inlineData);
+    const imagePart = candidate.content.parts.find((part: any) => part.inlineData);
     if (!imagePart || !imagePart.inlineData) {
         throw new Error(ERROR_MESSAGES.IMAGE_NO_DATA);
     }
 
-    const { data, mimeType } = imagePart.inlineData;
+    const { data, mimeType: responseMimeType } = imagePart.inlineData;
     if (!data) {
         throw new Error(ERROR_MESSAGES.IMAGE_UNEXPECTED_FORMAT);
     }
 
     // Return data URL format
-    const mime = mimeType || 'image/png';
+    const mime = responseMimeType || 'image/png';
     return `data:${mime};base64,${data}`;
 };
 

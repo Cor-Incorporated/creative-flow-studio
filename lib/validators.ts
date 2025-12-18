@@ -17,7 +17,6 @@ export const PlanFeaturesSchema = z.object({
     maxConcurrentRequests: z.number().default(3),
     allowImageGeneration: z.boolean().default(true),
     allowVideoGeneration: z.boolean().default(false),
-    allowProMode: z.boolean().default(false),
     allowSearchMode: z.boolean().default(true),
     prioritySupport: z.boolean().default(false),
     customBranding: z.boolean().default(false),
@@ -30,8 +29,8 @@ export type PlanFeatures = z.infer<typeof PlanFeaturesSchema>;
 // ============================================
 
 export const UsageLogMetadataSchema = z.object({
-    model: z.string().optional(), // e.g., 'gemini-2.5-flash', 'imagen-4.0'
-    mode: z.enum(['chat', 'pro', 'search', 'image', 'video']).optional(),
+    model: z.string().optional(), // e.g., 'gemini-3-flash', 'gemini-3-pro-image'
+    mode: z.enum(['chat', 'search', 'image', 'video']).optional(),
     tokensUsed: z.number().optional(),
     imageSize: z.string().optional(), // e.g., '1024x1024'
     videoLength: z.number().optional(), // in seconds
@@ -148,7 +147,7 @@ export function parseJson<T extends z.ZodTypeAny>(schema: T, data: unknown): z.i
  */
 export const createConversationSchema = z.object({
     title: z.string().max(200).optional(),
-    mode: z.enum(['CHAT', 'PRO', 'SEARCH', 'IMAGE', 'VIDEO']).optional(),
+    mode: z.enum(['CHAT', 'SEARCH', 'IMAGE', 'VIDEO']).optional(),
 });
 
 export type CreateConversationRequest = z.infer<typeof createConversationSchema>;
@@ -169,7 +168,7 @@ export type UpdateConversationRequest = z.infer<typeof updateConversationSchema>
  */
 export const createMessageSchema = z.object({
     role: z.enum(['USER', 'MODEL', 'SYSTEM']),
-    mode: z.enum(['CHAT', 'PRO', 'SEARCH', 'IMAGE', 'VIDEO']).optional(), // Mode for this message (multi-mode support)
+    mode: z.enum(['CHAT', 'SEARCH', 'IMAGE', 'VIDEO']).optional(), // Mode for this message (multi-mode support)
     content: z
         .array(
             z.object({

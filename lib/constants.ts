@@ -74,25 +74,15 @@ export const VIDEO_POLL_INTERVAL_MS = 5000; // 5 seconds
 export const MAX_VIDEO_POLL_ATTEMPTS = 120; // 10 minutes (120 * 5s)
 
 // Gemini 3 Model Names (migrated from Gemini 2.5)
+// Note: Pro mode removed for cost optimization (75% savings)
 export const GEMINI_MODELS = {
-    // Chat models (Gemini 3)
+    // Chat/Search model (Gemini 3 Flash)
     FLASH: 'gemini-3-flash-preview',
-    PRO: 'gemini-3-pro-preview',
     // Image model (Gemini 3 Pro Image - unified generation and editing)
     PRO_IMAGE: 'gemini-3-pro-image-preview',
     // Video model (Veo 3.1 - unchanged)
     VEO: 'veo-3.1-fast-generate-preview',
 } as const;
-
-// Gemini 3 Thinking Levels (replaces thinkingBudget)
-export const THINKING_LEVELS = {
-    MINIMAL: 'minimal', // Flash only: Near-zero thinking, high throughput
-    LOW: 'low', // Minimize latency and cost
-    MEDIUM: 'medium', // Flash only: Balanced speed/reasoning
-    HIGH: 'high', // Maximum reasoning depth (default)
-} as const;
-
-export type ThinkingLevel = (typeof THINKING_LEVELS)[keyof typeof THINKING_LEVELS];
 
 // Error Messages
 export const ERROR_MESSAGES = {

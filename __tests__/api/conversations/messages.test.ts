@@ -352,49 +352,6 @@ describe('POST /api/conversations/[id]/messages - mode parameter', () => {
         });
     });
 
-    it('should create message with mode=PRO', async () => {
-        // Arrange
-        const mockSession = { user: { id: 'user_123' }, expires: '2025-12-31' };
-        const mockConversation = { id: 'conv_1', userId: 'user_123' };
-        const mockMessage = {
-            id: 'msg_2',
-            conversationId: 'conv_1',
-            role: 'USER',
-            mode: 'PRO',
-            content: [{ text: 'Deep thinking query' }],
-            createdAt: new Date('2025-11-13'),
-        };
-
-        vi.mocked(getServerSession).mockResolvedValue(mockSession as any);
-        vi.mocked(prisma.conversation.findUnique).mockResolvedValue(mockConversation as any);
-        vi.mocked(prisma.message.create).mockResolvedValue(mockMessage as any);
-        vi.mocked(prisma.conversation.update).mockResolvedValue(mockConversation as any);
-
-        // Act
-        const request = new NextRequest('http://localhost:3000/api/conversations/conv_1/messages', {
-            method: 'POST',
-            body: JSON.stringify({
-                role: 'USER',
-                mode: 'PRO',
-                content: [{ text: 'Deep thinking query' }],
-            }),
-        });
-        const response = await POST(request, { params: Promise.resolve({ id: 'conv_1' }) });
-        const data = await response.json();
-
-        // Assert
-        expect(response.status).toBe(201);
-        expect(data.message.mode).toBe('PRO');
-        expect(prisma.message.create).toHaveBeenCalledWith({
-            data: {
-                conversationId: 'conv_1',
-                role: 'USER',
-                mode: 'PRO',
-                content: [{ text: 'Deep thinking query' }],
-            },
-        });
-    });
-
     it('should create message with mode=SEARCH', async () => {
         // Arrange
         const mockSession = { user: { id: 'user_123' }, expires: '2025-12-31' };

@@ -843,7 +843,6 @@ export default function Home() {
                 if (conversation.mode) {
                     const modeMap: Record<string, GenerationMode> = {
                         'CHAT': 'chat',
-                        'PRO': 'pro',
                         'SEARCH': 'search',
                         'IMAGE': 'image',
                         'VIDEO': 'video',
