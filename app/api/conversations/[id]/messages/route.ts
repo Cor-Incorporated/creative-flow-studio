@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Request Body:
  * {
  *   role: 'USER' | 'MODEL' | 'SYSTEM'
- *   mode?: 'CHAT' | 'PRO' | 'SEARCH' | 'IMAGE' | 'VIDEO'  // Mode for this message (multi-mode support)
+ *   mode?: 'CHAT' | 'SEARCH' | 'IMAGE' | 'VIDEO'  // Mode for this message (multi-mode support)
  *   content: Array<{
  *     text?: string
  *     media?: { type: 'image' | 'video', url: string, mimeType: string }

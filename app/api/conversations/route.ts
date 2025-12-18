@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * Query Parameters:
  * - limit (optional, default: 20): Number of conversations to return
  * - offset (optional, default: 0): Number of conversations to skip
- * - mode (optional): Filter by GenerationMode (CHAT | PRO | SEARCH | IMAGE | VIDEO)
+ * - mode (optional): Filter by GenerationMode (CHAT | SEARCH | IMAGE | VIDEO)
  *
  * Response:
  * {
@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
         const offset = parseInt(searchParams.get('offset') || '0');
         const mode = searchParams.get('mode') as
             | 'CHAT'
-            | 'PRO'
             | 'SEARCH'
             | 'IMAGE'
             | 'VIDEO'
@@ -120,7 +119,7 @@ export async function GET(request: NextRequest) {
  * Request Body:
  * {
  *   title?: string (max 200 chars)
- *   mode?: 'CHAT' | 'PRO' | 'SEARCH' | 'IMAGE' | 'VIDEO'
+ *   mode?: 'CHAT' | 'SEARCH' | 'IMAGE' | 'VIDEO'
  * }
  *
  * Response:

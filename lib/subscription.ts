@@ -18,7 +18,6 @@ export type SubscriptionWithPlan = Subscription & {
 type SubscriptionDbClient = Pick<typeof prisma, 'subscription' | 'plan'>;
 
 export type PlanFeatures = {
-    allowProMode: boolean;
     allowImageGeneration: boolean;
     allowVideoGeneration: boolean;
     maxRequestsPerMonth: number | null;
@@ -28,7 +27,6 @@ export type PlanFeatures = {
 function getFallbackAdminPlan(): Plan {
     const now = new Date(0);
     const features: PlanFeatures = {
-        allowProMode: true,
         allowImageGeneration: true,
         allowVideoGeneration: true,
         maxRequestsPerMonth: null,

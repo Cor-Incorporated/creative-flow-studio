@@ -82,7 +82,6 @@ export async function GET(request: NextRequest) {
             plan: {
                 name: subscription.plan.name,
                 features: {
-                    allowProMode: features.allowProMode,
                     allowImageGeneration: features.allowImageGeneration,
                     allowVideoGeneration: features.allowVideoGeneration,
                     maxRequestsPerMonth: limit,
