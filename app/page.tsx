@@ -60,6 +60,7 @@ export default function Home() {
     const [lastGeneratedVideo, setLastGeneratedVideo] = useState<Media | null>(null);
     // Smart scroll: track if user has scrolled up to prevent forced auto-scroll
     const [userScrolledUp, setUserScrolledUp] = useState<boolean>(false);
+    const userScrolledUpRef = useRef<boolean>(false); // Ref to avoid unnecessary state updates
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
@@ -414,12 +415,19 @@ export default function Home() {
     }, [isSidebarOpen]);
 
     // Track scroll position to enable smart auto-scroll
+    // Optimized to avoid unnecessary state updates on every scroll event
     const handleChatScroll = () => {
         if (!chatHistoryRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.current;
         // User is "scrolled up" if they're more than 100px from the bottom
         const isNearBottom = scrollHeight - scrollTop - clientHeight <= 100;
-        setUserScrolledUp(!isNearBottom);
+        const newUserScrolledUp = !isNearBottom;
+
+        // Only update state if value actually changed (performance optimization)
+        if (userScrolledUpRef.current !== newUserScrolledUp) {
+            userScrolledUpRef.current = newUserScrolledUp;
+            setUserScrolledUp(newUserScrolledUp);
+        }
     };
 
     // Auto-scroll to bottom on new messages (only if user hasn't scrolled up)
@@ -944,6 +952,7 @@ export default function Home() {
 
     /**
      * Start a new conversation
+     * Note: Uses selectedInfluencerRef to avoid stale closure in keyboard shortcuts
      */
     const startNewConversation = () => {
         // Clean up blob URLs to prevent memory leaks
@@ -952,8 +961,8 @@ export default function Home() {
         // Clear persistence
         clearConversationPersistence();
 
-        // Reset to initial state
-        const config = getInfluencerConfig(selectedInfluencer);
+        // Reset to initial state (use ref to get current value, avoiding stale closure)
+        const config = getInfluencerConfig(selectedInfluencerRef.current);
         const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
 
         setCurrentConversationId(null);

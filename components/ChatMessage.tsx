@@ -21,6 +21,16 @@ const handleDownload = (url: string, filename: string) => {
     document.body.removeChild(link);
 };
 
+// Robust touch device detection for hybrid devices (Surface, iPad with keyboard, etc.)
+const isTouchDevice = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    return (
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        (navigator as any).msMaxTouchPoints > 0
+    );
+};
+
 const ImageContent: React.FC<{
     part: ContentPart;
     onEditImage: (prompt: string, image: Media) => void;
@@ -44,8 +54,8 @@ const ImageContent: React.FC<{
 
     // Handle image click for mobile tap-to-toggle controls
     const handleImageClick = () => {
-        // Toggle controls on touch devices
-        if ('ontouchstart' in window) {
+        // Toggle controls on touch devices (including hybrid devices like Surface)
+        if (isTouchDevice()) {
             setShowControls(!showControls);
         }
     };
@@ -54,8 +64,8 @@ const ImageContent: React.FC<{
         <div
             className="relative group max-w-md"
             onClick={handleImageClick}
-            onMouseEnter={() => !('ontouchstart' in window) && setShowControls(true)}
-            onMouseLeave={() => !('ontouchstart' in window) && setShowControls(false)}
+            onMouseEnter={() => !isTouchDevice() && setShowControls(true)}
+            onMouseLeave={() => !isTouchDevice() && setShowControls(false)}
             role="figure"
             aria-label="生成された画像"
         >

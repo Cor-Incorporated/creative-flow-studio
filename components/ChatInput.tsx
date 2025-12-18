@@ -72,6 +72,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const plusButtonRef = useRef<HTMLButtonElement>(null); // For focus management
     // IME変換中かどうかを追跡するためのref
     const isComposingRef = useRef<boolean>(false);
 
@@ -86,11 +87,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Close menu with Escape key
+    // Close menu with Escape key and return focus to plus button (accessibility)
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && isMenuOpen) {
                 setIsMenuOpen(false);
+                // Return focus to the plus button for better keyboard navigation
+                plusButtonRef.current?.focus();
             }
         };
         window.addEventListener('keydown', handleEscape);
@@ -267,6 +270,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                             {/* Plus Button with Popup Menu */}
                             <div className="relative" ref={menuRef}>
                                 <button
+                                    ref={plusButtonRef}
                                     type="button"
                                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                                     className={`p-2.5 rounded-xl transition-all flex-shrink-0 ${
@@ -274,6 +278,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                             ? 'bg-gray-600 text-white rotate-45'
                                             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
                                     }`}
+                                    aria-label="メニューを開く"
+                                    aria-expanded={isMenuOpen}
+                                    aria-haspopup="menu"
                                 >
                                     <PlusIcon className="w-5 h-5" />
                                 </button>
