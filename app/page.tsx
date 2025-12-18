@@ -416,11 +416,12 @@ export default function Home() {
 
     // Track scroll position to enable smart auto-scroll
     // Optimized to avoid unnecessary state updates on every scroll event
+    const SCROLL_BOTTOM_THRESHOLD = 100; // pixels from bottom to trigger auto-scroll
     const handleChatScroll = () => {
         if (!chatHistoryRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.current;
-        // User is "scrolled up" if they're more than 100px from the bottom
-        const isNearBottom = scrollHeight - scrollTop - clientHeight <= 100;
+        // User is "scrolled up" if they're more than threshold pixels from the bottom
+        const isNearBottom = scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
         const newUserScrolledUp = !isNearBottom;
 
         // Only update state if value actually changed (performance optimization)
