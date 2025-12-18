@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { getUserSubscription, getMonthlyUsageCount } from '@/lib/subscription';
 
 export const dynamic = 'force-dynamic';
+
+// Maximum file size for ADMIN users (Prisma Int max value: 2GB)
+const ADMIN_MAX_FILE_SIZE = 2_147_483_647;
 
 /**
  * GET /api/stripe/subscription
@@ -47,7 +51,43 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // 2. Get subscription with plan details
+        // 2. Check if ADMIN user (special handling)
+        const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: { role: true },
+        });
+
+        if (user?.role === 'ADMIN') {
+            // ADMIN users get unlimited access
+            return NextResponse.json({
+                subscription: {
+                    id: 'admin-subscription',
+                    status: 'ACTIVE',
+                    planId: 'admin-plan',
+                    stripeCustomerId: null,
+                    stripeSubscriptionId: null,
+                    currentPeriodStart: null,
+                    currentPeriodEnd: null,
+                    cancelAtPeriodEnd: false,
+                    plan: {
+                        id: 'admin-plan',
+                        name: 'ADMIN',
+                        monthlyPrice: 0,
+                        features: {
+                            allowImageGeneration: true,
+                            allowVideoGeneration: true,
+                            maxRequestsPerMonth: null,
+                        },
+                        maxRequestsPerMonth: null,
+                        maxFileSize: ADMIN_MAX_FILE_SIZE,
+                    },
+                },
+                usageCount: 0,
+                isAdmin: true,
+            });
+        }
+
+        // 3. Get subscription with plan details (for non-admin users)
         const subscription = await getUserSubscription(session.user.id);
 
         if (!subscription) {
@@ -57,10 +97,10 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // 3. Get monthly usage count
+        // 4. Get monthly usage count
         const usageCount = await getMonthlyUsageCount(session.user.id);
 
-        // 4. Return subscription data
+        // 5. Return subscription data
         return NextResponse.json({
             subscription: {
                 id: subscription.id,

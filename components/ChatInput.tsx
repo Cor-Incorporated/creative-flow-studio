@@ -23,6 +23,9 @@ import {
     XMarkIcon,
 } from './icons';
 
+// Debug logging for media preview investigation (only in development)
+const DEBUG_MEDIA = process.env.NODE_ENV === 'development';
+
 interface ChatInputProps {
     onSendMessage: (prompt: string, uploadedMedia?: Media) => void;
     isLoading: boolean;
@@ -84,8 +87,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }, []);
 
     const handleFileChange = async (files: FileList | null) => {
+        if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length });
         if (files && files[0]) {
             const file = files[0];
+            if (DEBUG_MEDIA) console.log('[ChatInput] File selected', { name: file.name, size: file.size, type: file.type });
 
             if (file.size > MAX_FILE_SIZE) {
                 setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
@@ -111,9 +116,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
             }
 
             setValidationError(null);
-            const url = await fileToBase64(file);
-            const type = isVideo ? 'video' : 'image';
-            setUploadedMedia({ url, mimeType: file.type, type });
+            try {
+                const url = await fileToBase64(file);
+                if (DEBUG_MEDIA) console.log('[ChatInput] Base64 conversion complete', { urlLength: url.length });
+                const type = isVideo ? 'video' : 'image';
+                setUploadedMedia({ url, mimeType: file.type, type });
+                if (DEBUG_MEDIA) console.log('[ChatInput] uploadedMedia state updated');
+            } catch (error) {
+                if (DEBUG_MEDIA) console.error('[ChatInput] Error converting file to base64:', error);
+                setValidationError('ファイルの読み込みに失敗しました');
+                return;
+            }
             // Note: Auto-mode switch removed to allow media attachment in any mode
             // Users can now attach images/videos in chat mode for analysis
             setIsMenuOpen(false);

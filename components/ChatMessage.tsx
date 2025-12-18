@@ -85,6 +85,26 @@ const ImageContent: React.FC<{
 
 const VideoContent: React.FC<{ part: ContentPart }> = ({ part }) => {
     if (!part.media) return null;
+
+    // Handle legacy Blob URLs that are no longer valid
+    const isUnavailable = part.media.unavailable === true;
+
+    if (isUnavailable) {
+        return (
+            <div className="max-w-md bg-gray-800 border border-gray-600 rounded-lg p-4">
+                <div className="flex items-center gap-3 text-gray-400">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <div>
+                        <p className="font-medium">この動画は利用できません</p>
+                        <p className="text-sm text-gray-500">セッションが切れたため、動画を再生できません</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-md">
             <video controls src={part.media.url} className="rounded-lg shadow-lg">

@@ -16,6 +16,9 @@ vi.mock('next-auth', () => ({
 // Mock Prisma
 vi.mock('@/lib/prisma', () => ({
     prisma: {
+        user: {
+            findUnique: vi.fn(),
+        },
         subscription: {
             findUnique: vi.fn(),
         },
@@ -45,11 +48,38 @@ describe('GET /api/stripe/subscription', () => {
         expect(data.error).toBe('Unauthorized');
     });
 
+    it('should return ADMIN plan for admin users', async () => {
+        (getServerSession as any).mockResolvedValue({
+            user: { id: 'admin-1', email: 'admin@example.com' },
+        });
+
+        (prisma.user.findUnique as any).mockResolvedValue({
+            role: 'ADMIN',
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/stripe/subscription');
+        const response = await GET(request);
+
+        expect(response.status).toBe(200);
+        const data = await response.json();
+
+        expect(data.subscription.plan.name).toBe('ADMIN');
+        expect(data.subscription.plan.maxRequestsPerMonth).toBeNull();
+        expect(data.subscription.plan.features.allowImageGeneration).toBe(true);
+        expect(data.subscription.plan.features.allowVideoGeneration).toBe(true);
+        expect(data.isAdmin).toBe(true);
+        expect(data.usageCount).toBe(0);
+    });
+
     it('should return 404 if subscription not found', async () => {
         (getServerSession as any).mockResolvedValue({
             user: { id: 'user-1', email: 'test@example.com' },
         });
 
+        // Non-admin user
+        (prisma.user.findUnique as any).mockResolvedValue({
+            role: 'USER',
+        });
         (prisma.subscription.findUnique as any).mockResolvedValue(null);
 
         const request = new NextRequest('http://localhost:3000/api/stripe/subscription');
@@ -63,6 +93,11 @@ describe('GET /api/stripe/subscription', () => {
     it('should return subscription data with usage count', async () => {
         (getServerSession as any).mockResolvedValue({
             user: { id: 'user-1', email: 'test@example.com' },
+        });
+
+        // Non-admin user
+        (prisma.user.findUnique as any).mockResolvedValue({
+            role: 'USER',
         });
 
         const mockSubscription = {
@@ -107,6 +142,11 @@ describe('GET /api/stripe/subscription', () => {
             user: { id: 'user-1', email: 'test@example.com' },
         });
 
+        // Non-admin user
+        (prisma.user.findUnique as any).mockResolvedValue({
+            role: 'USER',
+        });
+
         const mockSubscription = {
             id: 'sub-1',
             userId: 'user-1',
@@ -146,6 +186,11 @@ describe('GET /api/stripe/subscription', () => {
             user: { id: 'user-1', email: 'test@example.com' },
         });
 
+        // Non-admin user
+        (prisma.user.findUnique as any).mockResolvedValue({
+            role: 'USER',
+        });
+
         (prisma.subscription.findUnique as any).mockRejectedValue(
             new Error('Database connection failed')
         );
@@ -162,6 +207,11 @@ describe('GET /api/stripe/subscription', () => {
     it('should return subscription with unlimited plan', async () => {
         (getServerSession as any).mockResolvedValue({
             user: { id: 'user-enterprise', email: 'enterprise@example.com' },
+        });
+
+        // Non-admin user with ENTERPRISE plan
+        (prisma.user.findUnique as any).mockResolvedValue({
+            role: 'USER',
         });
 
         const mockSubscription = {
