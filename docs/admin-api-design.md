@@ -1,4 +1,4 @@
-# Admin API Design - Creative Flow Studio
+# Admin API Design - BlunaAI
 
 **Phase**: 6 (Admin Dashboard)
 **Steps**: 2 (Admin API Routes) & 3 (Admin Pages)

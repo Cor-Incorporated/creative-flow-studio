@@ -226,7 +226,7 @@ export default function AdminUsagePage() {
                             value={filters.userId}
                             onChange={handleUserIdChange}
                             placeholder="ユーザー ID を入力..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
                         />
                     </div>
 
@@ -238,7 +238,7 @@ export default function AdminUsagePage() {
                         <select
                             value={filters.action}
                             onChange={handleActionFilter}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         >
                             <option value="">全て</option>
                             <option value="chat">chat</option>
@@ -256,7 +256,7 @@ export default function AdminUsagePage() {
                         <select
                             value={filters.resourceType}
                             onChange={handleResourceTypeFilter}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         >
                             <option value="">全て</option>
                             <option value="gemini-2.5-flash">gemini-2.5-flash</option>
@@ -275,7 +275,7 @@ export default function AdminUsagePage() {
                             type="date"
                             value={filters.startDate}
                             onChange={handleStartDateChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         />
                     </div>
 
@@ -288,7 +288,7 @@ export default function AdminUsagePage() {
                             type="date"
                             value={filters.endDate}
                             onChange={handleEndDateChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                         />
                     </div>
                 </div>

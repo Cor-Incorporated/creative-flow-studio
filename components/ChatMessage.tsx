@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Message, Media, GroundingSource, ContentPart } from '@/types/app';
-import { PencilIcon, DownloadIcon, LoadingSpinner } from './icons';
+import { getInfluencerConfig, InfluencerId } from '@/lib/constants';
+import { ContentPart, GroundingSource, Media, Message } from '@/types/app';
 import Image from 'next/image';
+import React, { useState } from 'react';
+import { DownloadIcon, LoadingSpinner, PencilIcon } from './icons';
 
 interface ChatMessageProps {
     message: Message;
     onEditImage: (prompt: string, image: Media) => void;
-    isDjShachoMode?: boolean;
+    selectedInfluencer?: InfluencerId;
 }
 
 const handleDownload = (url: string, filename: string) => {
@@ -149,28 +150,41 @@ const SourceList: React.FC<{ sources: GroundingSource[] }> = ({ sources }) => (
 const ChatMessage: React.FC<ChatMessageProps> = ({
     message,
     onEditImage,
-    isDjShachoMode = false,
+    selectedInfluencer = 'none',
 }) => {
     const isUser = message.role === 'user';
     const bgColor = isUser ? 'bg-gray-800' : 'bg-gray-700/50';
     const alignment = isUser ? 'justify-end' : 'justify-start';
     const flexDirection = isUser ? 'flex-row-reverse' : 'flex-row';
+
+    // Get influencer-specific avatar
+    const getInfluencerAvatar = () => {
+        if (selectedInfluencer === 'dj_shacho') {
+            return (
+                <Image
+                    src="/DJ_Shacho_400x400.jpg"
+                    alt="DJ社長"
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-cover"
+                />
+            );
+        }
+        // Default AI avatar for other influencers or none
+        const influencer = getInfluencerConfig(selectedInfluencer);
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
+                {influencer ? influencer.name.substring(0, 2) : 'AI'}
+            </div>
+        );
+    };
+
     const avatar = isUser ? (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs font-semibold">
             YOU
         </div>
-    ) : isDjShachoMode ? (
-        <Image
-            src="/DJ_Shacho_400x400.jpg"
-            alt="DJ社長"
-            width={48}
-            height={48}
-            className="w-full h-full object-cover"
-        />
     ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-cyan-500 text-white text-xs font-semibold">
-            AI
-        </div>
+        getInfluencerAvatar()
     );
 
     return (

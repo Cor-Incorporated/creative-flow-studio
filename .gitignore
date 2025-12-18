@@ -31,6 +31,8 @@ infra/envs/dev/terraform.tfvars
 .terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
+*.plan
+*.tfplan
 
 # Next.js
 .next/
@@ -44,6 +46,8 @@ prisma/migrations/*_migration/
 # Testing
 coverage
 .nyc_output
+playwright-report/
+test-results/
 
 # Editor directories and files
 .vscode/*

@@ -8,12 +8,14 @@
  * - Stripe Subscriptions: https://docs.stripe.com/billing/subscriptions
  */
 
+import type { Plan, Subscription } from '@prisma/client';
 import { prisma } from './prisma';
-import type { Subscription, Plan } from '@prisma/client';
 
 export type SubscriptionWithPlan = Subscription & {
     plan: Plan;
 };
+
+type SubscriptionDbClient = Pick<typeof prisma, 'subscription' | 'plan'>;
 
 export type PlanFeatures = {
     allowProMode: boolean;
@@ -22,6 +24,30 @@ export type PlanFeatures = {
     maxRequestsPerMonth: number | null;
     maxFileSize: number;
 };
+
+function getFallbackAdminPlan(): Plan {
+    const now = new Date(0);
+    const features: PlanFeatures = {
+        allowProMode: true,
+        allowImageGeneration: true,
+        allowVideoGeneration: true,
+        maxRequestsPerMonth: null,
+        // Effectively unlimited; keep within Postgres int range.
+        maxFileSize: 2_147_483_647,
+    };
+
+    return {
+        id: 'admin-enterprise-fallback',
+        name: 'ENTERPRISE',
+        stripePriceId: null,
+        monthlyPrice: 0,
+        features,
+        maxRequestsPerMonth: null,
+        maxFileSize: features.maxFileSize,
+        createdAt: now,
+        updatedAt: now,
+    };
+}
 
 /**
  * Get user's active subscription with plan details
@@ -74,21 +100,43 @@ export async function getMonthlyUsageCount(userId: string): Promise<number> {
 
 /**
  * Check subscription limits for a specific action
+ * ADMIN users bypass all limits and have access to all features
  *
  * @param userId - User ID
- * @param action - Action type (e.g., 'image_generation', 'video_generation', 'pro_mode')
+ * @param action - Action type (e.g., 'image_generation', 'video_generation', 'chat')
  * @returns Object with allowed status, plan details, and usage count
- * @throws Error if subscription is invalid or limits exceeded
+ * @throws Error if subscription is invalid or limits exceeded (unless user is ADMIN)
  */
 export async function checkSubscriptionLimits(
     userId: string,
-    action: 'image_generation' | 'video_generation' | 'pro_mode' | 'chat'
+    action: 'image_generation' | 'video_generation' | 'chat'
 ): Promise<{
     allowed: boolean;
     plan: Plan;
     usageCount: number;
     limit: number | null;
 }> {
+    // Check if user is ADMIN - admins bypass all limits
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+    });
+
+    if (user?.role === 'ADMIN') {
+        // Admin users have unlimited access to all features
+        // Return a dummy plan with all features enabled
+        const adminPlan = await prisma.plan.findFirst({
+            where: { name: 'ENTERPRISE' },
+        });
+
+        return {
+            allowed: true,
+            plan: adminPlan || getFallbackAdminPlan(),
+            usageCount: 0,
+            limit: null, // Unlimited for admins
+        };
+    }
+
     const subscription = await getUserSubscription(userId);
 
     if (!subscription) {
@@ -112,11 +160,6 @@ export async function checkSubscriptionLimits(
         case 'video_generation':
             if (!features.allowVideoGeneration) {
                 throw new Error('Video generation not available in current plan');
-            }
-            break;
-        case 'pro_mode':
-            if (!features.allowProMode) {
-                throw new Error('Pro mode not available in current plan');
             }
             break;
         case 'chat':
@@ -145,18 +188,26 @@ export async function checkSubscriptionLimits(
  *
  * @param userId - User ID
  * @param action - Action type
- * @param metadata - Optional metadata
+ * @param metadata - Optional metadata (resourceType will be extracted if present)
  */
 export async function logUsage(
     userId: string,
     action: string,
     metadata?: Record<string, any>
 ): Promise<void> {
+    // Extract resourceType from metadata if present
+    const resourceType = metadata?.resourceType as string | undefined;
+    const cleanMetadata = metadata ? { ...metadata } : {};
+    if (cleanMetadata.resourceType) {
+        delete cleanMetadata.resourceType;
+    }
+
     await prisma.usageLog.create({
         data: {
             userId,
             action,
-            metadata: metadata || {},
+            resourceType,
+            metadata: cleanMetadata,
         },
     });
 }
@@ -220,4 +271,61 @@ export function calculateUsagePercentage(
     }
 
     return Math.min(Math.round((current / limit) * 100), 100);
+}
+
+/**
+ * Create default FREE plan subscription for a new user
+ *
+ * This function is called automatically when a new user registers.
+ * It ensures every user has a subscription, even if they haven't purchased a plan yet.
+ *
+ * @param userId - User ID
+ * @returns Created subscription
+ * @throws Error if FREE plan not found or subscription already exists
+ */
+export async function createDefaultFreeSubscription(
+    userId: string
+): Promise<SubscriptionWithPlan> {
+    return await createDefaultFreeSubscriptionWithClient(userId, prisma);
+}
+
+export async function createDefaultFreeSubscriptionWithClient(
+    userId: string,
+    db: SubscriptionDbClient
+): Promise<SubscriptionWithPlan> {
+    // Fast-path: if subscription already exists, return it (no FREE plan query needed).
+    const existing = await db.subscription.findUnique({
+        where: { userId },
+        include: { plan: true },
+    });
+    if (existing) return existing as SubscriptionWithPlan;
+
+    // Find FREE plan by name (needed only for the create path).
+    const freePlan = await db.plan.findUnique({
+        where: { name: 'FREE' },
+    });
+    if (!freePlan) {
+        throw new Error('FREE plan not found in database. Please run database migrations.');
+    }
+
+    // Set billing period (30 days from now)
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setDate(periodEnd.getDate() + 30);
+
+    // Create-if-absent, safely (prevents race condition / unique violations on subscriptions.userId).
+    // If another request created the subscription after our fast-path check, upsert returns the existing row.
+    return (await db.subscription.upsert({
+        where: { userId },
+        update: {},
+        create: {
+            userId,
+            planId: freePlan.id,
+            status: 'ACTIVE',
+            currentPeriodStart: now,
+            currentPeriodEnd: periodEnd,
+            cancelAtPeriodEnd: false,
+        },
+        include: { plan: true },
+    })) as SubscriptionWithPlan;
 }

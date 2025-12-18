@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { generateVideo } from '@/lib/gemini';
-import { checkSubscriptionLimits, logUsage } from '@/lib/subscription';
 import { ERROR_MESSAGES, VALID_VIDEO_ASPECT_RATIOS } from '@/lib/constants';
-import type { AspectRatio } from '@/types/app';
+import { generateVideo } from '@/lib/gemini';
+import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage, PlanFeatures } from '@/lib/subscription';
+import type { AspectRatio, Media } from '@/types/app';
+import { getServerSession } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { createRequestId, jsonError } from '@/lib/api-utils';
 
 /**
  * POST /api/gemini/video
@@ -18,27 +19,35 @@ import type { AspectRatio } from '@/types/app';
  */
 
 export async function POST(request: NextRequest) {
+    const requestId = createRequestId();
     try {
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return jsonError({ message: 'Unauthorized', status: 401, code: 'UNAUTHORIZED', requestId });
         }
 
         const body = await request.json();
-        const { prompt, aspectRatio = '16:9' }: { prompt: string; aspectRatio?: AspectRatio } =
+        const { prompt, aspectRatio = '16:9', media }: { prompt: string; aspectRatio?: AspectRatio; media?: Media } =
             body;
 
         if (!prompt) {
-            return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+            return jsonError({
+                message: 'Prompt is required',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         // Validate aspect ratio
         if (!VALID_VIDEO_ASPECT_RATIOS.includes(aspectRatio as any)) {
-            return NextResponse.json(
-                { error: `Invalid aspect ratio: ${aspectRatio}` },
-                { status: 400 }
-            );
+            return jsonError({
+                message: `Invalid aspect ratio: ${aspectRatio}`,
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
         // 2. Subscription limits check
@@ -47,19 +56,37 @@ export async function POST(request: NextRequest) {
         } catch (error: any) {
             // Feature not allowed in plan (Only ENTERPRISE has video generation)
             if (error.message.includes('not available in current plan')) {
-                return NextResponse.json(
-                    { error: error.message },
-                    { status: 403 }
-                );
+                return jsonError({
+                    message: error.message,
+                    status: 403,
+                    code: 'FORBIDDEN_PLAN',
+                    requestId,
+                });
             }
 
-            // Monthly limit exceeded
+            // Monthly limit exceeded - return detailed info
             if (error.message.includes('Monthly request limit exceeded')) {
+                const subscription = await getUserSubscription(session.user.id);
+                const usageCount = await getMonthlyUsageCount(session.user.id);
+                const features = subscription?.plan.features as PlanFeatures | undefined;
+                const limit = features?.maxRequestsPerMonth ?? null;
+
                 return NextResponse.json(
-                    { error: error.message },
+                    {
+                        error: error.message,
+                        code: 'RATE_LIMIT_EXCEEDED',
+                        requestId,
+                        planName: subscription?.plan.name || 'FREE',
+                        usage: {
+                            current: usageCount,
+                            limit,
+                        },
+                        resetDate: subscription?.currentPeriodEnd?.toISOString() || null,
+                    },
                     {
                         status: 429,
                         headers: {
+                            'X-Request-Id': requestId,
                             'Retry-After': '86400', // 24 hours in seconds
                         },
                     }
@@ -67,37 +94,70 @@ export async function POST(request: NextRequest) {
             }
 
             // Other subscription errors
-            return NextResponse.json({ error: error.message }, { status: 403 });
+            return jsonError({
+                message: error.message,
+                status: 403,
+                code: 'FORBIDDEN_PLAN',
+                requestId,
+            });
         }
 
-        // 3. Generate video
-        const result = await generateVideo(prompt, aspectRatio);
+        // 3. Generate video (with optional start image for Image-to-Video)
+        const operation = await generateVideo(prompt, aspectRatio, media);
 
-        // Extract operation name from result
-        // The result from generateVideo is an operation object with a 'name' property
-        const operationName = (result as any)?.name;
+        // Validate operation object
+        const operationName = operation?.name;
         if (!operationName) {
-            throw new Error('Operation name not found in video generation response');
+            throw new Error('Operation object not found in video generation response');
         }
 
         // 4. Log usage after successful generation
         await logUsage(session.user.id, 'video_generation', {
             aspectRatio,
-            resourceType: 'veo-3.1-fast',
+            resourceType: 'veo-3.1-fast-generate-preview',
             promptLength: prompt.length,
         });
 
-        return NextResponse.json({ operationName });
+        // Return operation object + name for polling
+        return NextResponse.json({ operationName, operation });
     } catch (error: any) {
         console.error('Gemini Video API Error:', error);
+        const errorMessage = error.message?.toLowerCase() || '';
 
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
+            return jsonError({
+                message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
+                status: 401,
+                code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
         }
 
-        return NextResponse.json(
-            { error: ERROR_MESSAGES.VIDEO_GENERATION_FAILED, details: error.message },
-            { status: 500 }
-        );
+        // Check for safety/policy related errors in error message
+        if (errorMessage.includes('safety') || errorMessage.includes('policy')) {
+            return jsonError({
+                message: ERROR_MESSAGES.SAFETY_BLOCKED,
+                status: 400,
+                code: 'SAFETY_BLOCKED',
+                requestId,
+            });
+        }
+
+        if (errorMessage.includes('copyright') || errorMessage.includes('recitation')) {
+            return jsonError({
+                message: ERROR_MESSAGES.RECITATION_BLOCKED,
+                status: 400,
+                code: 'RECITATION_BLOCKED',
+                requestId,
+            });
+        }
+
+        return jsonError({
+            message: ERROR_MESSAGES.VIDEO_GENERATION_FAILED,
+            status: 500,
+            code: 'UPSTREAM_ERROR',
+            details: error.message,
+            requestId,
+        });
     }
 }

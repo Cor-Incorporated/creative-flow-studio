@@ -1,73 +1,73 @@
 'use client';
 
-import React from 'react';
-import { signIn } from 'next-auth/react';
-import { SparklesIcon } from './icons';
 import Link from 'next/link';
+import { SparklesIcon } from './icons';
 
 /**
  * Landing Page Component
- * 
+ *
  * Displays a hero section with login/signup CTA for unauthenticated users.
  * Shows after authentication is complete.
- * 
+ *
  * Features:
  * - Hero section with value proposition
- * - Google OAuth login button
+ * - Login/Register options (Google OAuth + Email/Password)
  * - Pricing page link
  * - Feature highlights
  */
 
 export default function LandingPage() {
-    const handleGoogleSignIn = () => {
-        signIn('google', { callbackUrl: window.location.href });
-    };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
             {/* Header */}
             <header className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <SparklesIcon className="w-8 h-8 text-blue-400" />
-                            <h1 className="text-2xl font-bold">クリエイティブフロースタジオ</h1>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 flex-shrink-0" />
+                            <h1 className="text-lg sm:text-2xl font-bold truncate">BulnaAI</h1>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                             <Link
                                 href="/pricing"
-                                className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                                className="hidden sm:block px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
                             >
                                 料金プラン
                             </Link>
-                            <button
-                                onClick={handleGoogleSignIn}
-                                className="px-6 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            <Link
+                                href="/auth/signin"
+                                className="px-4 sm:px-6 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                             >
-                                Googleでログイン
-                            </button>
+                                ログイン
+                            </Link>
                         </div>
                     </div>
                 </div>
             </header>
 
             {/* Hero Section */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-                <div className="text-center mb-16">
-                    <h2 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
+                <div className="text-center mb-10 sm:mb-16">
+                    <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent leading-tight">
                         AIで創造性を解き放つ
                     </h2>
-                    <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
+                    <p className="text-base sm:text-xl md:text-2xl text-gray-300 mb-6 sm:mb-8 max-w-3xl mx-auto px-2">
                         Google Gemini を活用したマルチモーダル AI アプリケーション。
                         チャット、画像生成、動画生成を一つのプラットフォームで。
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={handleGoogleSignIn}
+                        <Link
+                            href="/auth/signin"
                             className="px-8 py-4 text-lg font-semibold bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-lg"
                         >
-                            Googleで始める
-                        </button>
+                            無料で始める
+                        </Link>
+                        <Link
+                            href="/auth/register"
+                            className="px-8 py-4 text-lg font-semibold bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+                        >
+                            メールで登録
+                        </Link>
                         <Link
                             href="/pricing"
                             className="px-8 py-4 text-lg font-semibold bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
@@ -78,7 +78,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Features Grid */}
-                <div className="grid md:grid-cols-3 gap-8 mb-16">
+                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8 mb-10 sm:mb-16">
                     <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
                         <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                             <svg
@@ -147,18 +147,18 @@ export default function LandingPage() {
                 </div>
 
                 {/* Pricing CTA */}
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-center">
-                    <h3 className="text-3xl font-bold mb-4">今すぐ始めましょう</h3>
-                    <p className="text-lg text-blue-100 mb-6">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 sm:p-8 text-center">
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">今すぐ始めましょう</h3>
+                    <p className="text-base sm:text-lg text-blue-100 mb-4 sm:mb-6">
                         FREE プランから始めて、必要に応じてアップグレードできます
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={handleGoogleSignIn}
+                        <Link
+                            href="/auth/signin"
                             className="px-8 py-4 text-lg font-semibold bg-white text-blue-600 hover:bg-gray-100 rounded-lg transition-colors"
                         >
-                            Googleでログイン
-                        </button>
+                            アカウント作成
+                        </Link>
                         <Link
                             href="/pricing"
                             className="px-8 py-4 text-lg font-semibold bg-transparent border-2 border-white text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -171,5 +171,6 @@ export default function LandingPage() {
         </div>
     );
 }
+
 
 

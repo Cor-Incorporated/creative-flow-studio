@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createConversationSchema } from '@/lib/validators';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/conversations
  * List user's conversations with pagination and filtering

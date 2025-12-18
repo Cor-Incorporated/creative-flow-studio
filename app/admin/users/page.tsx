@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
                             value={filters.search}
                             onChange={handleSearchChange}
                             placeholder="ユーザーを検索..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-900"
                         />
                     </div>
 
@@ -290,7 +290,7 @@ export default function AdminUsersPage() {
                         <select
                             value={filters.role}
                             onChange={handleRoleFilter}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-900"
                         >
                             <option value="">全て</option>
                             <option value="USER">USER</option>
@@ -308,7 +308,7 @@ export default function AdminUsersPage() {
                         <select
                             value={filters.plan}
                             onChange={handlePlanFilter}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-900"
                         >
                             <option value="">全て</option>
                             <option value="FREE">FREE</option>
@@ -325,7 +325,7 @@ export default function AdminUsersPage() {
                         <select
                             value={filters.status}
                             onChange={handleStatusFilter}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-900"
                         >
                             <option value="">全て</option>
                             <option value="ACTIVE">ACTIVE</option>
@@ -532,7 +532,7 @@ export default function AdminUsersPage() {
 
             {/* Update Role Modal */}
             {isModalOpen && selectedUser && (
-                <div className="fixed z-10 inset-0 overflow-y-auto">
+                <div className="fixed z-50 inset-0 overflow-y-auto">
                     <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                         {/* Background overlay */}
                         <div
@@ -541,7 +541,7 @@ export default function AdminUsersPage() {
                         ></div>
 
                         {/* Modal panel */}
-                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                        <div className="relative inline-block align-bottom bg-white rounded-lg z-50 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
                                     ロール変更
@@ -566,7 +566,7 @@ export default function AdminUsersPage() {
                                                 e.target.value as 'USER' | 'PRO' | 'ENTERPRISE' | 'ADMIN'
                                             )
                                         }
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-900"
                                     >
                                         <option value="USER">USER</option>
                                         <option value="PRO">PRO</option>

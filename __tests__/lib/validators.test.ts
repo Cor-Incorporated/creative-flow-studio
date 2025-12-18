@@ -74,7 +74,7 @@ describe('Validators', () => {
         });
 
         it('should validate all mode values', () => {
-            const modes = ['chat', 'pro', 'search', 'image', 'video'];
+            const modes = ['chat', 'search', 'image', 'video'];
             for (const mode of modes) {
                 const result = UsageLogMetadataSchema.safeParse({ mode });
                 expect(result.success).toBe(true);
@@ -199,7 +199,7 @@ describe('Validators', () => {
         });
 
         it('should validate all mode values', () => {
-            const modes = ['CHAT', 'PRO', 'SEARCH', 'IMAGE', 'VIDEO'];
+            const modes = ['CHAT', 'SEARCH', 'IMAGE', 'VIDEO'];
             for (const mode of modes) {
                 const result = createConversationSchema.safeParse({ mode });
                 expect(result.success).toBe(true);
@@ -262,6 +262,114 @@ describe('Validators', () => {
                     content: [{ text: 'test' }],
                 });
                 expect(result.success).toBe(true);
+            }
+        });
+    });
+
+    describe('createMessageSchema - mode parameter', () => {
+        it('should accept mode="CHAT"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'CHAT',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="SEARCH"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'SEARCH',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="IMAGE"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'IMAGE',
+                content: [{ text: 'Generate an image' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode="VIDEO"', () => {
+            const data = {
+                role: 'USER',
+                mode: 'VIDEO',
+                content: [{ text: 'Generate a video' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept message without mode (optional)', () => {
+            const data = {
+                role: 'USER',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+            if (result.success) {
+                expect(result.data.mode).toBeUndefined();
+            }
+        });
+
+        it('should reject invalid mode value', () => {
+            const data = {
+                role: 'USER',
+                mode: 'INVALID_MODE',
+                content: [{ text: 'Hello' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(false);
+        });
+
+        it('should accept mode with text content', () => {
+            const data = {
+                role: 'MODEL',
+                mode: 'SEARCH',
+                content: [{ text: 'This is a search mode response' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should accept mode with media content', () => {
+            const data = {
+                role: 'MODEL',
+                mode: 'IMAGE',
+                content: [
+                    {
+                        media: {
+                            type: 'image',
+                            url: 'https://example.com/generated.png',
+                            mimeType: 'image/png',
+                        },
+                    },
+                ],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+        });
+
+        it('should preserve mode in parsed output', () => {
+            const data = {
+                role: 'USER',
+                mode: 'SEARCH',
+                content: [{ text: 'Search for something' }],
+            };
+            const result = createMessageSchema.safeParse(data);
+            expect(result.success).toBe(true);
+            if (result.success) {
+                expect(result.data.mode).toBe('SEARCH');
+                expect(result.data.role).toBe('USER');
+                expect(result.data.content).toHaveLength(1);
+                expect(result.data.content[0].text).toBe('Search for something');
             }
         });
     });

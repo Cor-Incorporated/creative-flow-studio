@@ -1,7 +1,7 @@
-// Gemini API Service (Server-side version migrated from alpha/services/geminiService.ts)
+// Gemini API Service (Gemini 3 version)
 import { GoogleGenAI, Modality } from '@google/genai';
-import { THINKING_BUDGET, GEMINI_MODELS, ERROR_MESSAGES } from './constants';
-import type { Media, AspectRatio } from '../types/app';
+import type { AspectRatio, Media } from '../types/app';
+import { ERROR_MESSAGES, GEMINI_MODELS, VALID_IMAGE_ASPECT_RATIOS } from './constants';
 
 // Get AI client with API key from environment
 const getAiClient = () => {
@@ -47,34 +47,6 @@ export const generateChatResponse = async (
     return result;
 };
 
-// Pro mode: Uses gemini-2.5-pro with thinking process
-export const generateProResponse = async (
-    prompt: string,
-    systemInstruction?: string,
-    temperature?: number
-) => {
-    const ai = getAiClient();
-    const requestConfig: any = {
-        model: GEMINI_MODELS.PRO,
-        contents: {
-            parts: [{ text: prompt }],
-        },
-        config: {
-            thinkingConfig: { thinkingBudget: THINKING_BUDGET },
-        },
-    };
-
-    if (systemInstruction) {
-        requestConfig.config.systemInstruction = [systemInstruction];
-    }
-    if (temperature !== undefined) {
-        requestConfig.config = { ...requestConfig.config, temperature };
-    }
-
-    const result = await ai.models.generateContent(requestConfig);
-    return result;
-};
-
 // Search mode: Uses Google Search for grounded responses
 export const generateSearchGroundedResponse = async (
     prompt: string,
@@ -103,18 +75,52 @@ export const generateSearchGroundedResponse = async (
     return result;
 };
 
-// --- Image Generation ---
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio = '1:1') => {
+// --- Image Generation (Gemini 3 Pro Image) ---
+export const generateImage = async (
+    prompt: string,
+    aspectRatio: AspectRatio = '1:1',
+    imageSize: '1K' | '2K' | '4K' = '2K'
+) => {
     const ai = getAiClient();
-    const result = await ai.models.generateImages({
-        model: GEMINI_MODELS.IMAGEN,
-        prompt,
+
+    // Validate aspect ratio (Gemini 3 Pro Image supports extended ratios)
+    const normalizedAspectRatio = VALID_IMAGE_ASPECT_RATIOS.includes(aspectRatio as any)
+        ? aspectRatio
+        : '1:1';
+
+    // Gemini 3 Pro Image uses generateContent with responseModalities
+    const result = await ai.models.generateContent({
+        model: GEMINI_MODELS.PRO_IMAGE,
+        contents: prompt,
         config: {
-            numberOfImages: 1,
-            aspectRatio,
+            responseModalities: [Modality.IMAGE],
+            imageConfig: {
+                aspectRatio: normalizedAspectRatio,
+                imageSize, // "1K", "2K", or "4K"
+            },
         },
     });
-    return result;
+
+    // Extract image from response candidates
+    const candidate = result?.candidates?.[0];
+    if (!candidate?.content?.parts || candidate.content.parts.length === 0) {
+        throw new Error(ERROR_MESSAGES.IMAGE_NO_IMAGES);
+    }
+
+    // Find the image part in response
+    const imagePart = candidate.content.parts.find((part: any) => part.inlineData);
+    if (!imagePart || !imagePart.inlineData) {
+        throw new Error(ERROR_MESSAGES.IMAGE_NO_DATA);
+    }
+
+    const { data, mimeType: responseMimeType } = imagePart.inlineData;
+    if (!data) {
+        throw new Error(ERROR_MESSAGES.IMAGE_UNEXPECTED_FORMAT);
+    }
+
+    // Return data URL format
+    const mime = responseMimeType || 'image/png';
+    return `data:${mime};base64,${data}`;
 };
 
 // --- Image Analysis ---
@@ -151,13 +157,48 @@ export const analyzeImage = async (
     return result;
 };
 
-// --- Image Editing ---
+// --- Video Analysis ---
+export const analyzeVideo = async (
+    prompt: string,
+    videoData: string,
+    mimeType: string,
+    systemInstruction?: string
+) => {
+    const ai = getAiClient();
+    const base64Data = dataUrlToBase64(videoData);
+
+    const requestConfig: any = {
+        model: GEMINI_MODELS.FLASH,
+        contents: {
+            parts: [
+                { text: prompt },
+                {
+                    inlineData: {
+                        mimeType,
+                        data: base64Data,
+                    },
+                },
+            ],
+        },
+        config: {},
+    };
+
+    if (systemInstruction) {
+        requestConfig.config.systemInstruction = [systemInstruction];
+    }
+
+    const result = await ai.models.generateContent(requestConfig);
+    return result;
+};
+
+// --- Image Editing (Gemini 3 Pro Image) ---
 export const editImage = async (prompt: string, originalImage: Media) => {
     const ai = getAiClient();
     const base64Data = dataUrlToBase64(originalImage.url);
 
+    // Gemini 3 Pro Image unified model for both generation and editing
     const result = await ai.models.generateContent({
-        model: GEMINI_MODELS.FLASH_IMAGE,
+        model: GEMINI_MODELS.PRO_IMAGE,
         contents: {
             parts: [
                 {
@@ -170,7 +211,7 @@ export const editImage = async (prompt: string, originalImage: Media) => {
             ],
         },
         config: {
-            responseModalities: [Modality.IMAGE],
+            responseModalities: [Modality.TEXT, Modality.IMAGE],
         },
     });
 
@@ -178,21 +219,66 @@ export const editImage = async (prompt: string, originalImage: Media) => {
 };
 
 // --- Video Generation ---
-export const generateVideo = async (prompt: string, aspectRatio: AspectRatio = '16:9') => {
+export const generateVideo = async (
+    prompt: string,
+    aspectRatio: AspectRatio = '16:9',
+    startImage?: Media
+) => {
     const ai = getAiClient();
+    
+    // Prepare image payload if startImage is provided (same as alpha)
+    const imagePayload = startImage
+        ? {
+              imageBytes: dataUrlToBase64(startImage.url),
+              mimeType: startImage.mimeType,
+          }
+        : undefined;
+
     const result = await ai.models.generateVideos({
         model: GEMINI_MODELS.VEO,
         prompt,
+        image: imagePayload, // Fixed: Add image support from alpha
         config: {
-            aspectRatio,
+            numberOfVideos: 1, // Fixed: Add from alpha
+            resolution: '720p', // Fixed: Add from alpha
+            aspectRatio: aspectRatio as '16:9' | '9:16', // Fixed: Type assertion from alpha
         },
     });
-    return result;
+
+    const operationName =
+        typeof result === 'string'
+            ? result
+            : result?.name || (result as any)?.operation?.name;
+
+    if (!operationName) {
+        throw new Error('Video generation operation name missing');
+    }
+
+    return { name: operationName };
 };
 
 // Poll video generation status
-export const pollVideoOperation = async (operationName: string) => {
-    const ai = getAiClient();
-    const result = await ai.operations.get({ name: operationName } as any);
-    return result;
+export const pollVideoOperation = async (operation: any) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error(ERROR_MESSAGES.API_KEY_NOT_FOUND);
+    }
+
+    const operationName =
+        typeof operation === 'string'
+            ? operation
+            : operation?.name || operation?.operation?.name;
+
+    if (!operationName) {
+        throw new Error('Operation name not found for polling');
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${apiKey}`;
+    const response = await fetch(endpoint);
+
+    if (!response.ok) {
+        throw new Error(`Failed to poll video operation: ${response.statusText}`);
+    }
+
+    return await response.json();
 };

@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @source "../app";
 @source "../components";
+@source "../lib";
+@source "../types";
 
 @layer base {
     * {
@@ -32,5 +34,56 @@
             'Monaco',
             'Courier New',
             monospace;
+    }
+
+    /* Prevent iOS zoom on input focus */
+    input,
+    textarea,
+    select {
+        font-size: 16px;
+    }
+
+    /* Improved touch targets for mobile */
+    @media (max-width: 768px) {
+        button,
+        [role="button"],
+        a {
+            min-height: 44px;
+            min-width: 44px;
+        }
+    }
+}
+
+/* Mobile-optimized textarea */
+@layer components {
+    textarea {
+        -webkit-appearance: none;
+        appearance: none;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Prevent text from being cut off on mobile */
+    .chat-input-container textarea {
+        line-height: 1.5;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    .safe-area-top {
+        padding-top: env(safe-area-inset-top);
+    }
+}
+
+/* Smooth scrolling for better mobile UX */
+@layer utilities {
+    .overscroll-contain {
+        overscroll-behavior: contain;
     }
 }

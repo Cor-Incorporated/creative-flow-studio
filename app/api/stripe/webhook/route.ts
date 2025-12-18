@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { stripe, getPlanIdFromStripeSubscription, isEventProcessed } from '@/lib/stripe';
+import { MAX_PAID_USERS } from '@/lib/constants';
 import { prisma } from '@/lib/prisma';
+import { getPlanIdFromStripeSubscription, isEventProcessed, stripe } from '@/lib/stripe';
+import { addToWaitlist } from '@/lib/waitlist';
+import { headers } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 /**
@@ -71,9 +73,11 @@ export async function POST(request: NextRequest) {
         console.log(`Received Stripe webhook: ${event.type} (ID: ${event.id})`);
 
         switch (event.type) {
-            case 'checkout.session.completed':
-                await handleCheckoutSessionCompleted(event);
+            case 'checkout.session.completed': {
+                const response = await handleCheckoutSessionCompleted(event);
+                if (response) return response;
                 break;
+            }
 
             case 'invoice.paid':
                 await handleInvoicePaid(event);
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
  * - Event: https://docs.stripe.com/api/events/types#event_types-checkout.session.completed
  * - docs/stripe-integration-plan.md Section 2.2
  */
-async function handleCheckoutSessionCompleted(event: Stripe.Event) {
+async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<NextResponse | void> {
     const session = event.data.object as Stripe.Checkout.Session;
 
     // Check idempotency
@@ -133,12 +137,12 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
 
     if (!userId) {
         console.error('checkout.session.completed: Missing userId in metadata');
-        return;
+        return NextResponse.json({ received: true }, { status: 200 });
     }
 
     if (!customer || !subscription) {
         console.error('checkout.session.completed: Missing customer or subscription');
-        return;
+        return NextResponse.json({ received: true }, { status: 200 });
     }
 
     const stripeCustomerId = typeof customer === 'string' ? customer : customer.id;
@@ -148,22 +152,60 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
         // Get plan ID from Stripe subscription
         const planId = await getPlanIdFromStripeSubscription(stripeSubscriptionId);
 
-        // Create or update subscription
-        await prisma.subscription.upsert({
-            where: { userId },
-            update: {
-                stripeCustomerId,
-                stripeSubscriptionId,
-                status: 'ACTIVE',
-                planId,
-            },
-            create: {
-                userId,
-                planId,
-                stripeCustomerId,
-                stripeSubscriptionId,
-                status: 'ACTIVE',
-            },
+        // Get the plan to check if it's a paid plan
+        const plan = await prisma.plan.findUnique({
+            where: { id: planId },
+            select: { name: true },
+        });
+
+        const isPaidPlan = plan && plan.name !== 'FREE';
+
+        // Use transaction to prevent race condition when capacity is limited
+        await prisma.$transaction(async (tx) => {
+            // Check if user already has a subscription (plan change, not new signup)
+            const existingSubscription = await tx.subscription.findUnique({
+                where: { userId },
+                include: { plan: true },
+            });
+
+            const isExistingPaidUser = existingSubscription && existingSubscription.plan.name !== 'FREE';
+
+            // Only check capacity for NEW paid users (not existing paid users changing plans)
+            if (isPaidPlan && !isExistingPaidUser) {
+                // Count current paid users within transaction
+                const paidUsersCount = await tx.subscription.count({
+                    where: {
+                        status: 'ACTIVE',
+                        plan: { name: { not: 'FREE' } },
+                        user: { role: { not: 'ADMIN' } },
+                    },
+                });
+
+                if (paidUsersCount >= MAX_PAID_USERS) {
+                    // Capacity reached - this shouldn't happen if checkout check worked
+                    // but this is a safety net for race conditions
+                    console.error(`Capacity exceeded during checkout completion for user ${userId}`);
+                    throw new Error('CAPACITY_EXCEEDED');
+                }
+            }
+
+            // Create or update subscription within transaction
+            await tx.subscription.upsert({
+                where: { userId },
+                update: {
+                    stripeCustomerId,
+                    stripeSubscriptionId,
+                    status: 'ACTIVE',
+                    planId,
+                },
+                create: {
+                    userId,
+                    planId,
+                    stripeCustomerId,
+                    stripeSubscriptionId,
+                    status: 'ACTIVE',
+                },
+            });
         });
 
         // Record payment event
@@ -186,6 +228,63 @@ async function handleCheckoutSessionCompleted(event: Stripe.Event) {
         console.log(`Subscription created/updated for user ${userId}`);
     } catch (error: any) {
         console.error('Error handling checkout.session.completed:', error);
+
+        // Handle capacity exceeded error specially
+        if (error.message === 'CAPACITY_EXCEEDED') {
+            // Get user email for waitlist
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true, name: true },
+            });
+
+            if (user?.email) {
+                // Add user to waitlist
+                await addToWaitlist(user.email, user.name || undefined);
+                console.log(`User ${userId} added to waitlist due to capacity limit`);
+            }
+
+            // Record failed checkout in AuditLog (PaymentEvent requires subscription)
+            try {
+                await prisma.auditLog.create({
+                    data: {
+                        userId,
+                        action: 'checkout.capacity_exceeded',
+                        resource: 'subscription',
+                        metadata: {
+                            stripeEventId: event.id,
+                            sessionId: session.id,
+                            customerId: stripeCustomerId,
+                            amount: session.amount_total || 0,
+                            error: 'CAPACITY_EXCEEDED',
+                        },
+                    },
+                });
+            } catch (recordError) {
+                console.error('Failed to record capacity exceeded event:', recordError);
+            }
+
+            // Refund processing:
+            // Option 1: Automatic refund (recommended for production)
+            // const paymentIntent = session.payment_intent;
+            // if (paymentIntent) {
+            //     try {
+            //         await stripe.refunds.create({ payment_intent: paymentIntent as string });
+            //         console.log(`Refund processed for session ${session.id}`);
+            //     } catch (refundError) {
+            //         console.error('Failed to process automatic refund:', refundError);
+            //         // Fall through to manual processing
+            //     }
+            // }
+            //
+            // Option 2: Manual refund (current implementation)
+            // Log for manual refund processing via admin dashboard or Stripe Dashboard
+            console.error(`CRITICAL: Capacity exceeded for user ${userId}, manual refund required. Session: ${session.id}, Amount: ${session.amount_total || 0}, Customer: ${stripeCustomerId}`);
+
+            // Return 200 to Stripe to prevent retries (the payment is handled, just capacity issue)
+            // The error will be logged but won't cause webhook retries
+            return NextResponse.json({ received: true }, { status: 200 });
+        }
+
         throw error;
     }
 }

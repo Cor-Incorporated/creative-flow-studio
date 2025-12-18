@@ -11,9 +11,13 @@ export interface ToastProps {
         label: string;
         onClick: () => void;
     };
+    /** Support ID (requestId) for error tracking */
+    supportId?: string;
+    /** Retry-after text (e.g., "約24時間後に再試行") */
+    retryAfterText?: string;
 }
 
-export default function Toast({ message, type = 'info', duration = 5000, onClose, action }: ToastProps) {
+export default function Toast({ message, type = 'info', duration = 5000, onClose, action, supportId, retryAfterText }: ToastProps) {
     const [isVisible, setIsVisible] = useState(true);
 
     useEffect(() => {
@@ -94,6 +98,16 @@ export default function Toast({ message, type = 'info', duration = 5000, onClose
                 <div className="flex-shrink-0 mt-0.5">{icons[type]}</div>
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium leading-relaxed">{message}</p>
+                    {/* Retry-after text */}
+                    {retryAfterText && (
+                        <p className="mt-1 text-xs text-white/80">{retryAfterText}</p>
+                    )}
+                    {/* Support ID */}
+                    {supportId && (
+                        <p className="mt-1 text-xs text-white/70">
+                            サポートID: <span className="font-mono">{supportId}</span>
+                        </p>
+                    )}
                     {action && (
                         <button
                             onClick={() => {

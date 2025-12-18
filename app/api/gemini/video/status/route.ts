@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { pollVideoOperation } from '@/lib/gemini';
 import { ERROR_MESSAGES } from '@/lib/constants';
+import { pollVideoOperation } from '@/lib/gemini';
+import { getServerSession } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { createRequestId, jsonError } from '@/lib/api-utils';
 
 /**
  * POST /api/gemini/video/status
@@ -16,33 +17,55 @@ import { ERROR_MESSAGES } from '@/lib/constants';
  */
 
 export async function POST(request: NextRequest) {
+    const requestId = createRequestId();
     try {
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return jsonError({ message: 'Unauthorized', status: 401, code: 'UNAUTHORIZED', requestId });
         }
 
         const body = await request.json();
-        const { operationName }: { operationName: string } = body;
+        const { operation: operationFromBody, operationName }: { operation?: any; operationName?: string } = body;
 
-        if (!operationName) {
-            return NextResponse.json({ error: 'Operation name is required' }, { status: 400 });
+        // Support both operation object and operationName string (for backward compatibility)
+        let operationToPoll: any;
+        if (operationFromBody) {
+            operationToPoll = operationFromBody;
+        } else if (operationName) {
+            // If only operationName is provided, create a minimal operation object
+            operationToPoll = { name: operationName };
+        } else {
+            return jsonError({
+                message: 'Operation or operationName is required',
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
         }
 
-        const operation = await pollVideoOperation(operationName);
+        const operation = await pollVideoOperation(operationToPoll);
+        const responseOperationName = operationToPoll?.name || operation?.name || operationName || null;
 
-        return NextResponse.json({ operation });
+        return NextResponse.json({ operation, operationName: responseOperationName });
     } catch (error: any) {
         console.error('Gemini Video Status API Error:', error);
 
         if (error.message?.includes('API_KEY')) {
-            return NextResponse.json({ error: ERROR_MESSAGES.API_KEY_NOT_FOUND }, { status: 401 });
+            return jsonError({
+                message: ERROR_MESSAGES.API_KEY_NOT_FOUND,
+                status: 401,
+                code: 'GEMINI_API_KEY_NOT_FOUND',
+                requestId,
+            });
         }
 
-        return NextResponse.json(
-            { error: ERROR_MESSAGES.VIDEO_GENERATION_FAILED, details: error.message },
-            { status: 500 }
-        );
+        return jsonError({
+            message: ERROR_MESSAGES.VIDEO_GENERATION_FAILED,
+            status: 500,
+            code: 'UPSTREAM_ERROR',
+            details: error.message,
+            requestId,
+        });
     }
 }

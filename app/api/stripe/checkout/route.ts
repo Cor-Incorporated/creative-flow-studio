@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { stripe, getOrCreateStripeCustomer } from '@/lib/stripe';
+import { canUpgradeToPaidPlan, getWaitlistStats } from '@/lib/waitlist';
+import { ERROR_MESSAGES } from '@/lib/constants';
 import { z } from 'zod';
 
 /**
@@ -60,17 +62,36 @@ export async function POST(request: NextRequest) {
 
         const { priceId, successUrl, cancelUrl } = validationResult.data;
 
-        // 3. Get base URL for redirect
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        // 3. Check if user can upgrade to paid plan (capacity check)
+        const canUpgrade = await canUpgradeToPaidPlan(session.user.id);
+        if (!canUpgrade) {
+            const stats = await getWaitlistStats();
+            return NextResponse.json(
+                {
+                    error: ERROR_MESSAGES.CAPACITY_REACHED,
+                    capacityReached: true,
+                    waitlistCount: stats.waitlistCount,
+                    maxPaidUsers: stats.maxPaidUsers,
+                },
+                { status: 403 }
+            );
+        }
 
-        // 4. Get or create Stripe customer
+        // 4. Get base URL for redirect
+        const requestOrigin = request.headers.get('origin');
+        const appUrl = (requestOrigin && requestOrigin.startsWith('http')
+            ? requestOrigin
+            : process.env.NEXT_PUBLIC_APP_URL || 'https://blunaai.com'
+        ).replace(/\/$/, '');
+
+        // 5. Get or create Stripe customer
         const stripeCustomerId = await getOrCreateStripeCustomer(
             session.user.id,
             session.user.email,
             session.user.name
         );
 
-        // 5. Create Checkout Session
+        // 6. Create Checkout Session
         const checkoutSession = await stripe.checkout.sessions.create({
             customer: stripeCustomerId,
             mode: 'subscription',
@@ -97,7 +118,7 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // 6. Return session URL
+        // 7. Return session URL
         return NextResponse.json({
             sessionId: checkoutSession.id,
             url: checkoutSession.url,

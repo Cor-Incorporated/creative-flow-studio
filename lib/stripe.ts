@@ -38,9 +38,9 @@ function getStripeClient(): Stripe {
         apiVersion: '2024-11-20.acacia',
         typescript: true,
         appInfo: {
-            name: 'Creative Flow Studio',
+            name: 'BulnaAI',
             version: '1.0.0',
-            url: 'https://creative-flow-studio.com',
+            url: process.env.NEXT_PUBLIC_APP_URL || 'https://bulnaai.com',
         },
     });
 }
@@ -112,11 +112,19 @@ export async function getOrCreateStripeCustomer(
 export function formatPrice(amountInCents: number, currency: string = 'jpy'): string {
     const amount = amountInCents / 100;
 
-    return new Intl.NumberFormat('ja-JP', {
+    const formatted = new Intl.NumberFormat('ja-JP', {
         style: 'currency',
         currency: currency.toUpperCase(),
         minimumFractionDigits: 0,
     }).format(amount);
+
+    // Some environments render JPY currency symbol as fullwidth '￥' (U+FFE5).
+    // Normalize to ASCII '¥' (U+00A5) for stable display/tests.
+    if (currency.toLowerCase() === 'jpy') {
+        return formatted.replace(/\uFFE5/g, '\u00A5');
+    }
+
+    return formatted;
 }
 
 /**

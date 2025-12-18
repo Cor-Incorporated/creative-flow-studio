@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GET } from '@/app/api/admin/users/route';
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 
 // Mock dependencies
-vi.mock('next-auth');
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(),
+}));
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         user: {
@@ -24,8 +23,15 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 describe('GET /api/admin/users', () => {
-    beforeEach(() => {
+    let GET: typeof import('@/app/api/admin/users/route').GET;
+    let getServerSession: any;
+    let prisma: any;
+
+    beforeEach(async () => {
         vi.clearAllMocks();
+        ({ GET } = await import('@/app/api/admin/users/route'));
+        ({ getServerSession } = await import('next-auth'));
+        ({ prisma } = await import('@/lib/prisma'));
         vi.mocked(prisma.usageLog.groupBy).mockResolvedValue([] as any);
     });
 

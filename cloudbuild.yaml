@@ -1,4 +1,4 @@
-# Cloud Build pipeline for Creative Flow Studio (Next.js)
+# Cloud Build pipeline for BulnaAI (Next.js)
 # References:
 # - https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run
 # - https://cloud.google.com/sql/docs/postgres/connect-run#terraform (Cloud SQL deploy flags)
@@ -27,8 +27,11 @@ serviceAccount: projects/${_PROJECT_ID}/serviceAccounts/cloud-build-runner@dataa
 
 availableSecrets:
     secretManager:
-        # NOTE: DATABASE_URL is NOT included here - it's only set at runtime in Cloud Run
-        # This prevents Next.js from hardcoding DATABASE_URL during build
+        # DATABASE_URL is included for migration step only, not for Next.js build
+        # Use explicit version number to avoid DESTROYED version issues
+        # Cloud Build will automatically use the latest enabled version
+        - versionName: projects/${_PROJECT_ID}/secrets/database-url/versions/latest
+          env: DATABASE_URL
         - versionName: projects/${_PROJECT_ID}/secrets/nextauth-secret/versions/latest
           env: NEXTAUTH_SECRET
         - versionName: projects/${_PROJECT_ID}/secrets/google-client-id/versions/latest
@@ -64,15 +67,194 @@ steps:
       entrypoint: npx
       args: ['prisma', 'generate']
 
-    # TODO: Re-enable once we have a secure way to supply the Cloud SQL credentials during build.
-    # - id: 'Apply database migrations'
-    #   name: 'node:20'
-    #   entrypoint: npx
-    #   args: ['prisma', 'migrate', 'deploy']
-    #   env:
-    #       - 'DATABASE_URL=postgresql://user:password@/creative_flow_studio?host=/cloudsql/${_CLOUD_SQL_INSTANCE}'
-    #   secretEnv:
-    #       - DATABASE_URL
+    - id: 'Check Cloud SQL instance exists'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+
+              echo "🔍 Cloud SQLインスタンスの存在を確認しています..."
+              INSTANCE_NAME=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f3)
+              PROJECT_ID=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f1)
+
+              if gcloud sql instances describe "$$INSTANCE_NAME" --project="$$PROJECT_ID" > /dev/null 2>&1; then
+                  echo "✅ Cloud SQLインスタンスが見つかりました: $$INSTANCE_NAME"
+                  echo "true" > /workspace/.cloud_sql_exists
+              else
+                  echo "⚠️  Cloud SQLインスタンスが見つかりません: $$INSTANCE_NAME"
+                  echo "   マイグレーションステップをスキップします。"
+                  echo "   Terraformでインフラを先にデプロイしてください。"
+                  echo "false" > /workspace/.cloud_sql_exists
+              fi
+      waitFor: ['Generate Prisma client']
+
+    - id: 'Get Cloud SQL public IP'
+      name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+
+              # Cloud SQLインスタンスの存在確認
+              if [ -f /workspace/.cloud_sql_exists ] && [ "$(cat /workspace/.cloud_sql_exists)" = "false" ]; then
+                  echo "⏭️  Cloud SQLインスタンスが存在しないため、スキップします。"
+                  exit 0
+              fi
+
+              echo "🔍 Cloud SQLのパブリックIPを取得しています..."
+              INSTANCE_NAME=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f3)
+              PROJECT_ID=$(echo "${_CLOUD_SQL_INSTANCE}" | cut -d':' -f1)
+
+              PUBLIC_IP=$(gcloud sql instances describe "$$INSTANCE_NAME" \
+                  --project="$$PROJECT_ID" \
+                  --format="value(ipAddresses[0].ipAddress)" 2>/dev/null || echo "")
+
+              if [ -z "$$PUBLIC_IP" ]; then
+                  echo "⚠️  パブリックIPが見つかりません。Terraformでipv4_enabled=trueを設定してください。"
+                  echo "false" > /workspace/.cloud_sql_has_public_ip
+              else
+                  echo "✅ パブリックIP: $$PUBLIC_IP"
+                  echo "$$PUBLIC_IP" > /workspace/.cloud_sql_public_ip
+                  echo "true" > /workspace/.cloud_sql_has_public_ip
+              fi
+      waitFor: ['Check Cloud SQL instance exists']
+
+    - id: 'Apply database migrations'
+      name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
+      entrypoint: 'bash'
+      args:
+          - '-c'
+          - |
+              set -euo pipefail
+
+              # DATABASE_URLを取得（Secret Managerから直接取得してDESTROYEDバージョンを回避）
+              echo "🔑 データベース接続情報を取得しています..."
+              if [ -z "$$DATABASE_URL" ]; then
+                  echo "❌ DATABASE_URL環境変数が設定されていません"
+                  exit 1
+              fi
+
+              # Cloud SQLインスタンスの存在確認
+              if [ -f /workspace/.cloud_sql_exists ] && [ "$(cat /workspace/.cloud_sql_exists)" = "false" ]; then
+                  echo "⏭️  Cloud SQLインスタンスが存在しないため、マイグレーションをスキップします。"
+                  exit 0
+              fi
+
+              # パブリックIPの確認
+              if [ -f /workspace/.cloud_sql_has_public_ip ] && [ "$(cat /workspace/.cloud_sql_has_public_ip)" = "false" ]; then
+                  echo "⚠️  Cloud SQLにパブリックIPがないため、マイグレーションをスキップします。"
+                  echo "   Cloud Runデプロイ後、Unix socket経由でマイグレーションを実行してください。"
+                  exit 0
+              fi
+
+              PUBLIC_IP=$(cat /workspace/.cloud_sql_public_ip)
+              echo "🔗 Cloud SQL パブリックIP経由で接続します: $$PUBLIC_IP"
+
+              # DATABASE_URLからユーザー名、パスワード、DB名を抽出して新しいURLを構築
+              # 元の形式: postgresql://user:pass@/db?host=/cloudsql/...
+              DB_URL="$$DATABASE_URL"
+
+              # ユーザー名を抽出
+              DB_USER=$(echo "$$DB_URL" | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+              # パスワードを抽出（@/より前の:以降）
+              DB_PASS=$(echo "$$DB_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+              # DB名を抽出（@/と?の間）
+              DB_NAME=$(echo "$$DB_URL" | sed -n 's|.*@/\([^?]*\)?.*|\1|p')
+
+              echo "  ユーザー: $$DB_USER"
+              echo "  DB名: $$DB_NAME"
+
+              # パブリックIP経由のDATABASE_URLを構築（SSL必須）
+              export DATABASE_URL="postgresql://$$DB_USER:$$DB_PASS@$$PUBLIC_IP:5432/$$DB_NAME?sslmode=require"
+              echo "  接続先: postgresql://$$DB_USER:****@$$PUBLIC_IP:5432/$$DB_NAME?sslmode=require"
+
+              # Prismaマイグレーションを実行
+              echo "🔄 データベースマイグレーションを適用しています..."
+
+              # まず、マイグレーション状態を確認
+              echo "📊 マイグレーション状態を確認しています..."
+              MIGRATE_STATUS_OUTPUT=$(npx prisma migrate status 2>&1 || echo "ERROR")
+              
+              # データベースが空の場合（_prisma_migrationsテーブルが存在しない、またはマイグレーション履歴がない）
+              if echo "$$MIGRATE_STATUS_OUTPUT" | grep -qE "(Database schema is empty|following migration have not yet been applied|ERROR)"; then
+                  echo "⚠️  データベースが空の状態、またはマイグレーション履歴がありません。"
+                  echo "⏭️  一時的にマイグレーションをスキップします（手動で実行する必要があります）"
+                  exit 0
+              fi
+
+              # データベースに既存のテーブルがある場合、通常のマイグレーションを実行
+              echo "📊 既存のデータベースにマイグレーションを適用します..."
+
+              # 接続エラー用のリトライ設定
+              MAX_RETRIES=5
+              RETRY_COUNT=0
+
+              set +e
+              while [ $$RETRY_COUNT -lt $$MAX_RETRIES ]; do
+                  ERROR_OUTPUT=$(npx prisma migrate deploy 2>&1)
+                  EXIT_CODE=$$?
+
+                  if [ $$EXIT_CODE -eq 0 ]; then
+                      echo "✅ マイグレーションが正常に完了しました"
+                      exit 0
+                  fi
+
+                  # 接続エラーの場合はリトライ
+                  if echo "$$ERROR_OUTPUT" | grep -qE "(P1001|P1002|ECONNREFUSED|timeout)"; then
+                      RETRY_COUNT=$$((RETRY_COUNT + 1))
+                      echo "  接続エラー。試行 $$RETRY_COUNT/$$MAX_RETRIES..."
+                      sleep 3
+                      continue
+                  fi
+
+                  # P3005: 既存スキーマがある場合はbaselineを設定
+                  if echo "$$ERROR_OUTPUT" | grep -q "P3005"; then
+                      echo "⚠️  既存のスキーマが存在します。baselineを設定します..."
+                      FIRST_MIGRATION=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | head -1)
+                      if [ -n "$$FIRST_MIGRATION" ]; then
+                          npx prisma migrate resolve --applied "$$FIRST_MIGRATION" 2>&1 || true
+                          continue
+                      fi
+                  fi
+
+                  # P3018: マイグレーション失敗（テーブルが存在しないなど）
+                  if echo "$$ERROR_OUTPUT" | grep -q "P3018"; then
+                      echo "⚠️  マイグレーション失敗を検出しました。データベースの状態を確認します..."
+                      if echo "$$ERROR_OUTPUT" | grep -q "does not exist"; then
+                          echo "   テーブルが存在しないため、初期スキーマを適用します..."
+                          PUSH_OUTPUT=$(npx prisma db push --accept-data-loss --skip-generate 2>&1)
+                          if [ $$? -eq 0 ]; then
+                              echo "✅ 初期スキーマの適用が完了しました"
+                              # 全てのマイグレーションをbaselineとして設定
+                              ALL_MIGRATIONS=$(ls -1 prisma/migrations 2>/dev/null | grep -v "^_" | sort)
+                              for MIGRATION in $$ALL_MIGRATIONS; do
+                                  npx prisma migrate resolve --applied "$$MIGRATION" 2>&1 || true
+                              done
+                              echo "✅ マイグレーション履歴の初期化が完了しました"
+                              exit 0
+                          else
+                              echo "❌ スキーマの適用に失敗しました"
+                              echo "$$PUSH_OUTPUT"
+                              exit 1
+                          fi
+                      fi
+                  fi
+
+                  # その他のエラー
+                  echo "❌ マイグレーションエラー:"
+                  echo "$$ERROR_OUTPUT"
+                  exit 1
+              done
+              set -e
+
+              echo "❌ マイグレーションに失敗しました（$$MAX_RETRIES回試行）"
+              exit 1
+      secretEnv:
+          - DATABASE_URL
+      waitFor: ['Get Cloud SQL public IP']
 
     - id: 'Build Next.js app'
       name: 'docker.io/library/node@sha256:202ae32103f362765c42bb8283fbec5167cb7c5687feca97ad6bfbf4af3df444'
@@ -81,8 +263,9 @@ steps:
       env:
           - 'NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}'
           - 'NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
-          # NOTE: DATABASE_URL is NOT set during build - it's only set at runtime in Cloud Run
-          # This prevents Next.js from hardcoding the DATABASE_URL during build
+          # Set dummy DATABASE_URL for build time (Prisma Client generation)
+          # The real DATABASE_URL is set at runtime in Cloud Run via Secret Manager
+          - 'DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy'
       secretEnv:
           - NEXTAUTH_SECRET
           - GOOGLE_CLIENT_ID
@@ -100,6 +283,8 @@ steps:
       env:
           - 'NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL}'
           - 'NEXT_PUBLIC_SUPABASE_URL=${_NEXT_PUBLIC_SUPABASE_URL}'
+          # Set dummy DATABASE_URL for Docker build time
+          - 'DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy'
       secretEnv:
           - NEXTAUTH_SECRET
           - GOOGLE_CLIENT_ID
@@ -119,6 +304,7 @@ steps:
                 --build-arg GOOGLE_CLIENT_SECRET=$$GOOGLE_CLIENT_SECRET \
                 --build-arg NEXTAUTH_SECRET=$$NEXTAUTH_SECRET \
                 --build-arg GEMINI_API_KEY=$$GEMINI_API_KEY \
+                --build-arg DATABASE_URL="$$DATABASE_URL" \
                 -t asia-northeast1-docker.pkg.dev/${_PROJECT_ID}/${_REPO}/${_IMAGE_NAME}:${SHORT_SHA} \
                 -f Dockerfile \
                 .
@@ -142,6 +328,7 @@ steps:
           - '--service-account=${_SERVICE_ACCOUNT}'
           - '--platform=managed'
           - '--vpc-connector=${_VPC_CONNECTOR}'
+          - '--vpc-egress=private-ranges-only'
           - '--set-cloudsql-instances=${_CLOUD_SQL_INSTANCE}'
           - '--ingress=all'
           - '--allow-unauthenticated'

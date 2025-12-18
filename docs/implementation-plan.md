@@ -1,6 +1,6 @@
-# Creative Flow Studio 実装計画
+# BlunaAI 実装計画
 
-最終更新: 2025-11-30
+最終更新: 2025-12-01
 ステータス: **コア機能完了** - Cloud Run 認証設定待ち
 
 ---
@@ -9,19 +9,19 @@
 
 ### ✅ 完了済みフェーズ
 
-| Phase | 内容 | 完了日 | テスト数 |
-|-------|------|--------|----------|
-| 2 | 環境セットアップ | 2025-11-12 | - |
-| 3 | 認証基盤 | 2025-11-12 | - |
-| 4 | 会話永続化 | 2025-11-13 | 33 |
-| 5 | Stripe 統合 | 2025-11-13 | 37 |
-| 5 | Subscription Utilities | 2025-11-13 | 23 |
-| 6 | 管理画面 | 2025-11-13 | 48 |
-| - | Shared API Utilities | 2025-11-28 | 14 |
-| - | Validators | 2025-11-28 | 9 |
-| - | Landing Page & Auth UX | 2025-11-17 | - |
-| - | Gemini API | - | 18 |
-| - | Example tests | - | 3 |
+| Phase | 内容                   | 完了日     | テスト数 |
+|-------|------------------------|------------|-------|
+| 2     | 環境セットアップ             | 2025-11-12 | -     |
+| 3     | 認証基盤               | 2025-11-12 | -     |
+| 4     | 会話永続化             | 2025-11-13 | 33    |
+| 5     | Stripe 統合            | 2025-11-13 | 37    |
+| 5     | Subscription Utilities | 2025-11-13 | 23    |
+| 6     | 管理画面               | 2025-11-13 | 48    |
+| -     | Shared API Utilities   | 2025-11-28 | 14    |
+| -     | Validators             | 2025-11-28 | 9     |
+| -     | Landing Page & Auth UX | 2025-11-17 | -     |
+| -     | Gemini API             | -          | 18    |
+| -     | Example tests          | -          | 3     |
 
 **合計テスト数:** 185 passing ✅
 
@@ -64,6 +64,11 @@
 - ✅ Toast 通知システム
 - ✅ Tailwind v4 移行
 - ✅ SVG favicon
+- ✅ パスワード表示/非表示トグル機能
+- ✅ モバイルレスポンシブ対応（全ページ）
+- ✅ iOSズーム防止（font-size: 16px）
+- ✅ ノッチ付きデバイス対応（safe-area-inset）
+- ✅ ChatInput自動リサイズ機能
 
 ---
 
@@ -152,15 +157,15 @@ const usageCounts = await prisma.usageLog.groupBy({
 
 ## 4. 完成定義（DoD）
 
-| 機能 | 定義 | ステータス |
-|------|------|------------|
-| 会話 | CRUD + メッセージが DB 永続化、UI で再読込時も表示 | ✅ |
-| 画像 | 生成・編集が UI 表示、DL 可能 | ✅ |
-| 動画 | 生成→ポーリング→ダウンロードが完了、API キー非露出 | ✅ |
-| 課金 | Checkout→Webhook→Subscription→Portal が通る | ✅ |
-| 制限 | limit 超過で 429/403 が返る | ✅ |
-| RBAC | /admin は ADMIN のみ、middleware で遮断 | ✅ |
-| 認証 | Cloud Run で Google OAuth が動作 | ❌ (設定待ち) |
+| 機能 | 定義                                      | ステータス       |
+|------|-------------------------------------------|-------------|
+| 会話 | CRUD + メッセージが DB 永続化、UI で再読込時も表示 | ✅           |
+| 画像 | 生成・編集が UI 表示、DL 可能                | ✅           |
+| 動画 | 生成→ポーリング→ダウンロードが完了、API キー非露出       | ✅           |
+| 課金 | Checkout→Webhook→Subscription→Portal が通る | ✅           |
+| 制限 | limit 超過で 429/403 が返る                  | ✅           |
+| RBAC | /admin は ADMIN のみ、middleware で遮断        | ✅           |
+| 認証 | Cloud Run で Google OAuth が動作            | ❌ (設定待ち) |
 
 ---
 
@@ -193,25 +198,25 @@ const usageCounts = await prisma.usageLog.groupBy({
 
 ## 6. GCP インフラ
 
-| リソース | 詳細 |
-|----------|------|
-| Project | `dataanalyticsclinic` |
-| Region | `asia-northeast1` |
-| Cloud Run | `creative-flow-studio-dev` |
-| Cloud SQL | PostgreSQL (Private IP) |
-| Secret Manager | 環境変数管理 |
-| Artifact Registry | `creative-flow-studio` |
-| Terraform State | `gs://dataanalyticsclinic-terraform-state` |
+| リソース              | 詳細                                       |
+|-------------------|--------------------------------------------|
+| Project           | `dataanalyticsclinic`                      |
+| Region            | `asia-northeast1`                          |
+| Cloud Run         | `creative-flow-studio-dev`                 |
+| Cloud SQL         | PostgreSQL (Private IP)                    |
+| Secret Manager    | 環境変数管理                               |
+| Artifact Registry | `creative-flow-studio`                     |
+| Terraform State   | `gs://dataanalyticsclinic-terraform-state` |
 
 ---
 
 ## 7. ロールと責務
 
-| ロール | 担当 | 現在のタスク |
-|--------|------|--------------|
-| Claude Code | フロント、API、テスト、ドキュメント | ドキュメント更新 ✅ |
-| Cursor | バックエンド、インフラ、デプロイ | 認証設定、N+1最適化 |
-| Codex | レビュー専任 | セキュリティ監査 |
+| ロール         | 担当                | 現在のタスク           |
+|-------------|---------------------|--------------------|
+| Claude Code | フロント、API、テスト、ドキュメント | ドキュメント更新 ✅       |
+| Cursor      | バックエンド、インフラ、デプロイ    | 認証設定、N+1最適化 |
+| Codex       | レビュー専任            | セキュリティ監査         |
 
 ---
 

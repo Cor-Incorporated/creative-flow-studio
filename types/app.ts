@@ -1,8 +1,11 @@
-// Application types for Creative Flow Studio (migrated from alpha/types.ts)
+// Application types for BulnaAI (migrated from alpha/types.ts)
 
 export type Role = 'user' | 'model';
-export type GenerationMode = 'chat' | 'pro' | 'search' | 'image' | 'video';
-export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+export type GenerationMode = 'chat' | 'search' | 'image' | 'video';
+export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '2:3' | '3:2' | '4:5' | '5:4' | '21:9';
+
+// Re-export InfluencerId from constants for convenience
+export type { InfluencerId } from '@/lib/constants';
 
 export interface Media {
     type: 'image' | 'video';

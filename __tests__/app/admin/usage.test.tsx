@@ -13,6 +13,7 @@
  * - Metadata expansion
  */
 
+import type { FetchMock } from 'vitest-fetch-mock';
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { createMockUsageLogs } from '@/__tests__/utils/test-helpers';
@@ -46,6 +47,8 @@ vi.mock('next/navigation', () => ({
 // Import component AFTER mocks
 import UsagePage from '@/app/admin/usage/page';
 
+const fetchMock = fetch as unknown as FetchMock;
+
 describe('Admin Usage Page', () => {
     beforeEach(() => {
         // Reset session mock to authenticated ADMIN by default
@@ -65,11 +68,11 @@ describe('Admin Usage Page', () => {
             limit: 50,
             offset: 0,
         });
-        fetch.mockResponse(defaultResponse, { headers: { 'Content-Type': 'application/json' } });
+        fetchMock.mockResponse(defaultResponse, { headers: { 'Content-Type': 'application/json' } });
     });
 
     afterEach(() => {
-        fetch.mockReset();
+        fetchMock.mockReset();
         vi.clearAllMocks();
     });
 
@@ -98,7 +101,7 @@ describe('Admin Usage Page', () => {
 
         it('should display loading state', () => {
             // Arrange: Mock fetch that never resolves (don't provide response)
-            fetch.mockAbort();
+            fetchMock.mockAbort();
 
             // Act
             render(<UsagePage />);
@@ -109,7 +112,7 @@ describe('Admin Usage Page', () => {
 
         it('should display error message on fetch failure', async () => {
             // Arrange: Override default response with persistent error
-            fetch.mockReject(new Error('Network error'));
+            fetchMock.mockReject(new Error('Network error'));
 
             // Act
             render(<UsagePage />);
@@ -128,7 +131,7 @@ describe('Admin Usage Page', () => {
 
         it('should display 403 error for non-ADMIN users', async () => {
             // Arrange: Override default response with persistent 403 error
-            fetch.mockResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+            fetchMock.mockResponse(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
 
             // Act
             render(<UsagePage />);
@@ -152,7 +155,7 @@ describe('Admin Usage Page', () => {
                 limit: 50,
                 offset: 0,
             });
-            fetch.mockResponse(emptyResponse, { headers: { 'Content-Type': 'application/json' } });
+            fetchMock.mockResponse(emptyResponse, { headers: { 'Content-Type': 'application/json' } });
 
             // Act
             render(<UsagePage />);
@@ -329,7 +332,7 @@ describe('Admin Usage Page', () => {
     describe('Pagination', () => {
         it('should navigate to next page', async () => {
             // Arrange: Override default to show pagination (total > limit)
-            fetch.mockResponse(
+            fetchMock.mockResponse(
                 JSON.stringify({
                     logs: createMockUsageLogs(3),
                     total: 100,
@@ -368,7 +371,7 @@ describe('Admin Usage Page', () => {
 
         it('should navigate to previous page', async () => {
             // Arrange: Override default to show pagination at offset 50
-            fetch.mockResponse(
+            fetchMock.mockResponse(
                 JSON.stringify({
                     logs: createMockUsageLogs(3),
                     total: 100,

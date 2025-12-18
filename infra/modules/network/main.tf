@@ -3,7 +3,14 @@ resource "google_compute_network" "this" {
   project                 = var.project_id
   auto_create_subnetworks = false
   routing_mode            = "GLOBAL"
-  description             = "Creative Flow Studio ${var.environment} VPC"
+  # Note: Keep original description to avoid VPC recreation
+  # Changing description forces replacement which breaks dependent resources
+  description = "Creative Flow Studio ${var.environment} VPC"
+
+  lifecycle {
+    # Prevent accidental recreation due to description changes
+    ignore_changes = [description]
+  }
 }
 
 resource "google_compute_subnetwork" "primary" {
@@ -18,11 +25,11 @@ resource "google_compute_subnetwork" "primary" {
 }
 
 resource "google_vpc_access_connector" "serverless" {
-  count        = var.create_serverless_connector ? 1 : 0
-  name         = "${var.environment}-serverless-connector"
-  project      = var.project_id
-  region       = var.region
-  network      = google_compute_network.this.name
+  count         = var.create_serverless_connector ? 1 : 0
+  name          = "${var.environment}-serverless-connector"
+  project       = var.project_id
+  region        = var.region
+  network       = google_compute_network.this.name
   ip_cidr_range = var.connector_cidr
 
   min_throughput = var.connector_min_throughput

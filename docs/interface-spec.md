@@ -20,6 +20,35 @@
 
 ---
 
+## 0.1 Error Handling Contract（UI/UXのための必須契約）
+
+### 0.1.1 APIエラー（App Router API Routes）
+
+APIは、クライアントが安定してエラー表示できるよう **構造化エラー**を返す。
+
+- **必須フィールド**:
+  - `error`: ユーザー向け短文
+  - `code`: 安定したエラーコード
+  - `requestId`: 問い合わせ/ログ突合用ID
+- **必須ヘッダー**:
+  - `X-Request-Id`: `requestId` と一致
+
+（実装は `lib/api-utils.ts` の `jsonError()` を利用）
+
+### 0.1.2 認証エラー（NextAuth）
+
+NextAuthの認証エラーは `/auth/error?error=<CODE>` に遷移し、UIは `CODE` に応じた日本語メッセージを表示する。
+
+- `OAuthAccountNotLinked`: 「最初に登録した方法（メール/Google）でログイン」へ誘導する
+- `EmailNormalizationConflict`: サポート問い合わせ導線（データ衝突の可能性）
+- `SubscriptionInitFailed`: 時間をおいて再試行 + サポート問い合わせ
+
+### 0.1.3 UI表示ルール
+
+- APIエラーは **Toast + 必要に応じてインライン表示**でユーザーに提示する  
+- `requestId` がある場合は文末に **「サポートID: <requestId>」**として表示する  
+- `UNAUTHORIZED` / `FORBIDDEN_PLAN` / `RATE_LIMIT_EXCEEDED` は **行動導線（再ログイン/料金プラン）**を必ず付ける
+
 ## 1. 環境変数仕様
 
 ### 1.1 Next.js アプリケーション側で必要な環境変数
@@ -64,7 +93,7 @@ Secret Manager に格納し、Cloud Run の環境変数として注入する項�
 
 | Secret Manager キー名   | 環境変数名                  | 説明                                        | 例                                                                  |
 | ----------------------- | --------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
-| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列                    | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `database-url`          | `DATABASE_URL`              | Cloud SQL への接続文字列（Unix socket）     | `postgresql://user:pass@localhost/db?host=/cloudsql/project%3Aregion%3Ainstance`<br/>**注意**: コロンを`%3A`にエンコード必須 |
 | `nextauth-secret`       | `NEXTAUTH_SECRET`           | NextAuth.js のセッション暗号化キー          | `openssl rand -base64 32`                                           |
 | `google-client-id`      | `GOOGLE_CLIENT_ID`          | Google OAuth クライアントID                 | Google Cloud Console から取得                                       |
 | `google-client-secret`  | `GOOGLE_CLIENT_SECRET`      | Google OAuth クライアントシークレット       | Google Cloud Console から取得                                       |
@@ -688,8 +717,8 @@ npm run start
 
 **トリガー条件:**
 
-- ブランチ: `dev`（初期開発時）、後に `main` へマージ
-- 変更検知: dev ブランチへの push
+- ブランチ: `develop`
+- 変更検知: develop ブランチへの push
 
 **ビルドステップ（cloudbuild.yaml）:**
 
@@ -792,7 +821,7 @@ Cloud Build デフォルト SA (`667780715339@cloudbuild.gserviceaccount.com`) �
 3. マージ後、Cloud Build 自動トリガー
 4. 本番 Cloud Run へデプロイ
 
-**注意:** 現在のリポジトリでは `dev` ブランチを使用していますが、将来的に `develop` へリネームすることを推奨します。
+**注意:** 以前は `dev` ブランチを使用していましたが、現在は `develop` ブランチに統一されています。
 
 ---
 

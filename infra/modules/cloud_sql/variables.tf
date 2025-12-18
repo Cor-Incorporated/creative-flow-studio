@@ -73,3 +73,18 @@ variable "deletion_protection" {
   description = "削除保護を有効にするか"
   default     = false
 }
+
+variable "ipv4_enabled" {
+  type        = bool
+  description = "パブリックIPアドレスを有効化するか（ローカル開発やマイグレーション用）"
+  default     = false
+}
+
+variable "authorized_networks" {
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  description = "パブリックIP経由で接続を許可するネットワーク（Cloud Build等）"
+  default     = []
+}

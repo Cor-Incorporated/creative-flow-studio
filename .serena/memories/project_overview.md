@@ -1,8 +1,8 @@
-# Creative Flow Studio - Project Overview
+# BlunaAI - Project Overview
 
 ## Purpose
 
-Creative Flow Studio is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It provides:
+BlunaAI is a multimodal AI SaaS application that integrates multiple Google Gemini AI capabilities into a single chat interface. It provides:
 
 - **Text generation**: Chat, Pro mode (with thinking budget), Search-grounded responses
 - **Image generation/editing**: Imagen 4.0

@@ -2,7 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# クリエイティブフロースタジオ
+# BulnaAI
 
 Google Geminiの複数のAI機能を統合したマルチモーダルチャットアプリケーションです。テキスト生成、画像生成・編集、動画生成を1つのインターフェースで利用できます。
 
@@ -28,17 +28,18 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
 - **ステータス**: α版として維持中
 - **詳細**: [alpha/README.md](alpha/README.md)
 
-### dev ブランチ - 次世代版（Next.js Full-Stack SaaS）
+### develop ブランチ - 次世代版（Next.js Full-Stack SaaS）
 
 - **場所**: ルートディレクトリ（α版は `alpha/` に移動）
 - **フレームワーク**: Next.js 14 + TypeScript
 - **インフラ**: Google Cloud Platform (Cloud Run, Cloud SQL, etc.)
-- **ステータス**: 開発完了（Cloud Run auth設定待ち） - 185 tests passing
+- **ステータス**: 開発完了（Cloud Run auth設定待ち） - 519 tests passing
+- **最新更新**: 2025-12-17 - Mode switching bug fixes, comprehensive test coverage
 - **詳細**: 以下のセクションを参照
 
 ---
 
-## 🚀 次世代版（dev ブランチ）- セットアップ
+## 🚀 次世代版（develop ブランチ）- セットアップ
 
 ### 必要環境
 
@@ -53,7 +54,7 @@ Google Geminiの複数のAI機能を統合したマルチモーダルチャッ�
     ```bash
     git clone https://github.com/Cor-Incorporated/creative-flow-studio.git
     cd creative-flow-studio
-    git checkout dev
+    git checkout develop
     ```
 
 2. **依存関係のインストール**
@@ -157,7 +158,7 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 
 プロジェクトには包括的なテストスイートが含まれています：
 
-**単体テスト (Vitest) - 185 tests**
+**単体テスト (Vitest) - 516 tests**
 
 - Conversation API エンドポイント（33 tests）
 - Stripe Integration（37 tests）
@@ -166,7 +167,9 @@ npm run prisma:push      # スキーマをDBにプッシュ（開発用）
 - API Utilities（14 tests）
 - Subscription Utilities（23 tests）
 - Validators（9 tests）
-- Example tests（3 tests）
+- Mode Switching & Conversation History（21 tests）
+- Multi-Mode Flow Integration（57 tests）
+- Other component and integration tests（256 tests）
 
 ```bash
 # 全テスト実行
@@ -182,7 +185,9 @@ npm run test:coverage
 npm run test:ui
 ```
 
-**E2E テスト (Playwright)**
+**E2E テスト (Playwright) - 3 tests**
+
+- Mode switching and persistence tests
 
 ```bash
 # 全 E2E テスト実行
@@ -194,6 +199,8 @@ npm run test:e2e:ui
 # 特定のブラウザで実行
 npm run test:e2e -- --project=chromium
 ```
+
+**合計テスト数**: 519 tests passing ✅
 
 **参考資料:**
 
@@ -289,15 +296,15 @@ npm run test:e2e -- --project=chromium
 
 本番環境では、環境変数は **Secret Manager** に格納し、Cloud Run に注入します。
 
-| Secret Manager キー | 環境変数名 | 説明 |
-| --- | --- | --- |
-| `database-url` | `DATABASE_URL` | Cloud SQL 接続文字列 |
-| `nextauth-secret` | `NEXTAUTH_SECRET` | NextAuth.js セッション暗号化キー |
-| `google-client-id` | `GOOGLE_CLIENT_ID` | Google OAuth クライアントID |
-| `google-client-secret` | `GOOGLE_CLIENT_SECRET` | Google OAuth クライアントシークレット |
-| `stripe-secret-key` | `STRIPE_SECRET_KEY` | Stripe シークレットキー |
+| Secret Manager キー       | 環境変数名              | 説明                          |
+|-------------------------|-------------------------|-------------------------------|
+| `database-url`          | `DATABASE_URL`          | Cloud SQL 接続文字列          |
+| `nextauth-secret`       | `NEXTAUTH_SECRET`       | NextAuth.js セッション暗号化キー     |
+| `google-client-id`      | `GOOGLE_CLIENT_ID`      | Google OAuth クライアントID         |
+| `google-client-secret`  | `GOOGLE_CLIENT_SECRET`  | Google OAuth クライアントシークレット     |
+| `stripe-secret-key`     | `STRIPE_SECRET_KEY`     | Stripe シークレットキー               |
 | `stripe-webhook-secret` | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook 署名検証シークレット |
-| `gemini-api-key` | `GEMINI_API_KEY` | Google Gemini API キー |
+| `gemini-api-key`        | `GEMINI_API_KEY`        | Google Gemini API キー          |
 
 **非機密の環境変数**（Cloud Run に直接設定）:
 

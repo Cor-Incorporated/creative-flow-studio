@@ -19,17 +19,23 @@ DELETE FROM "verification_tokens";
 -- For production: Use live mode Price IDs (e.g., 'price_xxxxx')
 -- For testing: Use test mode Price IDs (e.g., 'price_test_xxxxx')
 -- See docs/stripe-integration-plan.md for setup instructions
+-- Pricing based on Google Gemini API costs (2024-2025):
+-- - Gemini 2.5 Flash: $0.30/1M input, $2.50/1M output tokens
+-- - Gemini 2.5 Pro: $1.25/1M input, $10/1M output tokens
+-- - Imagen 4 Standard: $0.04/image
+-- - Veo 3.1 Fast: $0.15/second (~$1.20 for 8s video)
+-- - Google Search Grounding: $35/1,000 prompts
 INSERT INTO "plans" (id, name, "stripePriceId", "monthlyPrice", features, "maxRequestsPerMonth", "maxFileSize", "createdAt", "updatedAt")
 VALUES
-    ('plan_free', 'FREE', NULL, 0, 
-     '{"allowProMode":false,"allowImageGeneration":false,"allowVideoGeneration":false,"allowSearchMode":true,"maxRequestsPerMonth":100,"maxFileSize":5242880,"maxConcurrentRequests":3,"prioritySupport":false,"customBranding":false}'::jsonb, 
-     100, 5242880, NOW(), NOW()),
-    ('plan_pro', 'PRO', 'price_CHANGE_ME_PRO', 2000, 
-     '{"allowProMode":true,"allowImageGeneration":true,"allowVideoGeneration":false,"allowSearchMode":true,"maxRequestsPerMonth":1000,"maxFileSize":52428800,"maxConcurrentRequests":5,"prioritySupport":false,"customBranding":false}'::jsonb, 
-     1000, 52428800, NOW(), NOW()),
-    ('plan_enterprise', 'ENTERPRISE', 'price_CHANGE_ME_ENTERPRISE', 5000, 
-     '{"allowProMode":true,"allowImageGeneration":true,"allowVideoGeneration":true,"allowSearchMode":true,"maxRequestsPerMonth":null,"maxFileSize":104857600,"maxConcurrentRequests":10,"prioritySupport":true,"customBranding":true}'::jsonb, 
-     NULL, 104857600, NOW(), NOW());
+    ('plan_free', 'FREE', NULL, 0,
+     '{"allowProMode":false,"allowImageGeneration":false,"allowVideoGeneration":false,"allowSearchMode":true,"maxRequestsPerMonth":50,"maxFileSize":5242880,"maxConcurrentRequests":1,"prioritySupport":false,"customBranding":false,"maxVideoGenerationsPerMonth":0}'::jsonb,
+     50, 5242880, NOW(), NOW()),
+    ('plan_pro', 'PRO', 'price_CHANGE_ME_PRO', 300000,
+     '{"allowProMode":true,"allowImageGeneration":true,"allowVideoGeneration":false,"allowSearchMode":true,"maxRequestsPerMonth":500,"maxFileSize":52428800,"maxConcurrentRequests":5,"prioritySupport":true,"customBranding":false,"maxVideoGenerationsPerMonth":0}'::jsonb,
+     500, 52428800, NOW(), NOW()),
+    ('plan_enterprise', 'ENTERPRISE', 'price_CHANGE_ME_ENTERPRISE', 3000000,
+     '{"allowProMode":true,"allowImageGeneration":true,"allowVideoGeneration":true,"allowSearchMode":true,"maxRequestsPerMonth":3000,"maxFileSize":524288000,"maxConcurrentRequests":10,"prioritySupport":true,"customBranding":true,"maxVideoGenerationsPerMonth":50}'::jsonb,
+     3000, 524288000, NOW(), NOW());
 
 -- Users
 INSERT INTO "users" (id, email, name, role, "createdAt", "updatedAt")

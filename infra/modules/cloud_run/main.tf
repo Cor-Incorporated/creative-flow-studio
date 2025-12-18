@@ -3,7 +3,8 @@ resource "google_artifact_registry_repository" "this" {
   location      = var.region
   repository_id = var.artifact_repo_id
   format        = var.artifact_repo_format
-  description   = "Creative Flow Studio container images"
+  # Note: Keep original description for consistency
+  description = "Creative Flow Studio container images"
 }
 
 resource "google_cloud_run_v2_service" "this" {
@@ -13,9 +14,18 @@ resource "google_cloud_run_v2_service" "this" {
   ingress  = var.ingress
   labels   = var.labels
 
+  lifecycle {
+    # CI/CD (Cloud Build) is the source of truth for container image updates.
+    # Without this, a Terraform apply can unintentionally roll the service back
+    # to a pinned/default image (e.g. :latest), causing drift and outages.
+    ignore_changes = [
+      template[0].containers[0].image
+    ]
+  }
+
   template {
-    service_account = var.service_account_email
-    timeout         = "${var.timeout_seconds}s"
+    service_account                  = var.service_account_email
+    timeout                          = "${var.timeout_seconds}s"
     max_instance_request_concurrency = var.concurrency
 
     scaling {
@@ -87,9 +97,9 @@ resource "google_cloud_run_v2_service" "this" {
   }
 
   traffic {
-    percent         = 100
-    type            = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
-    revision        = null
+    percent  = 100
+    type     = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    revision = null
   }
 }
 

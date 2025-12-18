@@ -1,6 +1,6 @@
-# Creative Flow Studio – Product & Tech Overview
+# BlunaAI – Product & Tech Overview
 
-Creative Flow Studio は Google Gemini のマルチモーダル機能（テキスト / 画像 / 動画 / 検索）を 1 つの Web アプリで提供する SaaS です。ここではエンジニア・営業・CS など新しく参画するメンバーが短時間で全体像を把握できるよう、機能面と技術スタックをまとめています。
+BlunaAI は Google Gemini のマルチモーダル機能（テキスト / 画像 / 動画 / 検索）を 1 つの Web アプリで提供する SaaS です。ここではエンジニア・営業・CS など新しく参画するメンバーが短時間で全体像を把握できるよう、機能面と技術スタックをまとめています。
 
 ---
 

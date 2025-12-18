@@ -1,9 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { updateUserRoleSchema } from '@/lib/validators';
+import { getServerSession } from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ * PATCH /api/admin/users/[id]
+ * Update user role (e.g., promote to ADMIN)
+ *
+ * Authentication: Required (NextAuth session)
+ * Authorization: ADMIN role required (Defense in Depth)
+ *
+ * Request Body:
+ * {
+ *   role: Role // USER | PRO | ENTERPRISE | ADMIN
+ * }
+ *
+ * Response:
+ * {
+ *   user: {
+ *     id: string
+ *     email: string
+ *     role: Role
+ *     updatedAt: string
+ *   }
+ * }
+ *
+ * References:
+ * - docs/admin-api-design.md (Phase 6 Step 2)
+ */
 /**
  * PATCH /api/admin/users/[id]
  * Update user role (e.g., promote to ADMIN)
@@ -31,9 +56,13 @@ import { updateUserRoleSchema } from '@/lib/validators';
  */
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    let id: string | undefined;
     try {
+        const resolvedParams = await params;
+        id = resolvedParams.id;
+
         // 1. Authentication: Check if user is logged in
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
@@ -59,7 +88,7 @@ export async function PATCH(
 
         // 4. Check if target user exists
         const targetUser = await prisma.user.findUnique({
-            where: { id: params.id },
+            where: { id },
             select: {
                 id: true,
                 email: true,
@@ -73,7 +102,7 @@ export async function PATCH(
 
         // 5. Update user role
         const updatedUser = await prisma.user.update({
-            where: { id: params.id },
+            where: { id },
             data: { role },
             select: {
                 id: true,
@@ -88,9 +117,9 @@ export async function PATCH(
             data: {
                 userId: session.user.id,
                 action: 'admin.users.update_role',
-                resource: `User:${params.id}`,
+                resource: `User:${id}`,
                 metadata: {
-                    targetUserId: params.id,
+                    targetUserId: id,
                     targetUserEmail: targetUser.email,
                     previousRole: targetUser.role,
                     newRole: role,
@@ -110,7 +139,7 @@ export async function PATCH(
             },
         });
     } catch (error: any) {
-        console.error('Error in PATCH /api/admin/users/[id]:', error);
+        console.error(`Error in PATCH /api/admin/users/${id || 'unknown'}:`, error);
 
         // Handle Zod validation errors
         if (error.name === 'ZodError') {

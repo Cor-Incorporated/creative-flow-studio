@@ -12,7 +12,7 @@ import Link from 'next/link';
  */
 
 export const metadata: Metadata = {
-    title: 'Admin Dashboard - Creative Flow Studio',
+    title: 'Admin Dashboard - BulnaAI',
     description: 'Administration and monitoring dashboard',
 };
 
@@ -61,10 +61,10 @@ export default function AdminLayout({
                                 Usage
                             </Link>
                             <Link
-                                href="/admin/subscriptions"
+                                href="/admin/waitlist"
                                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100"
                             >
-                                Subscriptions
+                                Waitlist
                             </Link>
                         </nav>
                     </div>
@@ -80,7 +80,7 @@ export default function AdminLayout({
             <footer className="bg-white border-t border-gray-200 mt-auto">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <p className="text-sm text-gray-500 text-center">
-                        Creative Flow Studio Admin Panel - ADMIN ACCESS ONLY
+                        BulnaAI Admin Panel - ADMIN ACCESS ONLY
                     </p>
                 </div>
             </footer>
