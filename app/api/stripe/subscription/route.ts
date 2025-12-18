@@ -6,6 +6,9 @@ import { getUserSubscription, getMonthlyUsageCount } from '@/lib/subscription';
 
 export const dynamic = 'force-dynamic';
 
+// Maximum file size for ADMIN users (Prisma Int max value: 2GB)
+const ADMIN_MAX_FILE_SIZE = 2_147_483_647;
+
 /**
  * GET /api/stripe/subscription
  * Get current user's subscription details
@@ -76,7 +79,7 @@ export async function GET(request: NextRequest) {
                             maxRequestsPerMonth: null,
                         },
                         maxRequestsPerMonth: null,
-                        maxFileSize: 2_147_483_647,
+                        maxFileSize: ADMIN_MAX_FILE_SIZE,
                     },
                 },
                 usageCount: 0,

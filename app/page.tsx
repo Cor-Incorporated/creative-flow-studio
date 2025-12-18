@@ -1096,13 +1096,22 @@ export default function Home() {
                         }
 
                         const videoBlob = await videoResponse.blob();
+
+                        // Validate downloaded blob is not empty
+                        if (videoBlob.size === 0) {
+                            throw new Error('ダウンロードした動画が空です');
+                        }
+
                         const displayUrl = URL.createObjectURL(videoBlob);
 
                         // Track blob URL for cleanup
                         blobUrlsRef.current.add(displayUrl);
 
                         // Persistent URL for DB storage (survives page reload)
-                        // Use proxy URL instead of Blob URL
+                        // Uses proxy URL instead of Blob URL for persistence.
+                        // NOTE: Gemini API files expire after 48 hours.
+                        // For permanent storage, consider uploading to Cloud Storage.
+                        // See: https://ai.google.dev/gemini-api/docs/video
                         const persistentUrl = videoUrl;
 
                         // Parts for UI display (uses Blob URL for fast playback)
