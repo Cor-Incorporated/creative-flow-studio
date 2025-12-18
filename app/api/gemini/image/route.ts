@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
         await logUsage(session.user.id, 'image_generation', {
             isEditing,
             aspectRatio,
-            resourceType: isEditing ? 'gemini-2.5-flash-image' : 'imagen-4.0',
+            resourceType: 'gemini-3-pro-image', // Unified model for generation and editing
             promptLength: prompt.length,
         });
 

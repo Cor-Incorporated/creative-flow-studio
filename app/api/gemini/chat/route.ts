@@ -125,12 +125,12 @@ export async function POST(request: NextRequest) {
         // Handle image upload (multimodal input)
         if (media && media.type === 'image') {
             result = await analyzeImage(prompt, media.url, media.mimeType, systemInstruction);
-            resourceType = 'gemini-2.5-flash-multimodal';
+            resourceType = 'gemini-3-flash-multimodal';
         }
         // Handle video upload (multimodal input)
         else if (media && media.type === 'video') {
             result = await analyzeVideo(prompt, media.url, media.mimeType, systemInstruction);
-            resourceType = 'gemini-2.5-flash-video';
+            resourceType = 'gemini-3-flash-video';
         }
         // Text-only generation
         else {
@@ -142,11 +142,11 @@ export async function POST(request: NextRequest) {
                         systemInstruction,
                         temperature
                     );
-                    resourceType = 'gemini-2.5-flash';
+                    resourceType = 'gemini-3-flash';
                     break;
                 case 'pro':
                     result = await generateProResponse(prompt, systemInstruction, temperature);
-                    resourceType = 'gemini-2.5-pro';
+                    resourceType = 'gemini-3-pro';
                     break;
                 case 'search':
                     result = await generateSearchGroundedResponse(
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
                         systemInstruction,
                         temperature
                     );
-                    resourceType = 'gemini-2.5-flash-grounded';
+                    resourceType = 'gemini-3-flash-grounded';
                     break;
                 default:
                     return NextResponse.json(

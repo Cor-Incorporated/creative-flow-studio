@@ -158,7 +158,7 @@ describe('POST /api/gemini/chat', () => {
             'chat',
             expect.objectContaining({
                 mode: 'chat',
-                resourceType: 'gemini-2.5-flash',
+                resourceType: 'gemini-3-flash', // Gemini 3
             })
         );
     });
@@ -193,7 +193,7 @@ describe('POST /api/gemini/chat', () => {
             'pro_mode',
             expect.objectContaining({
                 mode: 'pro',
-                resourceType: 'gemini-2.5-pro',
+                resourceType: 'gemini-3-pro', // Gemini 3
             })
         );
     });

@@ -70,18 +70,29 @@ export const ALLOWED_VIDEO_TYPES = [
 export const INFLUENCER_TEMPERATURE = 0.9;
 
 // Gemini Model Configuration
-export const THINKING_BUDGET = 32768; // Thinking budget for Pro mode
 export const VIDEO_POLL_INTERVAL_MS = 5000; // 5 seconds
 export const MAX_VIDEO_POLL_ATTEMPTS = 120; // 10 minutes (120 * 5s)
 
-// Gemini Model Names (aligned with alpha version)
+// Gemini 3 Model Names (migrated from Gemini 2.5)
 export const GEMINI_MODELS = {
-    FLASH: 'gemini-2.5-flash',
-    PRO: 'gemini-2.5-pro',
-    FLASH_IMAGE: 'gemini-2.5-flash-image',
-    IMAGEN: 'imagen-4.0-generate-001', // Fixed: Use correct model name from alpha
-    VEO: 'veo-3.1-fast-generate-preview', // Fixed: Use correct model name from alpha
+    // Chat models (Gemini 3)
+    FLASH: 'gemini-3-flash-preview',
+    PRO: 'gemini-3-pro-preview',
+    // Image model (Gemini 3 Pro Image - unified generation and editing)
+    PRO_IMAGE: 'gemini-3-pro-image-preview',
+    // Video model (Veo 3.1 - unchanged)
+    VEO: 'veo-3.1-fast-generate-preview',
 } as const;
+
+// Gemini 3 Thinking Levels (replaces thinkingBudget)
+export const THINKING_LEVELS = {
+    MINIMAL: 'minimal', // Flash only: Near-zero thinking, high throughput
+    LOW: 'low', // Minimize latency and cost
+    MEDIUM: 'medium', // Flash only: Balanced speed/reasoning
+    HIGH: 'high', // Maximum reasoning depth (default)
+} as const;
+
+export type ThinkingLevel = (typeof THINKING_LEVELS)[keyof typeof THINKING_LEVELS];
 
 // Error Messages
 export const ERROR_MESSAGES = {
@@ -115,8 +126,19 @@ export const ERROR_MESSAGES = {
     NO_VIDEO_TO_REFERENCE: '参照できる動画がありません。まず動画を生成してください。',
 };
 
-// Aspect Ratios
-export const VALID_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const;
+// Aspect Ratios (Gemini 3 Pro Image supports extended ratios)
+export const VALID_IMAGE_ASPECT_RATIOS = [
+    '1:1',
+    '16:9',
+    '9:16',
+    '4:3',
+    '3:4',
+    '2:3',
+    '3:2',
+    '4:5',
+    '5:4',
+    '21:9',
+] as const;
 export const VALID_VIDEO_ASPECT_RATIOS = ['16:9', '9:16'] as const;
 
 // ============================================

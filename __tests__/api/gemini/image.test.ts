@@ -157,7 +157,7 @@ describe('POST /api/gemini/image', () => {
             expect.objectContaining({
                 isEditing: false,
                 aspectRatio: '16:9',
-                resourceType: 'imagen-4.0',
+                resourceType: 'gemini-3-pro-image', // Gemini 3 unified model
             })
         );
     });
@@ -196,7 +196,7 @@ describe('POST /api/gemini/image', () => {
             'image_generation',
             expect.objectContaining({
                 isEditing: true,
-                resourceType: 'gemini-2.5-flash-image',
+                resourceType: 'gemini-3-pro-image', // Gemini 3 unified model
             })
         );
     });

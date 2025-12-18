@@ -1,7 +1,7 @@
-// Gemini API Service (Server-side version migrated from alpha/services/geminiService.ts)
+// Gemini API Service (Gemini 3 version)
 import { GoogleGenAI, Modality } from '@google/genai';
 import type { AspectRatio, Media } from '../types/app';
-import { ERROR_MESSAGES, GEMINI_MODELS, THINKING_BUDGET } from './constants';
+import { ERROR_MESSAGES, GEMINI_MODELS, THINKING_LEVELS, type ThinkingLevel } from './constants';
 
 // Get AI client with API key from environment
 const getAiClient = () => {
@@ -47,11 +47,12 @@ export const generateChatResponse = async (
     return result;
 };
 
-// Pro mode: Uses gemini-2.5-pro with thinking process
+// Pro mode: Uses gemini-3-pro-preview with thinking process
 export const generateProResponse = async (
     prompt: string,
     systemInstruction?: string,
-    temperature?: number
+    temperature?: number,
+    thinkingLevel: ThinkingLevel = THINKING_LEVELS.HIGH
 ) => {
     const ai = getAiClient();
     const requestConfig: any = {
@@ -60,7 +61,8 @@ export const generateProResponse = async (
             parts: [{ text: prompt }],
         },
         config: {
-            thinkingConfig: { thinkingBudget: THINKING_BUDGET },
+            // Gemini 3 uses thinkingLevel instead of thinkingBudget
+            thinkingConfig: { thinkingLevel },
         },
     };
 
@@ -103,56 +105,64 @@ export const generateSearchGroundedResponse = async (
     return result;
 };
 
-// --- Image Generation ---
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio = '1:1') => {
+// --- Image Generation (Gemini 3 Pro Image) ---
+export const generateImage = async (
+    prompt: string,
+    aspectRatio: AspectRatio = '1:1',
+    imageSize: '1K' | '2K' | '4K' = '2K'
+) => {
     const ai = getAiClient();
-    
-    // Validate aspect ratio (same as alpha implementation)
-    const VALID_IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const;
+
+    // Validate aspect ratio (Gemini 3 Pro Image supports more ratios)
+    const VALID_IMAGE_ASPECT_RATIOS = [
+        '1:1',
+        '16:9',
+        '9:16',
+        '4:3',
+        '3:4',
+        '2:3',
+        '3:2',
+        '4:5',
+        '5:4',
+        '21:9',
+    ] as const;
     const normalizedAspectRatio = VALID_IMAGE_ASPECT_RATIOS.includes(aspectRatio as any)
         ? aspectRatio
         : '1:1';
 
-    const result = await ai.models.generateImages({
-        model: GEMINI_MODELS.IMAGEN,
-        prompt,
+    // Gemini 3 Pro Image uses generateContent with responseModalities
+    const result = await ai.models.generateContent({
+        model: GEMINI_MODELS.PRO_IMAGE,
+        contents: prompt,
         config: {
-            numberOfImages: 1,
-            outputMimeType: 'image/png', // Fixed: Add outputMimeType from alpha
-            aspectRatio: normalizedAspectRatio,
+            responseModalities: [Modality.IMAGE],
+            imageConfig: {
+                aspectRatio: normalizedAspectRatio,
+                imageSize, // "1K", "2K", or "4K"
+            },
         },
     });
 
-    // Error handling: Check if generatedImages exists and has elements (same as alpha)
-    if (!result || !result.generatedImages || result.generatedImages.length === 0) {
-        const httpResponse = result?.sdkHttpResponse as any;
-        const errorMessage = httpResponse?.body
-            ? `${ERROR_MESSAGES.IMAGE_GENERATION_FAILED}: ${JSON.stringify(httpResponse.body)}`
-            : ERROR_MESSAGES.IMAGE_NO_IMAGES;
-        throw new Error(errorMessage);
+    // Extract image from response parts
+    const parts = result?.candidates?.[0]?.content?.parts || result?.parts;
+    if (!parts || parts.length === 0) {
+        throw new Error(ERROR_MESSAGES.IMAGE_NO_IMAGES);
     }
 
-    const firstImage = result.generatedImages[0];
-    if (!firstImage) {
+    // Find the image part in response
+    const imagePart = parts.find((part: any) => part.inlineData);
+    if (!imagePart || !imagePart.inlineData) {
         throw new Error(ERROR_MESSAGES.IMAGE_NO_DATA);
     }
 
-    // Extract image data (same logic as alpha)
-    let base64ImageBytes: string;
-    const imageData = firstImage as any;
-
-    if (imageData.image && imageData.image.imageBytes) {
-        base64ImageBytes = imageData.image.imageBytes;
-    } else if (imageData.imageBytes) {
-        base64ImageBytes = imageData.imageBytes;
-    } else if (imageData.data) {
-        base64ImageBytes = imageData.data;
-    } else {
+    const { data, mimeType } = imagePart.inlineData;
+    if (!data) {
         throw new Error(ERROR_MESSAGES.IMAGE_UNEXPECTED_FORMAT);
     }
 
-    // Return data URL format (same as alpha)
-    return `data:image/png;base64,${base64ImageBytes}`;
+    // Return data URL format
+    const mime = mimeType || 'image/png';
+    return `data:${mime};base64,${data}`;
 };
 
 // --- Image Analysis ---
@@ -223,13 +233,14 @@ export const analyzeVideo = async (
     return result;
 };
 
-// --- Image Editing ---
+// --- Image Editing (Gemini 3 Pro Image) ---
 export const editImage = async (prompt: string, originalImage: Media) => {
     const ai = getAiClient();
     const base64Data = dataUrlToBase64(originalImage.url);
 
+    // Gemini 3 Pro Image unified model for both generation and editing
     const result = await ai.models.generateContent({
-        model: GEMINI_MODELS.FLASH_IMAGE,
+        model: GEMINI_MODELS.PRO_IMAGE,
         contents: {
             parts: [
                 {
@@ -242,7 +253,7 @@ export const editImage = async (prompt: string, originalImage: Media) => {
             ],
         },
         config: {
-            responseModalities: [Modality.IMAGE],
+            responseModalities: [Modality.TEXT, Modality.IMAGE],
         },
     });
 
