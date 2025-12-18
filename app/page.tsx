@@ -852,10 +852,25 @@ export default function Home() {
                 }
 
                 // Convert database messages to UI messages
+                // Also detect and mark legacy Blob URLs as unavailable
                 const loadedMessages: Message[] = conversation.messages.map((msg: any) => ({
                     id: msg.id,
                     role: msg.role.toLowerCase(),
-                    parts: Array.isArray(msg.content) ? msg.content : [{ text: String(msg.content) }],
+                    parts: Array.isArray(msg.content)
+                        ? msg.content.map((part: any) => {
+                            // Detect legacy Blob URLs (session-specific, invalid after reload)
+                            if (part.media?.url?.startsWith('blob:')) {
+                                return {
+                                    ...part,
+                                    media: {
+                                        ...part.media,
+                                        _unavailable: true,
+                                    },
+                                };
+                            }
+                            return part;
+                        })
+                        : [{ text: String(msg.content) }],
                 }));
 
                 // If no messages, show initial greeting
@@ -1081,16 +1096,32 @@ export default function Home() {
                         }
 
                         const videoBlob = await videoResponse.blob();
-                        const videoDataUrl = URL.createObjectURL(videoBlob);
+                        const displayUrl = URL.createObjectURL(videoBlob);
 
                         // Track blob URL for cleanup
-                        blobUrlsRef.current.add(videoDataUrl);
+                        blobUrlsRef.current.add(displayUrl);
 
-                        const videoParts: ContentPart[] = [
+                        // Persistent URL for DB storage (survives page reload)
+                        // Use proxy URL instead of Blob URL
+                        const persistentUrl = videoUrl;
+
+                        // Parts for UI display (uses Blob URL for fast playback)
+                        const displayParts: ContentPart[] = [
                             {
                                 media: {
                                     type: 'video',
-                                    url: videoDataUrl,
+                                    url: displayUrl,
+                                    mimeType: downloadTarget.mimeType || 'video/mp4',
+                                },
+                            },
+                        ];
+
+                        // Parts for DB storage (uses Proxy URL for persistence)
+                        const persistentParts: ContentPart[] = [
+                            {
+                                media: {
+                                    type: 'video',
+                                    url: persistentUrl,
                                     mimeType: downloadTarget.mimeType || 'video/mp4',
                                 },
                             },
@@ -1101,7 +1132,7 @@ export default function Home() {
                                 m.id === messageId
                                     ? {
                                         ...m,
-                                        parts: videoParts,
+                                        parts: displayParts,
                                     }
                                     : m
                             )
@@ -1110,12 +1141,12 @@ export default function Home() {
                         // Store generated video for natural language reference
                         setLastGeneratedVideo({
                             type: 'video',
-                            url: videoDataUrl,
+                            url: displayUrl,
                             mimeType: downloadTarget.mimeType || 'video/mp4',
                         });
 
-                        // Return video parts for saving
-                        return videoParts;
+                        // Return persistent parts for saving to DB
+                        return persistentParts;
                     } catch (downloadError: any) {
                         const formattedError = await formatErrorMessage(
                             `ビデオ生成エラー: ${downloadError?.message || ERROR_MESSAGES.VIDEO_GENERATION_FAILED}`
