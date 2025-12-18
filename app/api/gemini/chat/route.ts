@@ -6,6 +6,7 @@ import {
     generateProResponse,
     generateSearchGroundedResponse,
     analyzeImage,
+    analyzeVideo,
 } from '@/lib/gemini';
 import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { ERROR_MESSAGES } from '@/lib/constants';
@@ -125,6 +126,11 @@ export async function POST(request: NextRequest) {
         if (media && media.type === 'image') {
             result = await analyzeImage(prompt, media.url, media.mimeType, systemInstruction);
             resourceType = 'gemini-2.5-flash-multimodal';
+        }
+        // Handle video upload (multimodal input)
+        else if (media && media.type === 'video') {
+            result = await analyzeVideo(prompt, media.url, media.mimeType, systemInstruction);
+            resourceType = 'gemini-2.5-flash-video';
         }
         // Text-only generation
         else {

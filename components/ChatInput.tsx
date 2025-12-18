@@ -116,9 +116,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
             const url = await fileToBase64(file);
             const type = isVideo ? 'video' : 'image';
             setUploadedMedia({ url, mimeType: file.type, type });
-            // Auto-switch mode based on uploaded media type
-            if (type === 'video') setMode('video');
-            if (type === 'image') setMode('image');
+            // Note: Auto-mode switch removed to allow media attachment in any mode
+            // Users can now attach images/videos in chat mode for analysis
             setIsMenuOpen(false);
         }
     };
@@ -161,8 +160,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     setValidationError(null);
                     const url = await fileToBase64(file);
                     setUploadedMedia({ url, mimeType: file.type, type: 'image' });
-                    // Auto-switch to image mode on paste
-                    setMode('image');
+                    // Note: Auto-mode switch removed to allow pasted images in any mode
                 }
                 break;
             }

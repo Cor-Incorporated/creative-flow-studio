@@ -112,6 +112,7 @@ export const ERROR_MESSAGES = {
     UNSAFE_INPUT: '入力内容がガイドラインに違反しています。別のプロンプトでお試しください。',
     // Media reference errors
     NO_IMAGE_TO_REFERENCE: '参照できる画像がありません。まず画像を生成してください。',
+    NO_VIDEO_TO_REFERENCE: '参照できる動画がありません。まず動画を生成してください。',
 };
 
 // Aspect Ratios

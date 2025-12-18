@@ -14,7 +14,7 @@ import {
     UUID_REGEX,
     VIDEO_POLL_INTERVAL_MS
 } from '@/lib/constants';
-import { detectMediaReference, shouldAutoInjectImage } from '@/lib/mediaReference';
+import { detectMediaReference, shouldAutoInjectImage, shouldAutoInjectVideo } from '@/lib/mediaReference';
 import { AspectRatio, ContentPart, GenerationMode, Media, Message } from '@/types/app';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
@@ -55,8 +55,9 @@ export default function Home() {
     // Retry state for failed messages
     const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
     const [lastFailedMedia, setLastFailedMedia] = useState<Media | null>(null);
-    // Store last generated image for natural language reference
+    // Store last generated image/video for natural language reference
     const [lastGeneratedImage, setLastGeneratedImage] = useState<Media | null>(null);
+    const [lastGeneratedVideo, setLastGeneratedVideo] = useState<Media | null>(null);
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
@@ -918,6 +919,7 @@ export default function Home() {
             },
         ]);
         setLastGeneratedImage(null); // Clear image reference for new conversation
+        setLastGeneratedVideo(null); // Clear video reference for new conversation
         setIsSidebarOpen(false);
     };
 
@@ -1106,6 +1108,13 @@ export default function Home() {
                             )
                         );
 
+                        // Store generated video for natural language reference
+                        setLastGeneratedVideo({
+                            type: 'video',
+                            url: videoDataUrl,
+                            mimeType: downloadTarget.mimeType || 'video/mp4',
+                        });
+
                         // Return video parts for saving
                         return videoParts;
                     } catch (downloadError: any) {
@@ -1147,9 +1156,10 @@ export default function Home() {
             return;
         }
 
-        // Detect natural language references to previously generated images
-        const { hasImageReference } = detectMediaReference(prompt);
-        const referenceCheck = shouldAutoInjectImage(prompt, lastGeneratedImage);
+        // Detect natural language references to previously generated images/videos
+        const { hasImageReference, hasVideoReference } = detectMediaReference(prompt);
+        const imageReferenceCheck = shouldAutoInjectImage(prompt, lastGeneratedImage);
+        const videoReferenceCheck = shouldAutoInjectVideo(prompt, lastGeneratedVideo);
 
         // Handle case: User references image but none exists
         if (hasImageReference && !lastGeneratedImage) {
@@ -1161,19 +1171,37 @@ export default function Home() {
             return;
         }
 
+        // Handle case: User references video but none exists
+        if (hasVideoReference && !lastGeneratedVideo) {
+            showToast({
+                message: ERROR_MESSAGES.NO_VIDEO_TO_REFERENCE,
+                type: 'warning',
+                duration: 5000,
+            });
+            return;
+        }
+
         // Determine effective mode and media based on natural language detection
         let effectiveMode = mode;
         let effectiveMedia = uploadedMedia;
 
-        if (referenceCheck.inject && !uploadedMedia) {
-            if (referenceCheck.forVideo) {
+        // Check image reference first
+        if (imageReferenceCheck.inject && !uploadedMedia) {
+            if (imageReferenceCheck.forVideo) {
                 // Auto-switch to video mode for video generation from image
                 effectiveMode = 'video';
                 setMode('video');
                 effectiveMedia = lastGeneratedImage!;
-            } else if (referenceCheck.forAnalysis) {
+            } else if (imageReferenceCheck.forAnalysis) {
                 // Include image in chat analysis
                 effectiveMedia = lastGeneratedImage!;
+            }
+        }
+        // Check video reference (video analysis)
+        else if (videoReferenceCheck.inject && !uploadedMedia) {
+            if (videoReferenceCheck.forAnalysis) {
+                // Include video in chat analysis
+                effectiveMedia = lastGeneratedVideo!;
             }
         }
 

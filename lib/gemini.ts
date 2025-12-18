@@ -189,6 +189,40 @@ export const analyzeImage = async (
     return result;
 };
 
+// --- Video Analysis ---
+export const analyzeVideo = async (
+    prompt: string,
+    videoData: string,
+    mimeType: string,
+    systemInstruction?: string
+) => {
+    const ai = getAiClient();
+    const base64Data = dataUrlToBase64(videoData);
+
+    const requestConfig: any = {
+        model: GEMINI_MODELS.FLASH,
+        contents: {
+            parts: [
+                { text: prompt },
+                {
+                    inlineData: {
+                        mimeType,
+                        data: base64Data,
+                    },
+                },
+            ],
+        },
+        config: {},
+    };
+
+    if (systemInstruction) {
+        requestConfig.config.systemInstruction = [systemInstruction];
+    }
+
+    const result = await ai.models.generateContent(requestConfig);
+    return result;
+};
+
 // --- Image Editing ---
 export const editImage = async (prompt: string, originalImage: Media) => {
     const ai = getAiClient();
