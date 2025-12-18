@@ -72,6 +72,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const plusButtonRef = useRef<HTMLButtonElement>(null); // For focus management
     // IME変換中かどうかを追跡するためのref
     const isComposingRef = useRef<boolean>(false);
 
@@ -85,6 +86,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Close menu with Escape key and return focus to plus button (accessibility)
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isMenuOpen) {
+                setIsMenuOpen(false);
+                // Return focus to the plus button for better keyboard navigation
+                plusButtonRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleEscape);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [isMenuOpen]);
 
     const handleFileChange = async (files: FileList | null) => {
         if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length });
@@ -256,6 +270,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                             {/* Plus Button with Popup Menu */}
                             <div className="relative" ref={menuRef}>
                                 <button
+                                    ref={plusButtonRef}
                                     type="button"
                                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                                     className={`p-2.5 rounded-xl transition-all flex-shrink-0 ${
@@ -263,6 +278,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                             ? 'bg-gray-600 text-white rotate-45'
                                             : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
                                     }`}
+                                    aria-label="メニューを開く"
+                                    aria-expanded={isMenuOpen}
+                                    aria-haspopup="menu"
                                 >
                                     <PlusIcon className="w-5 h-5" />
                                 </button>
@@ -426,7 +444,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                 rows={1}
                                 disabled={isLoading}
                                 style={{ fontSize: '16px' }}
+                                aria-label="メッセージ入力フィールド"
+                                aria-describedby="input-help"
+                                aria-busy={isLoading}
                             />
+                            <span id="input-help" className="sr-only">
+                                Ctrl+Enter (Windows) または Cmd+Enter (Mac) で送信。画像やビデオを貼り付けることもできます。
+                            </span>
 
                             {/* Send Button */}
                             <button

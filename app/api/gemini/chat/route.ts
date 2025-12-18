@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
                     break;
                 case 'search':
                     result = await generateSearchGroundedResponse(
+                        history,
                         prompt,
                         systemInstruction,
                         temperature

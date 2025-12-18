@@ -58,6 +58,9 @@ export default function Home() {
     // Store last generated image/video for natural language reference
     const [lastGeneratedImage, setLastGeneratedImage] = useState<Media | null>(null);
     const [lastGeneratedVideo, setLastGeneratedVideo] = useState<Media | null>(null);
+    // Smart scroll: track if user has scrolled up to prevent forced auto-scroll
+    const [userScrolledUp, setUserScrolledUp] = useState<boolean>(false);
+    const userScrolledUpRef = useRef<boolean>(false); // Ref to avoid unnecessary state updates
     const chatHistoryRef = useRef<HTMLDivElement>(null);
     const selectedInfluencerRef = useRef(selectedInfluencer);
     const currentConversationIdRef = useRef<string | null>(null);
@@ -390,10 +393,53 @@ export default function Home() {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
-    // Auto-scroll to bottom on new messages
+    // Global keyboard shortcuts
     useEffect(() => {
-        chatHistoryRef.current?.scrollTo(0, chatHistoryRef.current.scrollHeight);
-    }, [messages]);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Escape: Close sidebar (mobile)
+            if (e.key === 'Escape') {
+                if (isSidebarOpen) {
+                    setIsSidebarOpen(false);
+                }
+            }
+
+            // Ctrl/Cmd + K: Start new conversation
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                startNewConversation();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isSidebarOpen]);
+
+    // Track scroll position to enable smart auto-scroll
+    // Optimized to avoid unnecessary state updates on every scroll event
+    const SCROLL_BOTTOM_THRESHOLD = 100; // pixels from bottom to trigger auto-scroll
+    const handleChatScroll = () => {
+        if (!chatHistoryRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = chatHistoryRef.current;
+        // User is "scrolled up" if they're more than threshold pixels from the bottom
+        const isNearBottom = scrollHeight - scrollTop - clientHeight <= SCROLL_BOTTOM_THRESHOLD;
+        const newUserScrolledUp = !isNearBottom;
+
+        // Only update state if value actually changed (performance optimization)
+        if (userScrolledUpRef.current !== newUserScrolledUp) {
+            userScrolledUpRef.current = newUserScrolledUp;
+            setUserScrolledUp(newUserScrolledUp);
+        }
+    };
+
+    // Auto-scroll to bottom on new messages (only if user hasn't scrolled up)
+    useEffect(() => {
+        if (!userScrolledUp && chatHistoryRef.current) {
+            chatHistoryRef.current.scrollTo({
+                top: chatHistoryRef.current.scrollHeight,
+                behavior: 'smooth',
+            });
+        }
+    }, [messages, userScrolledUp]);
 
     // Load conversations on mount (if authenticated)
     useEffect(() => {
@@ -907,6 +953,7 @@ export default function Home() {
 
     /**
      * Start a new conversation
+     * Note: Uses selectedInfluencerRef to avoid stale closure in keyboard shortcuts
      */
     const startNewConversation = () => {
         // Clean up blob URLs to prevent memory leaks
@@ -915,8 +962,8 @@ export default function Home() {
         // Clear persistence
         clearConversationPersistence();
 
-        // Reset to initial state
-        const config = getInfluencerConfig(selectedInfluencer);
+        // Reset to initial state (use ref to get current value, avoiding stale closure)
+        const config = getInfluencerConfig(selectedInfluencerRef.current);
         const defaultMessage = 'BulnaAIへようこそ！今日はどのようなご用件でしょうか？';
 
         setCurrentConversationId(null);
@@ -1763,7 +1810,7 @@ export default function Home() {
                     </div>
                 </header>
 
-                <main ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                <main ref={chatHistoryRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
                     {messages.map(msg => (
                         <ChatMessage
                             key={msg.id}

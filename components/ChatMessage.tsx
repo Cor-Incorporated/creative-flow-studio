@@ -21,11 +21,23 @@ const handleDownload = (url: string, filename: string) => {
     document.body.removeChild(link);
 };
 
+// Robust touch device detection for hybrid devices (Surface, iPad with keyboard, etc.)
+// Memoized as module-level constant since the value never changes during a session
+const IS_TOUCH_DEVICE = (() => {
+    if (typeof window === 'undefined') return false;
+    return (
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        (navigator as any).msMaxTouchPoints > 0
+    );
+})();
+
 const ImageContent: React.FC<{
     part: ContentPart;
     onEditImage: (prompt: string, image: Media) => void;
 }> = ({ part, onEditImage }) => {
-    const [isHovered, setIsHovered] = useState(false);
+    // Unified control visibility state (supports both hover and tap)
+    const [showControls, setShowControls] = useState(false);
     const [isEditing, setIsEditing] = useState(part.isEditing || false);
     const [editText, setEditText] = useState('');
 
@@ -41,24 +53,37 @@ const ImageContent: React.FC<{
         }
     };
 
+    // Handle image click for mobile tap-to-toggle controls
+    const handleImageClick = () => {
+        // Toggle controls on touch devices (including hybrid devices like Surface)
+        if (IS_TOUCH_DEVICE) {
+            setShowControls(!showControls);
+        }
+    };
+
     return (
         <div
             className="relative group max-w-md"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onClick={handleImageClick}
+            onMouseEnter={() => !IS_TOUCH_DEVICE && setShowControls(true)}
+            onMouseLeave={() => !IS_TOUCH_DEVICE && setShowControls(false)}
+            role="figure"
+            aria-label="生成された画像"
         >
             <img src={media.url} alt="Generated content" className="rounded-lg shadow-lg" />
-            {isHovered && !isEditing && (
+            {showControls && !isEditing && (
                 <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center transition-opacity">
                     <button
-                        onClick={() => setIsEditing(true)}
-                        className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full"
+                        onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+                        className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white font-bold py-2 px-4 rounded-full min-h-[44px]"
+                        aria-label="画像を編集"
                     >
                         <PencilIcon /> 編集
                     </button>
                     <button
-                        onClick={() => handleDownload(media.url, `creative-flow-${Date.now()}.png`)}
-                        className="ml-2 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full"
+                        onClick={(e) => { e.stopPropagation(); handleDownload(media.url, `creative-flow-${Date.now()}.png`); }}
+                        className="ml-2 flex items-center gap-2 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white font-bold py-2 px-4 rounded-full min-h-[44px]"
+                        aria-label="画像をダウンロード"
                     >
                         <DownloadIcon /> ダウンロード
                     </button>
@@ -68,6 +93,7 @@ const ImageContent: React.FC<{
                 <form
                     onSubmit={handleEditSubmit}
                     className="absolute bottom-0 left-0 right-0 p-2 bg-black bg-opacity-70"
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <input
                         type="text"
@@ -76,6 +102,7 @@ const ImageContent: React.FC<{
                         placeholder="編集内容を記述してください..."
                         className="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         autoFocus
+                        aria-label="画像編集の指示を入力"
                     />
                 </form>
             )}
@@ -207,28 +234,39 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         getInfluencerAvatar()
     );
 
+    // Check if any part is loading
+    const isAnyPartLoading = message.parts.some(part => part.isLoading);
+
     return (
-        <div className={`flex ${alignment} mb-4`}>
+        <div
+            className={`flex ${alignment} mb-4`}
+            role="article"
+            aria-label={`${isUser ? 'ユーザー' : 'AI'}のメッセージ`}
+        >
             <div className={`flex ${flexDirection} items-end gap-3 max-w-2xl`}>
                 <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-700 bg-gray-800 flex-shrink-0">
                     {avatar}
                 </div>
-                <div className={`px-4 py-3 rounded-2xl ${bgColor} flex flex-col gap-3`}>
+                <div
+                    className={`px-4 py-3 rounded-2xl ${bgColor} flex flex-col gap-3`}
+                    aria-live={!isUser ? 'polite' : 'off'}
+                    aria-busy={isAnyPartLoading}
+                >
                     {message.parts.map((part, index) => (
                         <div key={index}>
                             {part.isLoading && (
-                                <div className="flex items-center gap-2 text-gray-400">
+                                <div className="flex items-center gap-2 text-gray-400" role="status" aria-live="polite">
                                     {part.status ? (
                                         <>
                                             <LoadingSpinner />
                                             <span>{part.status}</span>
                                         </>
                                     ) : (
-                                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
+                                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse" aria-label="読み込み中"></span>
                                     )}
                                 </div>
                             )}
-                            {part.isError && <p className="text-red-400">{part.text}</p>}
+                            {part.isError && <p className="text-red-400" role="alert">{part.text}</p>}
                             {part.media?.type === 'image' && (
                                 <ImageContent part={part} onEditImage={onEditImage} />
                             )}

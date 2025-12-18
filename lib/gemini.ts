@@ -49,16 +49,22 @@ export const generateChatResponse = async (
 
 // Search mode: Uses Google Search for grounded responses
 export const generateSearchGroundedResponse = async (
+    history: any[],
     prompt: string,
     systemInstruction?: string,
     temperature?: number
 ) => {
     const ai = getAiClient();
+
+    // Build contents with history for multi-turn context
+    const contents =
+        history.length > 0
+            ? [...history, { role: 'user', parts: [{ text: prompt }] }]
+            : [{ role: 'user', parts: [{ text: prompt }] }];
+
     const requestConfig: any = {
         model: GEMINI_MODELS.FLASH,
-        contents: {
-            parts: [{ text: prompt }],
-        },
+        contents,
         config: {
             tools: [{ googleSearch: {} }],
         },
