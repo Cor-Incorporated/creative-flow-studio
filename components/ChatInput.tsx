@@ -23,6 +23,9 @@ import {
     XMarkIcon,
 } from './icons';
 
+// Debug logging for media preview investigation (only in development)
+const DEBUG_MEDIA = process.env.NODE_ENV === 'development';
+
 interface ChatInputProps {
     onSendMessage: (prompt: string, uploadedMedia?: Media) => void;
     isLoading: boolean;
@@ -84,10 +87,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }, []);
 
     const handleFileChange = async (files: FileList | null) => {
-        console.log('[ChatInput] handleFileChange called', { filesCount: files?.length });
+        if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length });
         if (files && files[0]) {
             const file = files[0];
-            console.log('[ChatInput] File selected', { name: file.name, size: file.size, type: file.type });
+            if (DEBUG_MEDIA) console.log('[ChatInput] File selected', { name: file.name, size: file.size, type: file.type });
 
             if (file.size > MAX_FILE_SIZE) {
                 setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
@@ -115,12 +118,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
             setValidationError(null);
             try {
                 const url = await fileToBase64(file);
-                console.log('[ChatInput] Base64 conversion complete', { urlLength: url.length });
+                if (DEBUG_MEDIA) console.log('[ChatInput] Base64 conversion complete', { urlLength: url.length });
                 const type = isVideo ? 'video' : 'image';
                 setUploadedMedia({ url, mimeType: file.type, type });
-                console.log('[ChatInput] uploadedMedia state updated');
+                if (DEBUG_MEDIA) console.log('[ChatInput] uploadedMedia state updated');
             } catch (error) {
-                console.error('[ChatInput] Error converting file to base64:', error);
+                if (DEBUG_MEDIA) console.error('[ChatInput] Error converting file to base64:', error);
                 setValidationError('ファイルの読み込みに失敗しました');
                 return;
             }

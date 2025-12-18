@@ -94,10 +94,10 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // 3. Get monthly usage count
+        // 4. Get monthly usage count
         const usageCount = await getMonthlyUsageCount(session.user.id);
 
-        // 4. Return subscription data
+        // 5. Return subscription data
         return NextResponse.json({
             subscription: {
                 id: subscription.id,

@@ -864,7 +864,7 @@ export default function Home() {
                                     ...part,
                                     media: {
                                         ...part.media,
-                                        _unavailable: true,
+                                        unavailable: true,
                                     },
                                 };
                             }

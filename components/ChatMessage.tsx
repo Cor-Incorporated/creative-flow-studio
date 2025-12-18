@@ -87,8 +87,7 @@ const VideoContent: React.FC<{ part: ContentPart }> = ({ part }) => {
     if (!part.media) return null;
 
     // Handle legacy Blob URLs that are no longer valid
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const isUnavailable = (part.media as any)._unavailable === true;
+    const isUnavailable = part.media.unavailable === true;
 
     if (isUnavailable) {
         return (

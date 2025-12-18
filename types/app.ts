@@ -11,6 +11,8 @@ export interface Media {
     type: 'image' | 'video';
     url: string;
     mimeType: string;
+    /** Indicates legacy Blob URLs that are no longer valid after page reload */
+    unavailable?: boolean;
 }
 
 export interface GroundingSource {
