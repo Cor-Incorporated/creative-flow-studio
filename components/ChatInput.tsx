@@ -27,7 +27,7 @@ import {
 const DEBUG_MEDIA = process.env.NODE_ENV === 'development';
 
 interface ChatInputProps {
-    onSendMessage: (prompt: string, uploadedMedia?: Media) => void;
+    onSendMessage: (prompt: string, uploadedMedia?: Media, referenceImages?: Media[]) => void;
     isLoading: boolean;
     mode: GenerationMode;
     setMode: (mode: GenerationMode) => void;
@@ -41,6 +41,9 @@ interface ChatInputProps {
     onRetry?: () => void;
     onClearRetry?: () => void;
 }
+
+// Maximum reference images for video mode
+const MAX_REFERENCE_IMAGES = 8;
 
 const MODE_CONFIG = {
     chat: { label: 'チャット', icon: ChatBubbleIcon, color: 'bg-blue-600' },
@@ -67,6 +70,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 }) => {
     const [prompt, setPrompt] = useState('');
     const [uploadedMedia, setUploadedMedia] = useState<Media | null>(null);
+    const [referenceImages, setReferenceImages] = useState<Media[]>([]); // For video mode multiple images
     const [validationError, setValidationError] = useState<string | null>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,50 +105,87 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }, [isMenuOpen]);
 
     const handleFileChange = async (files: FileList | null) => {
-        if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length });
-        if (files && files[0]) {
-            const file = files[0];
-            if (DEBUG_MEDIA) console.log('[ChatInput] File selected', { name: file.name, size: file.size, type: file.type });
+        if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length, mode });
+        if (!files || files.length === 0) return;
 
-            if (file.size > MAX_FILE_SIZE) {
-                setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+        // For video mode, handle multiple image uploads
+        if (mode === 'video') {
+            const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image'));
+
+            // Check if adding these files would exceed the limit
+            if (referenceImages.length + imageFiles.length > MAX_REFERENCE_IMAGES) {
+                setValidationError(`参照画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
                 return;
             }
 
-            const isImage = file.type.startsWith('image');
-            const isVideo = file.type.startsWith('video');
-
-            if (isImage && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
-                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
-                return;
-            }
-
-            if (isVideo && !ALLOWED_VIDEO_TYPES.includes(file.type)) {
-                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
-                return;
-            }
-
-            if (!isImage && !isVideo) {
-                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
-                return;
+            const newImages: Media[] = [];
+            for (const file of imageFiles) {
+                if (file.size > MAX_FILE_SIZE) {
+                    setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+                    return;
+                }
+                if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                    setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                    return;
+                }
+                try {
+                    const url = await fileToBase64(file);
+                    newImages.push({ url, mimeType: file.type, type: 'image' });
+                } catch (error) {
+                    if (DEBUG_MEDIA) console.error('[ChatInput] Error converting file to base64:', error);
+                    setValidationError('ファイルの読み込みに失敗しました');
+                    return;
+                }
             }
 
             setValidationError(null);
-            try {
-                const url = await fileToBase64(file);
-                if (DEBUG_MEDIA) console.log('[ChatInput] Base64 conversion complete', { urlLength: url.length });
-                const type = isVideo ? 'video' : 'image';
-                setUploadedMedia({ url, mimeType: file.type, type });
-                if (DEBUG_MEDIA) console.log('[ChatInput] uploadedMedia state updated');
-            } catch (error) {
-                if (DEBUG_MEDIA) console.error('[ChatInput] Error converting file to base64:', error);
-                setValidationError('ファイルの読み込みに失敗しました');
-                return;
-            }
-            // Note: Auto-mode switch removed to allow media attachment in any mode
-            // Users can now attach images/videos in chat mode for analysis
+            setReferenceImages((prev) => [...prev, ...newImages]);
             setIsMenuOpen(false);
+            return;
         }
+
+        // For other modes, handle single file upload (existing behavior)
+        const file = files[0];
+        if (DEBUG_MEDIA) console.log('[ChatInput] File selected', { name: file.name, size: file.size, type: file.type });
+
+        if (file.size > MAX_FILE_SIZE) {
+            setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+            return;
+        }
+
+        const isImage = file.type.startsWith('image');
+        const isVideo = file.type.startsWith('video');
+
+        if (isImage && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+            return;
+        }
+
+        if (isVideo && !ALLOWED_VIDEO_TYPES.includes(file.type)) {
+            setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+            return;
+        }
+
+        if (!isImage && !isVideo) {
+            setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+            return;
+        }
+
+        setValidationError(null);
+        try {
+            const url = await fileToBase64(file);
+            if (DEBUG_MEDIA) console.log('[ChatInput] Base64 conversion complete', { urlLength: url.length });
+            const type = isVideo ? 'video' : 'image';
+            setUploadedMedia({ url, mimeType: file.type, type });
+            if (DEBUG_MEDIA) console.log('[ChatInput] uploadedMedia state updated');
+        } catch (error) {
+            if (DEBUG_MEDIA) console.error('[ChatInput] Error converting file to base64:', error);
+            setValidationError('ファイルの読み込みに失敗しました');
+            return;
+        }
+        // Note: Auto-mode switch removed to allow media attachment in any mode
+        // Users can now attach images/videos in chat mode for analysis
+        setIsMenuOpen(false);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -155,16 +196,27 @@ const ChatInput: React.FC<ChatInputProps> = ({
             return;
         }
 
-        if ((prompt.trim() || uploadedMedia) && !isLoading) {
+        const hasContent = prompt.trim() || uploadedMedia || referenceImages.length > 0;
+        if (hasContent && !isLoading) {
             setValidationError(null);
-            onSendMessage(prompt.trim(), uploadedMedia || undefined);
+            onSendMessage(
+                prompt.trim(),
+                uploadedMedia || undefined,
+                referenceImages.length > 0 ? referenceImages : undefined
+            );
             setPrompt('');
             setUploadedMedia(null);
+            setReferenceImages([]);
             // Reset textarea height
             if (textareaRef.current) {
                 textareaRef.current.style.height = 'auto';
             }
         }
+    };
+
+    // Remove a reference image by index
+    const removeReferenceImage = (index: number) => {
+        setReferenceImages((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handlePaste = useCallback(async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -259,6 +311,32 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     >
                         <XMarkIcon className="w-4 h-4" />
                     </button>
+                </div>
+            )}
+
+            {/* Reference Images Preview (Video mode) */}
+            {referenceImages.length > 0 && (
+                <div className="mx-4 mt-2">
+                    <p className="text-xs text-gray-400 mb-1">
+                        参照画像 ({referenceImages.length}/{MAX_REFERENCE_IMAGES})
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {referenceImages.map((img, index) => (
+                            <div key={index} className="relative inline-block">
+                                <img
+                                    src={img.url}
+                                    alt={`参照画像 ${index + 1}`}
+                                    className="h-16 w-16 object-cover rounded-lg border border-gray-700"
+                                />
+                                <button
+                                    onClick={() => removeReferenceImage(index)}
+                                    className="absolute -top-1 -right-1 bg-gray-800 hover:bg-gray-700 rounded-full p-0.5 text-white border border-gray-600"
+                                >
+                                    <XMarkIcon className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -397,7 +475,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                 ref={fileInputRef}
                                 onChange={(e) => handleFileChange(e.target.files)}
                                 className="hidden"
-                                accept="image/*,video/*"
+                                accept={mode === 'video' ? 'image/*' : 'image/*,video/*'}
+                                multiple={mode === 'video'}
                             />
 
                             {/* Current Mode Indicator */}

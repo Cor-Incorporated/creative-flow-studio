@@ -28,8 +28,17 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { prompt, aspectRatio = '16:9', media }: { prompt: string; aspectRatio?: AspectRatio; media?: Media } =
-            body;
+        const {
+            prompt,
+            aspectRatio = '16:9',
+            media,
+            referenceImages,
+        }: {
+            prompt: string;
+            aspectRatio?: AspectRatio;
+            media?: Media; // Single image (backward compatibility)
+            referenceImages?: Media[]; // Multiple images (new)
+        } = body;
 
         if (!prompt) {
             return jsonError({
@@ -44,6 +53,19 @@ export async function POST(request: NextRequest) {
         if (!VALID_VIDEO_ASPECT_RATIOS.includes(aspectRatio as any)) {
             return jsonError({
                 message: `Invalid aspect ratio: ${aspectRatio}`,
+                status: 400,
+                code: 'VALIDATION_ERROR',
+                requestId,
+            });
+        }
+
+        // Normalize images: prefer referenceImages, fall back to media for backward compatibility
+        const images: Media[] = referenceImages ?? (media ? [media] : []);
+
+        // Validate reference images count (max 8)
+        if (images.length > 8) {
+            return jsonError({
+                message: `Too many reference images: ${images.length}. Maximum is 8.`,
                 status: 400,
                 code: 'VALIDATION_ERROR',
                 requestId,
@@ -102,8 +124,8 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // 3. Generate video (with optional start image for Image-to-Video)
-        const operation = await generateVideo(prompt, aspectRatio, media);
+        // 3. Generate video (with optional reference images)
+        const operation = await generateVideo(prompt, aspectRatio, images.length > 0 ? images : undefined);
 
         // Validate operation object
         const operationName = operation?.name;

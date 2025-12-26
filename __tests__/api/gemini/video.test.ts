@@ -209,7 +209,7 @@ describe('POST /api/gemini/video', () => {
             });
         });
 
-        it('should call generateVideo with media parameter for Image-to-Video', async () => {
+        it('should call generateVideo with media parameter for Image-to-Video (single image, backward compatible)', async () => {
             const mediaInput = {
                 type: 'image',
                 url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...',
@@ -231,7 +231,133 @@ describe('POST /api/gemini/video', () => {
             expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
                 'Animate this image',
                 '16:9',
-                mediaInput
+                [mediaInput] // Now passed as array for referenceImages
+            );
+        });
+
+        it('should accept 2 reference images', async () => {
+            const referenceImages = [
+                { type: 'image', url: 'data:image/jpeg;base64,image1...', mimeType: 'image/jpeg' },
+                { type: 'image', url: 'data:image/png;base64,image2...', mimeType: 'image/png' },
+            ];
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Create video from these images',
+                    aspectRatio: '16:9',
+                    referenceImages,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
+                'Create video from these images',
+                '16:9',
+                referenceImages
+            );
+        });
+
+        it('should accept 8 reference images (maximum allowed)', async () => {
+            const referenceImages = Array.from({ length: 8 }, (_, i) => ({
+                type: 'image',
+                url: `data:image/jpeg;base64,image${i + 1}...`,
+                mimeType: 'image/jpeg',
+            }));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Create video from 8 images',
+                    aspectRatio: '16:9',
+                    referenceImages,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
+                'Create video from 8 images',
+                '16:9',
+                referenceImages
+            );
+        });
+
+        it('should return 400 when 9 reference images provided (exceeds maximum)', async () => {
+            const referenceImages = Array.from({ length: 9 }, (_, i) => ({
+                type: 'image',
+                url: `data:image/jpeg;base64,image${i + 1}...`,
+                mimeType: 'image/jpeg',
+            }));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Too many images',
+                    aspectRatio: '16:9',
+                    referenceImages,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.error).toContain('Too many reference images');
+            expect(data.error).toContain('9');
+            expect(data.error).toContain('Maximum is 8');
+            expect(data.code).toBe('VALIDATION_ERROR');
+
+            // Should not call generateVideo for invalid requests
+            expect(generateVideo).not.toHaveBeenCalled();
+        });
+
+        it('should prefer referenceImages over media when both provided', async () => {
+            const media = { type: 'image', url: 'data:image/jpeg;base64,single...', mimeType: 'image/jpeg' };
+            const referenceImages = [
+                { type: 'image', url: 'data:image/jpeg;base64,ref1...', mimeType: 'image/jpeg' },
+                { type: 'image', url: 'data:image/jpeg;base64,ref2...', mimeType: 'image/jpeg' },
+            ];
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Test priority',
+                    aspectRatio: '16:9',
+                    media,
+                    referenceImages,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
+                'Test priority',
+                '16:9',
+                referenceImages // referenceImages takes priority
+            );
+        });
+
+        it('should call generateVideo without images when no media provided', async () => {
+            const request = new NextRequest('http://localhost:3000/api/gemini/video', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Text only video',
+                    aspectRatio: '16:9',
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
+                'Text only video',
+                '16:9',
+                undefined // No images
             );
         });
 
