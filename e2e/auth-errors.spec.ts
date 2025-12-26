@@ -175,12 +175,12 @@ test.describe('Auth Error Page', () => {
     });
 
     test.describe('Error Page UI Elements', () => {
-        test('should display BulnaAI logo and title', async ({ page }) => {
+        test('should display BlunaAI logo and title', async ({ page }) => {
             await page.goto('/auth/error?error=Default');
             await page.waitForLoadState('networkidle');
 
             // Verify logo/title area
-            await expect(page.locator('h1:has-text("BulnaAI")')).toBeVisible();
+            await expect(page.locator('h1:has-text("BlunaAI")')).toBeVisible();
         });
 
         test('should display error icon', async ({ page }) => {

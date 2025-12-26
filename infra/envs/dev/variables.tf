@@ -177,8 +177,10 @@ variable "cloud_run_env_vars" {
   type        = map(string)
   default = {
     # NEXTAUTH_URL is required for OAuth redirect URI resolution
-    # This should be the primary domain for production
-    NEXTAUTH_URL = "https://blunaai.com"
+    # dev のデフォルトは Cloud Run の *.run.app を正にする。
+    # カスタムドメインへ移行する場合は、envs/dev/terraform.tfvars で上書きし、
+    # Google OAuth のリダイレクトURI/JS生成元にもカスタムドメインを追加する。
+    NEXTAUTH_URL = "https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app"
   }
 }
 

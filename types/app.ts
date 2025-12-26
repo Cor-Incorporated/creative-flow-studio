@@ -1,4 +1,4 @@
-// Application types for BulnaAI (migrated from alpha/types.ts)
+// Application types for BlunaAI (migrated from alpha/types.ts)
 
 export type Role = 'user' | 'model';
 export type GenerationMode = 'chat' | 'search' | 'image' | 'video';

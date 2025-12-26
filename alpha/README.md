@@ -1,6 +1,6 @@
-# BulnaAI - Alpha Version
+# BlunaAI - Alpha Version
 
-このディレクトリには、React + Vite で構築されたα版のBulnaAIが含まれています。
+このディレクトリには、React + Vite で構築されたα版のBlunaAIが含まれています。
 
 ## 概要
 

@@ -1,4 +1,4 @@
-# BulnaAI Documentation
+# BlunaAI Documentation
 
 ## Quick Start
 | Document | Purpose |

@@ -534,7 +534,7 @@ const App: React.FC = () => {
             <header className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800/50 backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                     <SparklesIcon className="w-6 h-6 text-blue-400" />
-                    <h1 className="text-xl font-bold">BulnaAI</h1>
+                    <h1 className="text-xl font-bold">BlunaAI</h1>
                 </div>
                 <div className="relative">
                     <div className="w-32 h-2 bg-gray-700 rounded-full">

@@ -31,10 +31,11 @@ cloud_run_ingress         = "INGRESS_TRAFFIC_ALL"
 cloud_run_allow_unauthenticated = true
 
 cloud_run_env_vars = {
-  # IMPORTANT: NEXTAUTH_URL must match your production domain for OAuth to work correctly
-  # This URL is used for OAuth redirect URI resolution
-  NEXTAUTH_URL                      = "https://blunaai.com"
-  NEXT_PUBLIC_APP_URL               = "https://blunaai.com"
+  # dev では Cloud Run のデフォルトドメイン（*.run.app）を正にする。
+  # カスタムドメイン運用へ切り替える場合は、NEXTAUTH_URL/NEXT_PUBLIC_APP_URL をカスタムドメインへ変更し、
+  # Google OAuth のリダイレクトURI/JS生成元にもカスタムドメインを追加する。
+  NEXTAUTH_URL                      = "https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app"
+  NEXT_PUBLIC_APP_URL               = "https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app"
   NEXT_PUBLIC_SUPABASE_URL          = "https://your-project.supabase.co"
   NEXT_PUBLIC_SUPABASE_ANON_KEY     = "SUPABASE_ANON_KEY_PLACEHOLDER"
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_CHANGE_ME_FROM_STRIPE_DASHBOARD"

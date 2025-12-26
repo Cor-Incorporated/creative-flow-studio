@@ -1,4 +1,4 @@
-# Cloud Build pipeline for BulnaAI (Next.js)
+# Cloud Build pipeline for BlunaAI (Next.js)
 # References:
 # - https://cloud.google.com/build/docs/deploying-builds/deploy-cloud-run
 # - https://cloud.google.com/sql/docs/postgres/connect-run#terraform (Cloud SQL deploy flags)
