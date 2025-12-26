@@ -66,6 +66,8 @@ export interface ImageEditRequest {
 export interface VideoGenerationRequest {
     prompt: string;
     aspectRatio?: AspectRatio;
+    /** Reference images for video generation (max 8 images) */
+    referenceImages?: Media[];
 }
 
 export interface VideoStatusRequest {

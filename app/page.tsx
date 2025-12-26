@@ -1225,7 +1225,7 @@ export default function Home() {
         return null;
     };
 
-    const handleSendMessage = async (prompt: string, uploadedMedia?: Media) => {
+    const handleSendMessage = async (prompt: string, uploadedMedia?: Media, referenceImages?: Media[]) => {
         if (isLoading) return;
 
         // Check authentication before sending message
@@ -1383,15 +1383,28 @@ export default function Home() {
                 // Capture mode before async operations to prevent race condition during polling
                 const videoRequestMode: GenerationMode = effectiveMode;
 
-                // Call video generation API
+                // Call video generation API with referenceImages or single media
+                const videoPayload: {
+                    prompt: string;
+                    aspectRatio: '16:9' | '9:16';
+                    referenceImages?: Media[];
+                    media?: Media;
+                } = {
+                    prompt,
+                    aspectRatio: aspectRatio === '16:9' ? '16:9' : '9:16',
+                };
+
+                // Use referenceImages if provided, otherwise fall back to single media
+                if (referenceImages && referenceImages.length > 0) {
+                    videoPayload.referenceImages = referenceImages;
+                } else if (effectiveMedia) {
+                    videoPayload.media = effectiveMedia;
+                }
+
                 const response = await authedFetch('/api/gemini/video', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt,
-                        aspectRatio: aspectRatio === '16:9' ? '16:9' : '9:16',
-                        media: effectiveMedia,
-                    }),
+                    body: JSON.stringify(videoPayload),
                 });
 
                 if (!response.ok) {

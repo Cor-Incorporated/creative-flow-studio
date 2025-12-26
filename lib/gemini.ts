@@ -225,30 +225,49 @@ export const editImage = async (prompt: string, originalImage: Media) => {
 };
 
 // --- Video Generation ---
+/**
+ * Generate video using Veo API
+ * @param prompt - Text prompt for video generation
+ * @param aspectRatio - Aspect ratio (16:9 or 9:16)
+ * @param referenceImages - Optional array of reference images (max 8)
+ *                          Can also accept a single Media for backward compatibility
+ */
 export const generateVideo = async (
     prompt: string,
     aspectRatio: AspectRatio = '16:9',
-    startImage?: Media
+    referenceImages?: Media | Media[]
 ) => {
     const ai = getAiClient();
-    
-    // Prepare image payload if startImage is provided (same as alpha)
-    const imagePayload = startImage
-        ? {
-              imageBytes: dataUrlToBase64(startImage.url),
-              mimeType: startImage.mimeType,
-          }
-        : undefined;
+
+    // Normalize referenceImages to array (backward compatible with single image)
+    const images = referenceImages
+        ? Array.isArray(referenceImages)
+            ? referenceImages
+            : [referenceImages]
+        : [];
+
+    // Build config with referenceImages if provided
+    const config: any = {
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: aspectRatio as '16:9' | '9:16',
+    };
+
+    // Add reference images to config if provided (1-8 images)
+    if (images.length > 0) {
+        config.referenceImages = images.map((img) => ({
+            image: {
+                imageBytes: dataUrlToBase64(img.url),
+                mimeType: img.mimeType,
+            },
+            referenceType: 'ASSET', // Use images as content reference
+        }));
+    }
 
     const result = await ai.models.generateVideos({
         model: GEMINI_MODELS.VEO,
         prompt,
-        image: imagePayload, // Fixed: Add image support from alpha
-        config: {
-            numberOfVideos: 1, // Fixed: Add from alpha
-            resolution: '720p', // Fixed: Add from alpha
-            aspectRatio: aspectRatio as '16:9' | '9:16', // Fixed: Type assertion from alpha
-        },
+        config,
     });
 
     const operationName =

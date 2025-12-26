@@ -71,7 +71,7 @@ describe('ChatInput Component', () => {
             expect(form).not.toBeNull();
             fireEvent.submit(form!);
 
-            expect(onSendMessage).toHaveBeenCalledWith('Hello world', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('Hello world', undefined, undefined);
         });
 
         it('should disable send button when loading', () => {
@@ -149,7 +149,7 @@ describe('ChatInput Component', () => {
                 ctrlKey: false,
             });
 
-            expect(onSendMessage).toHaveBeenCalledWith('Test message', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
 
         it('should submit on Ctrl+Enter (Windows/Linux)', () => {
@@ -166,7 +166,7 @@ describe('ChatInput Component', () => {
                 metaKey: false,
             });
 
-            expect(onSendMessage).toHaveBeenCalledWith('Test message', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('Test message', undefined, undefined);
         });
 
         it('should NOT submit on Enter alone', () => {
@@ -235,7 +235,7 @@ describe('ChatInput Component', () => {
                 ctrlKey: false,
             });
 
-            expect(onSendMessage).toHaveBeenCalledWith('テスト', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('テスト', undefined, undefined);
         });
 
         it('should NOT submit with Ctrl+Enter during IME composition', () => {
@@ -618,7 +618,7 @@ describe('ChatInput Component', () => {
             const form = textarea.closest('form');
             fireEvent.submit(form!);
 
-            expect(onSendMessage).toHaveBeenCalledWith('Hello world', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('Hello world', undefined, undefined);
         });
 
         it('should NOT submit when prompt is only whitespace', () => {
@@ -646,12 +646,12 @@ describe('ChatInput Component', () => {
             // First submission
             fireEvent.change(textarea, { target: { value: 'Message 1' } });
             fireEvent.submit(form!);
-            expect(onSendMessage).toHaveBeenCalledWith('Message 1', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('Message 1', undefined, undefined);
 
             // Second submission
             fireEvent.change(textarea, { target: { value: 'Message 2' } });
             fireEvent.submit(form!);
-            expect(onSendMessage).toHaveBeenCalledWith('Message 2', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('Message 2', undefined, undefined);
 
             expect(onSendMessage).toHaveBeenCalledTimes(2);
         });
@@ -676,7 +676,7 @@ describe('ChatInput Component', () => {
                 ctrlKey: true,
             });
 
-            expect(onSendMessage).toHaveBeenCalledWith('日本語', undefined);
+            expect(onSendMessage).toHaveBeenCalledWith('日本語', undefined, undefined);
         });
     });
 });
