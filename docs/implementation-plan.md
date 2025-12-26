@@ -87,7 +87,6 @@
    `https://creative-flow-studio-dev-w5o5e7rwgq-an.a.run.app/api/auth/callback/google`
 
 2. Secret Manager にシークレット追加:
-   - `nextauth-url`
    - `nextauth-secret`
    - `google-client-id`
    - `google-client-secret`

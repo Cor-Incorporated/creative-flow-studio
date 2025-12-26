@@ -2,7 +2,7 @@
     "name": "bulnaai",
     "version": "1.0.0",
     "private": true,
-    "description": "BulnaAI - Next.js Full-Stack SaaS with Google Gemini AI",
+    "description": "BlunaAI - Next.js Full-Stack SaaS with Google Gemini AI",
     "scripts": {
         "dev": "next dev -p 3000",
         "build": "prisma generate && next build",

@@ -26,7 +26,7 @@ echo "================================"
 echo ""
 echo "📦 PROプラン（¥3,000/月）を作成中..."
 PRODUCT_PRO=$(stripe products create \
-  --name "BulnaAI PRO" \
+  --name "BlunaAI PRO" \
   --description "PROプラン - 月額¥3,000")
 
 PRO_PRODUCT_ID=$(echo "$PRODUCT_PRO" | jq -r '.id')
@@ -45,7 +45,7 @@ echo "✅ PRO Price ID: $PRO_PRICE_ID"
 echo ""
 echo "📦 ENTERPRISEプラン（¥30,000/月）を作成中..."
 PRODUCT_ENTERPRISE=$(stripe products create \
-  --name "BulnaAI ENTERPRISE" \
+  --name "BlunaAI ENTERPRISE" \
   --description "ENTERPRISEプラン - 月額¥30,000")
 
 ENTERPRISE_PRODUCT_ID=$(echo "$PRODUCT_ENTERPRISE" | jq -r '.id')

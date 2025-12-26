@@ -91,7 +91,7 @@ function SignInContent() {
                 <div className="text-center">
                     <div className="flex items-center justify-center gap-2 mb-4">
                         <SparklesIcon className="w-10 h-10 text-blue-400" />
-                        <h1 className="text-3xl font-bold text-white">BulnaAI</h1>
+                        <h1 className="text-3xl font-bold text-white">BlunaAI</h1>
                     </div>
                     <h2 className="text-xl text-gray-400">
                         {isLogin ? 'アカウントにログイン' : '新規アカウント作成'}
