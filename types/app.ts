@@ -46,6 +46,8 @@ export interface ChatRequest {
     temperature?: number;
     aspectRatio?: AspectRatio;
     media?: Media;
+    /** Multiple images for analysis (max 8 images, chat/search modes only) */
+    mediaList?: Media[];
 }
 
 export interface ChatResponse {

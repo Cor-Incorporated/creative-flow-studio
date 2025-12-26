@@ -6,6 +6,7 @@ import {
     generateSearchGroundedResponse,
     analyzeImage,
     analyzeVideo,
+    analyzeMultipleImages,
 } from '@/lib/gemini';
 import { checkSubscriptionLimits, logUsage, getUserSubscription, getMonthlyUsageCount, PlanFeatures } from '@/lib/subscription';
 import { ERROR_MESSAGES } from '@/lib/constants';
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
             systemInstruction,
             temperature,
             media,
+            mediaList,
         }: {
             prompt: string;
             history?: any[];
@@ -48,6 +50,7 @@ export async function POST(request: NextRequest) {
             systemInstruction?: string;
             temperature?: number;
             media?: Media;
+            mediaList?: Media[];
         } = body;
 
         if (!prompt) {
@@ -57,6 +60,28 @@ export async function POST(request: NextRequest) {
                 code: 'VALIDATION_ERROR',
                 requestId,
             });
+        }
+
+        // Validate mediaList: max 8 images, images only
+        if (mediaList && mediaList.length > 0) {
+            if (mediaList.length > 8) {
+                return jsonError({
+                    message: '画像は最大8枚までです',
+                    status: 400,
+                    code: 'VALIDATION_ERROR',
+                    requestId,
+                });
+            }
+            // Ensure all items are images
+            const nonImages = mediaList.filter((m) => m.type !== 'image');
+            if (nonImages.length > 0) {
+                return jsonError({
+                    message: '複数メディア分析は画像のみ対応しています',
+                    status: 400,
+                    code: 'VALIDATION_ERROR',
+                    requestId,
+                });
+            }
         }
 
         // 2. Subscription limits check
@@ -115,8 +140,13 @@ export async function POST(request: NextRequest) {
         let result;
         let resourceType = '';
 
-        // Handle image upload (multimodal input)
-        if (media && media.type === 'image') {
+        // Handle multiple images (mediaList takes priority over single media)
+        if (mediaList && mediaList.length > 0) {
+            result = await analyzeMultipleImages(prompt, mediaList, systemInstruction);
+            resourceType = 'gemini-3-flash-multimodal';
+        }
+        // Handle single image upload (multimodal input)
+        else if (media && media.type === 'image') {
             result = await analyzeImage(prompt, media.url, media.mimeType, systemInstruction);
             resourceType = 'gemini-3-flash-multimodal';
         }
@@ -177,7 +207,8 @@ export async function POST(request: NextRequest) {
             mode,
             resourceType,
             promptLength: prompt.length,
-            hasMedia: !!media,
+            hasMedia: !!media || (mediaList && mediaList.length > 0),
+            mediaCount: mediaList?.length || (media ? 1 : 0),
         });
 
         return NextResponse.json({ result });

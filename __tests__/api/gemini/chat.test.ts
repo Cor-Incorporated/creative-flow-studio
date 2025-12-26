@@ -37,10 +37,18 @@ vi.mock('@/lib/gemini', () => ({
         candidates: [{ content: { parts: [{ text: 'Image analysis' }] }, finishReason: 'STOP' }],
         text: 'Image analysis',
     }),
+    analyzeVideo: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Video analysis' }] }, finishReason: 'STOP' }],
+        text: 'Video analysis',
+    }),
+    analyzeMultipleImages: vi.fn().mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'Multiple images analysis' }] }, finishReason: 'STOP' }],
+        text: 'Multiple images analysis',
+    }),
 }));
 
 // Import mocked functions for direct access in tests
-import { generateChatResponse, generateSearchGroundedResponse } from '@/lib/gemini';
+import { generateChatResponse, generateSearchGroundedResponse, analyzeMultipleImages } from '@/lib/gemini';
 
 describe('POST /api/gemini/chat', () => {
     beforeEach(() => {
@@ -336,6 +344,154 @@ describe('POST /api/gemini/chat', () => {
                 'Search query',
                 'Be concise',
                 0.5
+            );
+        });
+    });
+
+    describe('Multiple images analysis (mediaList)', () => {
+        beforeEach(() => {
+            (getServerSession as any).mockResolvedValue({
+                user: { id: 'user-1', email: 'test@example.com' },
+            });
+
+            (checkSubscriptionLimits as any).mockResolvedValue({
+                allowed: true,
+                plan: { name: 'PRO' },
+                usageCount: 50,
+                limit: 1000,
+            });
+        });
+
+        it('should analyze multiple images when mediaList is provided', async () => {
+            const mediaList = [
+                { type: 'image' as const, url: 'data:image/png;base64,abc123', mimeType: 'image/png' },
+                { type: 'image' as const, url: 'data:image/jpeg;base64,def456', mimeType: 'image/jpeg' },
+            ];
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Compare these images',
+                    mode: 'chat',
+                    mediaList,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(analyzeMultipleImages).toHaveBeenCalledWith(
+                'Compare these images',
+                mediaList,
+                undefined
+            );
+        });
+
+        it('should return 400 if mediaList exceeds 8 images', async () => {
+            const mediaList = Array(9).fill(null).map((_, i) => ({
+                type: 'image' as const,
+                url: `data:image/png;base64,image${i}`,
+                mimeType: 'image/png',
+            }));
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Analyze these images',
+                    mode: 'chat',
+                    mediaList,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('VALIDATION_ERROR');
+            expect(data.error).toContain('8枚');
+        });
+
+        it('should return 400 if mediaList contains non-image media', async () => {
+            const mediaList = [
+                { type: 'image' as const, url: 'data:image/png;base64,abc123', mimeType: 'image/png' },
+                { type: 'video' as const, url: 'data:video/mp4;base64,xyz789', mimeType: 'video/mp4' },
+            ];
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Analyze these',
+                    mode: 'chat',
+                    mediaList,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(400);
+            const data = await response.json();
+            expect(data.code).toBe('VALIDATION_ERROR');
+            expect(data.error).toContain('画像のみ');
+        });
+
+        it('should prioritize mediaList over single media', async () => {
+            const mediaList = [
+                { type: 'image' as const, url: 'data:image/png;base64,list1', mimeType: 'image/png' },
+                { type: 'image' as const, url: 'data:image/png;base64,list2', mimeType: 'image/png' },
+            ];
+            const singleMedia = {
+                type: 'image' as const,
+                url: 'data:image/png;base64,single',
+                mimeType: 'image/png',
+            };
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Analyze',
+                    mode: 'chat',
+                    media: singleMedia,
+                    mediaList,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            // Should call analyzeMultipleImages, not analyzeImage
+            expect(analyzeMultipleImages).toHaveBeenCalledWith(
+                'Analyze',
+                mediaList,
+                undefined
+            );
+        });
+
+        it('should log usage with correct mediaCount for mediaList', async () => {
+            const mediaList = [
+                { type: 'image' as const, url: 'data:image/png;base64,abc123', mimeType: 'image/png' },
+                { type: 'image' as const, url: 'data:image/png;base64,def456', mimeType: 'image/png' },
+                { type: 'image' as const, url: 'data:image/png;base64,ghi789', mimeType: 'image/png' },
+            ];
+
+            const request = new NextRequest('http://localhost:3000/api/gemini/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prompt: 'Analyze these 3 images',
+                    mode: 'chat',
+                    mediaList,
+                }),
+            });
+
+            const response = await POST(request);
+
+            expect(response.status).toBe(200);
+            expect(logUsage).toHaveBeenCalledWith(
+                'user-1',
+                'chat',
+                expect.objectContaining({
+                    hasMedia: true,
+                    mediaCount: 3,
+                })
             );
         });
     });
