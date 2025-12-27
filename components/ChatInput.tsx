@@ -42,8 +42,10 @@ interface ChatInputProps {
     onClearRetry?: () => void;
 }
 
-// Maximum reference images for video mode
+// Maximum reference images for chat/search modes
 const MAX_REFERENCE_IMAGES = 8;
+// Video mode only supports 1 image (Veo 3.1 fast limitation)
+const MAX_VIDEO_REFERENCE_IMAGES = 1;
 
 const MODE_CONFIG = {
     chat: { label: 'チャット', icon: ChatBubbleIcon, color: 'bg-blue-600' },
@@ -143,8 +145,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
             }
 
             // Check if adding these files would exceed the limit
-            if (referenceImages.length + imageFiles.length > MAX_REFERENCE_IMAGES) {
-                setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
+            const maxImages = mode === 'video' ? MAX_VIDEO_REFERENCE_IMAGES : MAX_REFERENCE_IMAGES;
+            if (referenceImages.length + imageFiles.length > maxImages) {
+                if (mode === 'video') {
+                    setValidationError('動画生成では参照画像は1枚のみ使用できます');
+                } else {
+                    setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
+                }
                 return;
             }
 
@@ -273,8 +280,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
                     // For chat, search, and video modes, add to referenceImages array
                     if (mode === 'chat' || mode === 'search' || mode === 'video') {
-                        if (referenceImages.length >= MAX_REFERENCE_IMAGES) {
-                            setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
+                        const maxImages = mode === 'video' ? MAX_VIDEO_REFERENCE_IMAGES : MAX_REFERENCE_IMAGES;
+                        if (referenceImages.length >= maxImages) {
+                            if (mode === 'video') {
+                                setValidationError('動画生成では参照画像は1枚のみ使用できます');
+                            } else {
+                                setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
+                            }
                             return;
                         }
                         // Clear any single uploaded image when adding to reference images
@@ -366,7 +378,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {referenceImages.length > 0 && (
                 <div className="mx-4 mt-2">
                     <p className="text-xs text-gray-400 mb-1">
-                        {mode === 'video' ? '参照画像' : '分析画像'} ({referenceImages.length}/{MAX_REFERENCE_IMAGES})
+                        {mode === 'video'
+                            ? `参照画像 (${referenceImages.length}/${MAX_VIDEO_REFERENCE_IMAGES})`
+                            : `分析画像 (${referenceImages.length}/${MAX_REFERENCE_IMAGES})`}
                     </p>
                     <div className="flex flex-wrap gap-2">
                         {referenceImages.map((img, index) => (

@@ -13,6 +13,7 @@ import { ERROR_MESSAGES } from '@/lib/constants';
 import type { GenerationMode, Media } from '@/types/app';
 import { createRequestId, jsonError } from '@/lib/api-utils';
 import { checkResponseSafety, blockReasonToErrorCode } from '@/lib/gemini-safety';
+import { safeErrorForLog } from '@/lib/utils';
 
 /**
  * POST /api/gemini/chat
@@ -213,7 +214,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ result });
     } catch (error: any) {
-        console.error('Gemini Chat API Error:', error);
+        console.error('Gemini Chat API Error', { requestId, error: safeErrorForLog(error) });
 
         // Handle specific error cases
         if (error.message?.includes('API_KEY')) {

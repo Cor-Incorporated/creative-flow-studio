@@ -195,6 +195,13 @@ describe('POST /api/gemini/video', () => {
         expect(checkSubscriptionLimits).not.toHaveBeenCalled();
     });
 
+    /**
+     * Note: Current Veo 3.1 fast model does NOT support `config.referenceImages`.
+     * When multiple images are provided, only the first image is actually used
+     * (passed as `image` input to the API). This is a model limitation, not an API limitation.
+     * The API still accepts multiple images for forward compatibility.
+     * See: lib/gemini.ts generateVideo() and .claude/memory/decisions.md
+     */
     describe('Image-to-Video and safety checks', () => {
         beforeEach(() => {
             (getServerSession as any).mockResolvedValue({
@@ -235,7 +242,9 @@ describe('POST /api/gemini/video', () => {
             );
         });
 
-        it('should accept 2 reference images', async () => {
+        it('should accept 2 reference images (only first is used by current model)', async () => {
+            // Note: API accepts multiple images but generateVideo uses only the first one
+            // due to Veo 3.1 fast model limitation
             const referenceImages = [
                 { type: 'image', url: 'data:image/jpeg;base64,image1...', mimeType: 'image/jpeg' },
                 { type: 'image', url: 'data:image/png;base64,image2...', mimeType: 'image/png' },
@@ -253,6 +262,7 @@ describe('POST /api/gemini/video', () => {
             const response = await POST(request);
 
             expect(response.status).toBe(200);
+            // API passes all images to generateVideo; the function internally uses only the first
             expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
                 'Create video from these images',
                 '16:9',
@@ -260,7 +270,9 @@ describe('POST /api/gemini/video', () => {
             );
         });
 
-        it('should accept 8 reference images (maximum allowed)', async () => {
+        it('should accept 8 reference images (maximum allowed by API, only first used)', async () => {
+            // Note: API accepts up to 8 images for forward compatibility,
+            // but current Veo 3.1 fast model uses only the first image
             const referenceImages = Array.from({ length: 8 }, (_, i) => ({
                 type: 'image',
                 url: `data:image/jpeg;base64,image${i + 1}...`,
@@ -279,6 +291,7 @@ describe('POST /api/gemini/video', () => {
             const response = await POST(request);
 
             expect(response.status).toBe(200);
+            // API passes all images; generateVideo internally uses only the first
             expect(vi.mocked(generateVideo)).toHaveBeenCalledWith(
                 'Create video from 8 images',
                 '16:9',

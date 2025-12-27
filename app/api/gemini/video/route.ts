@@ -6,6 +6,7 @@ import type { AspectRatio, Media } from '@/types/app';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createRequestId, jsonError } from '@/lib/api-utils';
+import { safeErrorForLog } from '@/lib/utils';
 
 /**
  * POST /api/gemini/video
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
         // Return operation object + name for polling
         return NextResponse.json({ operationName, operation });
     } catch (error: any) {
-        console.error('Gemini Video API Error:', error);
+        console.error('Gemini Video API Error', { requestId, error: safeErrorForLog(error) });
         const errorMessage = error.message?.toLowerCase() || '';
 
         if (error.message?.includes('API_KEY')) {

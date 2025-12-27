@@ -4,6 +4,7 @@ import { pollVideoOperation } from '@/lib/gemini';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createRequestId, jsonError } from '@/lib/api-utils';
+import { safeErrorForLog } from '@/lib/utils';
 
 /**
  * POST /api/gemini/video/status
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ operation, operationName: responseOperationName });
     } catch (error: any) {
-        console.error('Gemini Video Status API Error:', error);
+        console.error('Gemini Video Status API Error', { requestId, error: safeErrorForLog(error) });
 
         if (error.message?.includes('API_KEY')) {
             return jsonError({

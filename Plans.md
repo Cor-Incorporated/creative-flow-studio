@@ -19,21 +19,14 @@
 
 ---
 
-## 🟢 フェーズ1: コア機能 `cc:完了`
+## 🟢 完了済みフェーズ（アーカイブ）
 
-- [x] 環境セットアップ (Next.js 14, Prisma, Tailwind v4) `cc:完了`
-- [x] 認証機能 (NextAuth.js + Google OAuth + Email/Password) `cc:完了`
-- [x] Gemini API 統合 (Chat/Pro/Search/Image/Video) `cc:完了`
-- [x] 会話永続化 (CRUD + Messages) `cc:完了`
-- [x] Stripe 統合 (Checkout/Portal/Webhooks) `cc:完了`
-- [x] サブスクリプション管理 `cc:完了`
-- [x] 管理ダッシュボード (RBAC + Users/Usage) `cc:完了`
-- [x] インフルエンサーモード (DJ社長) `cc:完了`
-- [x] チャットサイドバー `cc:完了`
-- [x] モバイルレスポンシブ対応 `cc:完了`
-- [x] モード切り替え機能 `cc:完了`
+> 詳細は `.claude/archive/completed-phases.md` を参照
 
-**テスト**: 519 passing
+- **フェーズ1**: コア機能（認証/Gemini API/Stripe/管理画面等） - 519 tests ✅
+- **フェーズ2.5**: 命名/ドメイン表記ゆれ統一（BlunaAI） ✅
+- **フェーズ2.6**: 動画生成（Veo）複数画像対応 ✅
+- **フェーズ2.8**: パスワード変更機能 ✅
 
 ---
 
@@ -45,98 +38,9 @@
 - [ ] Google OAuth リダイレクト URI 登録 `pm:依頼中`
 - [x] N+1 クエリ最適化 (admin/users API) `pm:確認済`
 - [ ] Cloud SQL セキュリティ指摘の是正（公開IP/監査/パスワードポリシー等） `pm:依頼中`
-
----
-
-## 🟢 フェーズ2.8: パスワード変更機能（ログイン後に自己変更できる導線） `cc:完了`
-
-> **目的**: 初期PW配布ユーザーが、ログイン後に安全にパスワード変更できるようにする（UI + API）。
-> **背景**: Cloud SQL 側の「パスワードポリシー」是正と併せ、アプリ側でも最短導線で変更できる必要がある。
-
-### 要件（PM）
-
-- ログイン済みユーザーが `/auth/change-password` でパスワード変更できる
-- 既存の credentials ユーザーは「現在のパスワード」必須
-- Google OAuth のみで password 未設定のユーザーは「現在のパスワード」なしで設定できる
-- 変更成功/失敗を UI に表示（Toast 等でOK）
-
-### 受け入れ基準（Acceptance Criteria）
-
-- [x] API: `POST /api/auth/change-password` が実装されている `cc:完了`
-  - [x] バリデーション: `newPassword` は 8〜128 文字 `cc:完了`
-  - [x] `user.password` が存在する場合のみ `currentPassword` を要求・検証 `cc:完了`
-  - [x] 成功時に `users.password` を PBKDF2 形式で更新 `cc:完了`
-  - [x] 監査ログ（`audit_logs`）に `auth.password_changed` を記録 `cc:完了`
-- [x] UI: `/auth/change-password` 画面がある `cc:完了`
-  - [x] 変更後は `/dashboard` へ戻れる導線 `cc:完了`
-- [x] 既存フロー（signin/register/google OAuth）を壊さない `cc:完了`
-- [x] ユニットテスト追加（可能なら） `cc:完了`
-
-### 実装ファイル
-
-- `app/api/auth/change-password/route.ts`（新規作成）
-- `app/auth/change-password/page.tsx`（新規作成）
-- `app/dashboard/page.tsx`（導線追加: 「パスワード変更」リンク）
-- `__tests__/api/auth/change-password.test.ts`（新規作成: 29テスト）
-
----
-
-## 🟢 フェーズ2.5: 命名/ドメイン表記ゆれ統一 `cc:完了`
-
-> **背景**: `blunaai.com` / `bulnaai.com` / `BulnaAI` / `BlunaAI` が混在し、OAuth/Stripe/表示/ドキュメントの整合が崩れやすい。
-> **目的**: 「何を正とするか」を決め、フロント/サーバ/スクリプト/ドキュメントで一貫させる。
-
-### 要件（PM）
-
-- **正のドメイン**: `blunaai.com`（カスタムドメインとして将来利用。dev は run.app を正にする）
-- **正のプロダクト表示名**: `BlunaAI`（B案）
-- **正の内部識別子**: `package.json` の `"name"`（現状 `bulnaai`）は **変更しない**（npm/package識別子として許容）
-
-### 受け入れ基準（Acceptance Criteria）
-
-- [x] **ドメイン**: `bulnaai.com` という誤記が **コード/スクリプト/ドキュメントから消える** `cc:完了`
-- [x] **表示名**: 画面タイトル/見出し/メタデータが **単一表記に統一**される `cc:完了`
-- [ ] **OAuth**: Google OAuth の「承認済みリダイレクトURI/JS生成元」が、採用したドメイン方針と一致している `pm:依頼中`
-- [x] **Stripe**: `appInfo.url` / 各種 URL 表示が方針と一致している `cc:完了`
-- [x] **テスト**: 既存テストが落ちない（落ちた場合は期待値を更新して復旧） `cc:完了`
-- [ ] **CI/CD**: PR 作成時に **CI/CD がオールグリーンになるまで**を完了条件とする `cc:WIP`
-- [ ] **コンフリクト**: ベースブランチ更新等でコンフリクトが発生した場合は **解消してから**完了とする `cc:WIP`
-
-### タスク分解
-
-- [x] **pm:確認済**: 正の表記（`BlunaAI`）を決定し追記（決定ログ: `.claude/memory/decisions.md`）
-- [x] **cc:完了**: リポジトリ全体で表記ゆれを一括修正（UI/サーバ/スクリプト/Docs/Tests）
-  - [x] **cc:完了**: `bulnaai.com` → `blunaai.com`（コード内に残存なし）
-  - [x] **cc:完了**: `BulnaAI` → `BlunaAI`（表示名として統一、23ファイル更新）
-  - [x] **cc:完了**: 影響するテスト（E2E/Unit）と文言を更新（600テスト全通過）
-  - [x] **cc:完了**: ドキュメント（`docs/*`）の見出し・本文の表記を統一
-
----
-
-## 🟢 フェーズ2.6: 動画生成（Veo）入力を複数画像対応 `cc:完了`
-
-> **背景**: 現状の `/api/gemini/video` は `media?: Media`（単数）で、`lib/gemini.ts` も `generateVideos({ image: ... })`（単数）しか渡していない。  
-> **狙い**: Veo 3 の想定に合わせ、**少なくとも2枚以上**の画像を入力として渡せるようにする（必要なら上限も設ける）。
-
-### 要件（PM）
-
-- **最低枚数**: 2枚以上をサポート（1枚入力は後方互換として維持）
-- **最大枚数**: 8枚
-- **用途**: **全部参照画像（reference images）**
-- **入力形式**: **data URL**（`Media` の `url` + `mimeType`）で複数送信
-
-### 受け入れ基準（Acceptance Criteria）
-
-- [x] **API**: `/api/gemini/video` が **複数画像（2枚以上、最大8枚）**を受け取れる `cc:完了`
-- [x] **SDK呼び出し**: `@google/genai` の `generateVideos` に対し、複数画像を **`config.referenceImages`（配列）**で渡す `cc:完了`
-- [x] **UI**: VIDEO モードで複数枚アップロードでき、送信時に全画像がAPIへ渡る `cc:完了`
-- [x] **検証**: ユニットテストを追加/更新し、既存テストが通る `cc:完了`
-
-### タスク分解
-
-- **pm:確認済**: 「用途=参照画像」「最大8枚」「data URL」を確定（決定ログ: `.claude/memory/decisions.md`）
-- **cc:完了**: API/型/バリデータ/フロントを改修（後方互換・エラー処理含む）
-- **cc:完了**: `/__tests__/api/gemini/video.test.ts` に複数画像ケースを追加
+- [ ] **prod環境をTerraformで新設**（Cloud Run/Secret/Env）し、`blunaai.com` を **dev→prodへ付け替え** `pm:依頼中`
+- [ ] **Stripeを本番アカウントへ移行**（prodのみ live、devはtestのまま） `pm:依頼中`
+- [ ] **DBは当面devとprodで同一Cloud SQL**（分離は後続） `pm:依頼中`
 
 ---
 
@@ -156,6 +60,46 @@
 
 - `app/page.tsx`（原因箇所）
 - `lib/mediaReference.ts`（参照検出・自動注入ロジック）
+
+---
+
+## 🟢 フェーズ2.6.3: Veo 3.1 (fast) の実仕様に合わせた動画生成入力/UX/テスト修正 `cc:完了`
+
+> **背景**: Cloud Run の `stderr` にて、現行モデルが `config.referenceImages` を拒否する（INVALID_ARGUMENT 400）ことが判明。
+> **影響**: 複数参照画像UI/ペイロードは"できそうに見えるが失敗する"状態になり、顧客体験が致命的。
+
+### 受け入れ基準（Acceptance Criteria）
+
+- [x] **動画生成**: 参照画像ありの動画生成が **500にならず成功**する（少なくとも「先頭1枚で生成」フローが成立） `cc:完了`
+- [x] **UI**: VIDEO モードの参照画像UIは実態に合わせる（1枚のみ許可に変更） `cc:完了`
+- [x] **テスト**: `__tests__/api/gemini/video.test.ts` の期待値を現実に合わせて更新（`referenceImages` 非対応前提） `cc:完了`
+- [x] **決定ログ**: `.claude/memory/decisions.md` を更新（referenceImages方針の変更/暫定仕様） `cc:完了`
+
+### 影響ファイル
+
+- `lib/gemini.ts`（generateVideos 入力）
+- `app/api/gemini/video/route.ts`
+- `components/ChatInput.tsx`
+- `app/page.tsx`
+- `__tests__/api/gemini/video.test.ts`
+
+---
+
+## 🟢 フェーズ2.6.4: 動画ダウンロード（/api/gemini/video/download）403/Forbidden の調査と改善 `cc:完了`
+
+> **症状**: `/api/gemini/video/download` が 403 を返すケースがある（同一ユーザー/同一会話で複数回）。
+> **ログ根拠**: `stderr` に `Failed to fetch video from Gemini: Forbidden`。
+
+### 受け入れ基準（Acceptance Criteria）
+
+- [x] **原因特定**: 上流403のレスポンス内容/条件をログ（requestId付き）で追える `cc:完了`
+- [x] **UX改善**: 403/期限切れ等のケースでユーザーに分かる案内（再生成/再試行）を提示できる `cc:完了`
+- [x] **堅牢化**: `uri`/`file`/`mimeType` パラメータの扱いとエラー時ステータスを整理し、意図しない403を減らす `cc:完了`
+
+### 影響ファイル
+
+- `app/api/gemini/video/download/route.ts`
+- `app/page.tsx`（ダウンロード失敗時の表示/リトライ導線）
 
 ---
 
@@ -203,6 +147,7 @@
 ## 🟡 フェーズ2.6.1: フェーズ2.6 を develop にマージ（PR/CI/CD） `cc:WIP`
 
 > **目的**: フェーズ2.6 の変更を develop に安全に取り込む（CI/CD オールグリーン確認をゲートにする）。
+> **対象（追記）**: フェーズ2.6 系の修正（例: 2.6.3/2.6.4 の “Veo実仕様対応・download 403 UX改善”）も、このPR/CIゲートを必須とする。
 
 ### 受け入れ基準（Acceptance Criteria）
 
@@ -210,6 +155,13 @@
 - [ ] **CI/CD が全てグリーン**（**1つでも赤/未完了ならマージ禁止**） `cc:WIP`
 - [ ] コンフリクトが発生した場合は解消済み `cc:WIP`
 - [ ] 上記を満たした状態で develop にマージ済み `cc:WIP`
+
+### Claude Code への依頼（PM）
+
+- [ ] **PR作成**: 変更（2.6.3/2.6.4）を含む develop 向けPRを作成 `cc:WIP`
+- [ ] **ローカル検証**: `npm test` / `npm run build` を実行し結果をPR本文に記載 `cc:WIP`
+- [ ] **CI監視**: すべてグリーンになるまで修正・push を繰り返す `cc:WIP`
+- [ ] **報告**: `/handoff-to-cursor` で PR URL と CI 状態を報告 `cc:WIP`
 
 ### 参考
 
