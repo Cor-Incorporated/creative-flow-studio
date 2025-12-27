@@ -308,6 +308,27 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
+                {/* Account Settings */}
+                <div className="bg-gray-800 rounded-2xl p-8 mb-6 border border-gray-700">
+                    <h3 className="text-xl font-bold mb-4">アカウント設定</h3>
+                    <div className="flex flex-wrap gap-4">
+                        <Link
+                            href="/auth/change-password?callbackUrl=/dashboard"
+                            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-semibold transition-all"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                                />
+                            </svg>
+                            パスワード変更
+                        </Link>
+                    </div>
+                </div>
+
                 {/* Plan Features */}
                 <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
                     <h3 className="text-xl font-bold mb-4">プラン特典</h3>
