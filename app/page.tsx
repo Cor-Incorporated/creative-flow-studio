@@ -1137,9 +1137,10 @@ export default function Home() {
                         const videoResponse = await authedFetch(videoUrl);
                         if (!videoResponse.ok) {
                             const errorPayload = await videoResponse.json().catch(() => null);
-                            throw new Error(
-                                errorPayload?.error || ERROR_MESSAGES.VIDEO_GENERATION_FAILED
-                            );
+                            // Include hint in error message if available
+                            const errorMessage = errorPayload?.error || ERROR_MESSAGES.VIDEO_GENERATION_FAILED;
+                            const hint = errorPayload?.hint;
+                            throw new Error(hint ? `${errorMessage}\n${hint}` : errorMessage);
                         }
 
                         const videoBlob = await videoResponse.blob();

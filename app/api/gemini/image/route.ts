@@ -6,6 +6,7 @@ import type { AspectRatio, Media } from '@/types/app';
 import { getServerSession } from 'next-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createRequestId, jsonError } from '@/lib/api-utils';
+import { safeErrorForLog } from '@/lib/utils';
 import { checkResponseSafety, blockReasonToErrorCode } from '@/lib/gemini-safety';
 
 /**
@@ -175,7 +176,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ imageUrl });
     } catch (error: any) {
-        console.error('Gemini Image API Error:', error);
+        console.error('Gemini Image API Error', { requestId, error: safeErrorForLog(error) });
         const errorMessage = error.message?.toLowerCase() || '';
 
         if (error.message?.includes('API_KEY')) {

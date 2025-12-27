@@ -289,29 +289,29 @@ export const generateVideo = async (
             : [referenceImages]
         : [];
 
-    // Build config with referenceImages if provided
+    // Build config (NOTE: current Veo model used in this project does NOT support `config.referenceImages`)
     const config: any = {
         numberOfVideos: 1,
         resolution: '720p',
         aspectRatio: aspectRatio as '16:9' | '9:16',
     };
 
-    // Add reference images to config if provided (1-8 images)
-    if (images.length > 0) {
-        config.referenceImages = images.map((img) => ({
-            image: {
-                imageBytes: dataUrlToBase64(img.url),
-                mimeType: img.mimeType,
-            },
-            referenceType: 'ASSET', // Use images as content reference
-        }));
-    }
-
-    const result = await ai.models.generateVideos({
+    const request: any = {
         model: GEMINI_MODELS.VEO,
         prompt,
         config,
-    });
+    };
+
+    // Use only the first image as `image` input (multi-reference images are not supported by the current model).
+    if (images.length > 0) {
+        const first = images[0];
+        request.image = {
+            imageBytes: dataUrlToBase64(first.url),
+            mimeType: first.mimeType,
+        };
+    }
+
+    const result = await ai.models.generateVideos(request);
 
     const operationName =
         typeof result === 'string'
