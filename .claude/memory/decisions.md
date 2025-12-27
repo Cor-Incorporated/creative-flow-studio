@@ -54,3 +54,21 @@
   - prod には **live** の `STRIPE_*`（secret/publishable/webhook secret）を注入
   - dev は **test** の `STRIPE_*` を維持（切替途中の400/署名不一致を避ける）
 - **ドメイン**: canonical host を `blunaai.com` に統一（`NEXTAUTH_URL`/OAuth/Stripe webhook URL を整合させる）
+
+## 2025-12-28: 複数参照画像の本対応（フェーズ2.6.5/2.6.6）
+
+### 動画（Veo 3.1）
+- **モデル変更**: `veo-3.1-fast-generate-preview` → `veo-3.1-generate-preview`
+  - `veo-3.1-generate-preview` は `config.referenceImages`（ASSET）をサポート
+- **最大枚数**: **3枚**
+- **実装**: `lib/gemini.ts` の `generateVideo()` が `config.referenceImages` で送信
+
+### 画像（Vertex AI）
+- **背景**: Gemini Developer API の `editImage` は `referenceImages` 未対応
+- **対応**: 参照画像がある場合は **Vertex AI 経由**で処理
+- **新関数**: `generateOrEditImageWithReferences()` を追加
+- **モデル**: `imagen-3.0-capability-001`
+- **最大枚数**: **3枚**（ベース画像は別枠）
+- **インフラ前提**:
+  - `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` 環境変数
+  - Cloud Run 実行SAに Vertex AI 利用権限

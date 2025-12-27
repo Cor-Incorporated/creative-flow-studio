@@ -1,6 +1,6 @@
 import { authOptions } from '@/lib/auth';
 import { ERROR_MESSAGES, VALID_IMAGE_ASPECT_RATIOS } from '@/lib/constants';
-import { editImage, generateImage } from '@/lib/gemini';
+import { editImage, generateImage, generateOrEditImageWithReferences } from '@/lib/gemini';
 import { checkSubscriptionLimits, getMonthlyUsageCount, getUserSubscription, logUsage, PlanFeatures } from '@/lib/subscription';
 import type { AspectRatio, Media } from '@/types/app';
 import { getServerSession } from 'next-auth';
@@ -36,10 +36,12 @@ export async function POST(request: NextRequest) {
             prompt,
             aspectRatio = '1:1',
             originalImage: originalImageFromBody,
+            referenceImages,
         }: {
             prompt: string;
             aspectRatio?: AspectRatio;
             originalImage?: Media;
+            referenceImages?: Media[];
         } = body;
 
         originalImage = originalImageFromBody;
@@ -118,9 +120,40 @@ export async function POST(request: NextRequest) {
         // 3. Generate or edit image
         let imageUrl: string | undefined;
         const isEditing = !!originalImage;
+        const hasReferences = Array.isArray(referenceImages) && referenceImages.length > 0;
 
-        // Image editing mode
-        if (originalImage) {
+        // Validate reference images (max 3, images only)
+        if (hasReferences) {
+            if (referenceImages!.length > 3) {
+                return jsonError({
+                    message: `Too many reference images: ${referenceImages!.length}. Maximum is 3.`,
+                    status: 400,
+                    code: 'VALIDATION_ERROR',
+                    requestId,
+                });
+            }
+            const invalid = referenceImages!.find((m) => m?.type && m.type !== 'image');
+            if (invalid) {
+                return jsonError({
+                    message: 'Reference images must be images',
+                    status: 400,
+                    code: 'VALIDATION_ERROR',
+                    requestId,
+                });
+            }
+        }
+
+        // Reference-image mode (Vertex AI only)
+        if (hasReferences) {
+            imageUrl = await generateOrEditImageWithReferences({
+                prompt,
+                referenceImages: referenceImages!,
+                originalImage: originalImage,
+                outputMimeType: 'image/png',
+            });
+        }
+        // Image editing mode (Gemini Developer API, single base image)
+        else if (originalImage) {
             const result = await editImage(prompt, originalImage);
 
             // Check for safety/policy blocks in edit response
@@ -171,6 +204,7 @@ export async function POST(request: NextRequest) {
             isEditing,
             aspectRatio,
             resourceType: 'gemini-3-pro-image', // Unified model for generation and editing
+            hasReferenceImages: hasReferences,
             promptLength: prompt.length,
         });
 

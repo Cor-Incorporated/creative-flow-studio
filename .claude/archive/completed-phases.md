@@ -67,3 +67,24 @@
 - `app/auth/change-password/page.tsx`
 - `app/dashboard/page.tsx`（導線追加）
 - `__tests__/api/auth/change-password.test.ts`
+
+---
+
+## フェーズ2.6.5: 動画（Veo 3.1）複数参照画像（最大3枚） `cc:完了`
+
+- [x] モデル変更: `veo-3.1-fast-generate-preview` → `veo-3.1-generate-preview`
+- [x] `lib/gemini.ts` の `generateVideo()` が `config.referenceImages`（ASSET）で送信
+- [x] `/api/gemini/video` が参照画像 最大3枚をバリデーション
+- [x] UI で VIDEO の参照画像が最大3枚まで添付可能
+- [x] テスト更新
+
+---
+
+## フェーズ2.6.6: 画像（Vertex AI）複数参照画像 `cc:完了`
+
+- [x] `lib/gemini.ts` に `generateOrEditImageWithReferences()` 追加（Vertex AI経由）
+- [x] `/api/gemini/image` が `referenceImages?: Media[]` を受け取り、Vertex AI 経由で処理
+- [x] UI で「ベース画像（1枚）+ 参照画像（最大3枚）」を扱える
+- [x] テスト追加
+
+**インフラ前提**: `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` 環境変数が必要

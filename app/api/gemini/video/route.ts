@@ -63,10 +63,10 @@ export async function POST(request: NextRequest) {
         // Normalize images: prefer referenceImages, fall back to media for backward compatibility
         const images: Media[] = referenceImages ?? (media ? [media] : []);
 
-        // Validate reference images count (max 8)
-        if (images.length > 8) {
+        // Validate reference images count (max 3 for Veo 3.1)
+        if (images.length > 3) {
             return jsonError({
-                message: `Too many reference images: ${images.length}. Maximum is 8.`,
+                message: `Too many reference images: ${images.length}. Maximum is 3.`,
                 status: 400,
                 code: 'VALIDATION_ERROR',
                 requestId,
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         // 4. Log usage after successful generation
         await logUsage(session.user.id, 'video_generation', {
             aspectRatio,
-            resourceType: 'veo-3.1-fast-generate-preview',
+            resourceType: 'veo-3.1-generate-preview',
             promptLength: prompt.length,
         });
 
