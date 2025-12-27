@@ -552,9 +552,10 @@ describe('ChatInput Component', () => {
             Object.defineProperty(fileInput, 'files', { value: [imageFile] });
             fireEvent.change(fileInput);
 
-            // Wait for async file processing (file should be displayed)
+            // Wait for async file processing (file should be displayed in referenceImages for chat mode)
+            // In chat/search modes, images are added to referenceImages array with alt text "分析画像 X"
             await waitFor(() => {
-                expect(screen.getByAltText('upload preview')).toBeInTheDocument();
+                expect(screen.getByText(/分析画像/)).toBeInTheDocument();
             });
 
             // Mode should NOT be changed
@@ -597,8 +598,9 @@ describe('ChatInput Component', () => {
             fireEvent.change(fileInput);
 
             // Wait for async file processing
+            // In chat/search modes, images are added to referenceImages array with label "分析画像"
             await waitFor(() => {
-                expect(screen.getByAltText('upload preview')).toBeInTheDocument();
+                expect(screen.getByText(/分析画像/)).toBeInTheDocument();
             });
 
             // Mode should NOT be changed - user can analyze image in chat mode

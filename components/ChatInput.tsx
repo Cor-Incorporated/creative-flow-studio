@@ -108,13 +108,43 @@ const ChatInput: React.FC<ChatInputProps> = ({
         if (DEBUG_MEDIA) console.log('[ChatInput] handleFileChange called', { filesCount: files?.length, mode });
         if (!files || files.length === 0) return;
 
-        // For video mode, handle multiple image uploads
-        if (mode === 'video') {
+        // For chat, search, and video modes, handle multiple image uploads
+        if (mode === 'chat' || mode === 'search' || mode === 'video') {
             const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image'));
+
+            // If it's a single video file in chat/search mode, handle as single media
+            if ((mode === 'chat' || mode === 'search') && files.length === 1 && files[0].type.startsWith('video')) {
+                const file = files[0];
+                if (file.size > MAX_FILE_SIZE) {
+                    setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+                    return;
+                }
+                if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+                    setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                    return;
+                }
+                setValidationError(null);
+                try {
+                    const url = await fileToBase64(file);
+                    setUploadedMedia({ url, mimeType: file.type, type: 'video' });
+                } catch (error) {
+                    if (DEBUG_MEDIA) console.error('[ChatInput] Error converting file to base64:', error);
+                    setValidationError('ファイルの読み込みに失敗しました');
+                    return;
+                }
+                setIsMenuOpen(false);
+                return;
+            }
+
+            // Handle multiple images
+            if (imageFiles.length === 0) {
+                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                return;
+            }
 
             // Check if adding these files would exceed the limit
             if (referenceImages.length + imageFiles.length > MAX_REFERENCE_IMAGES) {
-                setValidationError(`参照画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
+                setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
                 return;
             }
 
@@ -139,12 +169,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
             }
 
             setValidationError(null);
+            // Clear any single uploaded media when adding reference images
+            if (uploadedMedia?.type === 'image') {
+                setUploadedMedia(null);
+            }
             setReferenceImages((prev) => [...prev, ...newImages]);
             setIsMenuOpen(false);
             return;
         }
 
-        // For other modes, handle single file upload (existing behavior)
+        // For image mode, handle single file upload (existing behavior)
         const file = files[0];
         if (DEBUG_MEDIA) console.log('[ChatInput] File selected', { name: file.name, size: file.size, type: file.type });
 
@@ -236,13 +270,27 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     }
                     setValidationError(null);
                     const url = await fileToBase64(file);
-                    setUploadedMedia({ url, mimeType: file.type, type: 'image' });
-                    // Note: Auto-mode switch removed to allow pasted images in any mode
+
+                    // For chat, search, and video modes, add to referenceImages array
+                    if (mode === 'chat' || mode === 'search' || mode === 'video') {
+                        if (referenceImages.length >= MAX_REFERENCE_IMAGES) {
+                            setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
+                            return;
+                        }
+                        // Clear any single uploaded image when adding to reference images
+                        if (uploadedMedia?.type === 'image') {
+                            setUploadedMedia(null);
+                        }
+                        setReferenceImages((prev) => [...prev, { url, mimeType: file.type, type: 'image' }]);
+                    } else {
+                        // For image mode, use single upload (for editing/generation)
+                        setUploadedMedia({ url, mimeType: file.type, type: 'image' });
+                    }
                 }
                 break;
             }
         }
-    }, []);
+    }, [mode, referenceImages.length, uploadedMedia]);
 
     const handleModeSelect = (newMode: GenerationMode) => {
         setMode(newMode);
@@ -314,11 +362,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </div>
             )}
 
-            {/* Reference Images Preview (Video mode) */}
+            {/* Reference Images Preview (Chat/Search/Video modes) */}
             {referenceImages.length > 0 && (
                 <div className="mx-4 mt-2">
                     <p className="text-xs text-gray-400 mb-1">
-                        参照画像 ({referenceImages.length}/{MAX_REFERENCE_IMAGES})
+                        {mode === 'video' ? '参照画像' : '分析画像'} ({referenceImages.length}/{MAX_REFERENCE_IMAGES})
                     </p>
                     <div className="flex flex-wrap gap-2">
                         {referenceImages.map((img, index) => (
@@ -475,8 +523,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                 ref={fileInputRef}
                                 onChange={(e) => handleFileChange(e.target.files)}
                                 className="hidden"
-                                accept={mode === 'video' ? 'image/*' : 'image/*,video/*'}
-                                multiple={mode === 'video'}
+                                accept={mode === 'image' ? 'image/*,video/*' : mode === 'video' ? 'image/*' : 'image/*,video/*'}
+                                multiple={mode === 'chat' || mode === 'search' || mode === 'video'}
                             />
 
                             {/* Current Mode Indicator */}
@@ -534,7 +582,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                             {/* Send Button */}
                             <button
                                 type="submit"
-                                disabled={isLoading || (!prompt.trim() && !uploadedMedia)}
+                                disabled={isLoading || (!prompt.trim() && !uploadedMedia && referenceImages.length === 0)}
                                 className="p-2.5 text-white bg-blue-600 rounded-xl disabled:bg-gray-600 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors flex-shrink-0"
                             >
                                 {isLoading ? (

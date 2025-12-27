@@ -163,6 +163,49 @@ export const analyzeImage = async (
     return result;
 };
 
+// --- Multiple Images Analysis ---
+/**
+ * Analyze multiple images together in a single request
+ * @param prompt - Text prompt for analysis
+ * @param images - Array of images with url (data URL) and mimeType
+ * @param systemInstruction - Optional system instruction
+ */
+export const analyzeMultipleImages = async (
+    prompt: string,
+    images: Array<{ url: string; mimeType: string }>,
+    systemInstruction?: string
+) => {
+    const ai = getAiClient();
+
+    // Build parts array: text prompt first, then all images
+    const parts: any[] = [{ text: prompt }];
+
+    for (const image of images) {
+        const base64Data = dataUrlToBase64(image.url);
+        parts.push({
+            inlineData: {
+                mimeType: image.mimeType,
+                data: base64Data,
+            },
+        });
+    }
+
+    const requestConfig: any = {
+        model: GEMINI_MODELS.FLASH,
+        contents: {
+            parts,
+        },
+        config: {},
+    };
+
+    if (systemInstruction) {
+        requestConfig.config.systemInstruction = [systemInstruction];
+    }
+
+    const result = await ai.models.generateContent(requestConfig);
+    return result;
+};
+
 // --- Video Analysis ---
 export const analyzeVideo = async (
     prompt: string,

@@ -1248,7 +1248,9 @@ export default function Home() {
         const videoReferenceCheck = shouldAutoInjectVideo(prompt, lastGeneratedVideo);
 
         // Handle case: User references image but none exists
-        if (hasImageReference && !lastGeneratedImage) {
+        // Skip check if user has already provided referenceImages (explicit upload takes priority)
+        const hasUserProvidedImages = (referenceImages && referenceImages.length > 0) || uploadedMedia;
+        if (hasImageReference && !lastGeneratedImage && !hasUserProvidedImages) {
             showToast({
                 message: ERROR_MESSAGES.NO_IMAGE_TO_REFERENCE,
                 type: 'warning',
@@ -1295,7 +1297,14 @@ export default function Home() {
 
         const userParts: ContentPart[] = [];
         if (prompt) userParts.push({ text: prompt });
-        if (effectiveMedia) userParts.push({ media: effectiveMedia });
+        // Include all reference images in user message for display
+        if (referenceImages && referenceImages.length > 0) {
+            for (const img of referenceImages) {
+                userParts.push({ media: img });
+            }
+        } else if (effectiveMedia) {
+            userParts.push({ media: effectiveMedia });
+        }
         addMessage({ role: 'user', parts: userParts });
 
         // Create or get conversation for authenticated users
@@ -1479,17 +1488,35 @@ export default function Home() {
                     }))
                     .filter(m => m.parts.length > 0);
 
+                // Build request payload
+                // Use mediaList for multiple images in chat/search modes
+                const chatPayload: {
+                    prompt: string;
+                    history: typeof history;
+                    mode: GenerationMode;
+                    systemInstruction?: string;
+                    temperature?: number;
+                    media?: Media;
+                    mediaList?: Media[];
+                } = {
+                    prompt,
+                    history,
+                    mode: effectiveMode,
+                    systemInstruction,
+                    temperature,
+                };
+
+                // If referenceImages provided, use mediaList; otherwise use single media
+                if (referenceImages && referenceImages.length > 0) {
+                    chatPayload.mediaList = referenceImages;
+                } else if (effectiveMedia) {
+                    chatPayload.media = effectiveMedia;
+                }
+
                 const response = await authedFetch('/api/gemini/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt,
-                        history,
-                        mode: effectiveMode,
-                        systemInstruction,
-                        temperature,
-                        media: effectiveMedia,
-                    }),
+                    body: JSON.stringify(chatPayload),
                 });
 
                 if (!response.ok) {
