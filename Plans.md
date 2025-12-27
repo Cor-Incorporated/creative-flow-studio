@@ -1,7 +1,7 @@
 # Plans.md - BlunaAI 開発計画
 
-> **最終更新**: 2025-12-27
-> **現在のブランチ**: feature/multi-image-enhancements
+> **最終更新**: 2025-12-28
+> **現在のブランチ**: pr-45
 > **モード**: 2-Agent (Cursor + Claude Code)
 
 ---
@@ -26,6 +26,8 @@
 - **フェーズ1**: コア機能（認証/Gemini API/Stripe/管理画面等） - 519 tests ✅
 - **フェーズ2.5**: 命名/ドメイン表記ゆれ統一（BlunaAI） ✅
 - **フェーズ2.6**: 動画生成（Veo）複数画像対応 ✅
+- **フェーズ2.6.3**: Veo 3.1 fast 実仕様対応（1枚制限） ✅
+- **フェーズ2.6.4**: video/download 403対応 ✅
 - **フェーズ2.8**: パスワード変更機能 ✅
 
 ---
@@ -46,7 +48,7 @@
 
 ## 🟡 フェーズ2.6.2: 動画モードで参照画像があるのに「参照できる画像がありません」が出る不具合修正 `pm:依頼中`
 
-> **症状**: 複数参照画像をアップロードして動画生成しようとすると「参照できる画像がありません。まず画像を生成してください。」が出て送信できない。  
+> **症状**: 複数参照画像をアップロードして動画生成しようとすると「参照できる画像がありません。まず画像を生成してください。」が出て送信できない。
 > **原因**: `app/page.tsx` の `handleSendMessage` が、プロンプト中の画像参照表現（例:「この画像」）検出時に `lastGeneratedImage` のみを見て即 return しており、ユーザー提供の `referenceImages` を考慮していない。
 
 ### 受け入れ基準（Acceptance Criteria）
@@ -63,49 +65,9 @@
 
 ---
 
-## 🟢 フェーズ2.6.3: Veo 3.1 (fast) の実仕様に合わせた動画生成入力/UX/テスト修正 `cc:完了`
-
-> **背景**: Cloud Run の `stderr` にて、現行モデルが `config.referenceImages` を拒否する（INVALID_ARGUMENT 400）ことが判明。
-> **影響**: 複数参照画像UI/ペイロードは"できそうに見えるが失敗する"状態になり、顧客体験が致命的。
-
-### 受け入れ基準（Acceptance Criteria）
-
-- [x] **動画生成**: 参照画像ありの動画生成が **500にならず成功**する（少なくとも「先頭1枚で生成」フローが成立） `cc:完了`
-- [x] **UI**: VIDEO モードの参照画像UIは実態に合わせる（1枚のみ許可に変更） `cc:完了`
-- [x] **テスト**: `__tests__/api/gemini/video.test.ts` の期待値を現実に合わせて更新（`referenceImages` 非対応前提） `cc:完了`
-- [x] **決定ログ**: `.claude/memory/decisions.md` を更新（referenceImages方針の変更/暫定仕様） `cc:完了`
-
-### 影響ファイル
-
-- `lib/gemini.ts`（generateVideos 入力）
-- `app/api/gemini/video/route.ts`
-- `components/ChatInput.tsx`
-- `app/page.tsx`
-- `__tests__/api/gemini/video.test.ts`
-
----
-
-## 🟢 フェーズ2.6.4: 動画ダウンロード（/api/gemini/video/download）403/Forbidden の調査と改善 `cc:完了`
-
-> **症状**: `/api/gemini/video/download` が 403 を返すケースがある（同一ユーザー/同一会話で複数回）。
-> **ログ根拠**: `stderr` に `Failed to fetch video from Gemini: Forbidden`。
-
-### 受け入れ基準（Acceptance Criteria）
-
-- [x] **原因特定**: 上流403のレスポンス内容/条件をログ（requestId付き）で追える `cc:完了`
-- [x] **UX改善**: 403/期限切れ等のケースでユーザーに分かる案内（再生成/再試行）を提示できる `cc:完了`
-- [x] **堅牢化**: `uri`/`file`/`mimeType` パラメータの扱いとエラー時ステータスを整理し、意図しない403を減らす `cc:完了`
-
-### 影響ファイル
-
-- `app/api/gemini/video/download/route.ts`
-- `app/page.tsx`（ダウンロード失敗時の表示/リトライ導線）
-
----
-
 ## 🟡 フェーズ2.7: チャットで複数画像解析（最大8枚、data URL） `pm:依頼中`
 
-> **背景**: 現状 `/api/gemini/chat` は `media?: Media`（単一）しか受けず、画像解析も1枚前提。  
+> **背景**: 現状 `/api/gemini/chat` は `media?: Media`（単一）しか受けず、画像解析も1枚前提。
 > **狙い**: チャット/検索モードで **複数画像をまとめて解析**できるようにする（例: 8枚まで）。
 
 ### 要件（PM）
@@ -144,22 +106,22 @@
 
 ---
 
-## 🟡 フェーズ2.6.1: フェーズ2.6 を develop にマージ（PR/CI/CD） `cc:WIP`
+## 🟢 フェーズ2.6.1: フェーズ2.6 を develop にマージ（PR/CI/CD） `cc:WIP`
 
 > **目的**: フェーズ2.6 の変更を develop に安全に取り込む（CI/CD オールグリーン確認をゲートにする）。
-> **対象（追記）**: フェーズ2.6 系の修正（例: 2.6.3/2.6.4 の “Veo実仕様対応・download 403 UX改善”）も、このPR/CIゲートを必須とする。
+> **対象（追記）**: フェーズ2.6 系の修正（例: 2.6.3/2.6.4 の "Veo実仕様対応・download 403 UX改善"）も、このPR/CIゲートを必須とする。
 
 ### 受け入れ基準（Acceptance Criteria）
 
-- [ ] develop 向け PR が作成されている `cc:WIP`
+- [x] develop 向け PR が作成されている `cc:完了`
 - [ ] **CI/CD が全てグリーン**（**1つでも赤/未完了ならマージ禁止**） `cc:WIP`
 - [ ] コンフリクトが発生した場合は解消済み `cc:WIP`
 - [ ] 上記を満たした状態で develop にマージ済み `cc:WIP`
 
 ### Claude Code への依頼（PM）
 
-- [ ] **PR作成**: 変更（2.6.3/2.6.4）を含む develop 向けPRを作成 `cc:WIP`
-- [ ] **ローカル検証**: `npm test` / `npm run build` を実行し結果をPR本文に記載 `cc:WIP`
+- [x] **PR作成**: 変更（2.6.3/2.6.4）を含む develop 向けPRを作成 `cc:完了`
+- [x] **ローカル検証**: `npm test` / `npm run build` を実行し結果をPR本文に記載 `cc:完了`
 - [ ] **CI監視**: すべてグリーンになるまで修正・push を繰り返す `cc:WIP`
 - [ ] **報告**: `/handoff-to-cursor` で PR URL と CI 状態を報告 `cc:WIP`
 
@@ -189,6 +151,10 @@
 ---
 
 ## 📝 セッション履歴
+
+### 2025-12-28
+- フェーズ2.6.3/2.6.4 完了（VIDEO mode 1枚制限、video/download 403対応）
+- PR #46 作成（develop向け）
 
 ### 2025-12-26
 - 2-Agent ワークフロー導入
