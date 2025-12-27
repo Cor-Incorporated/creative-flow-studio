@@ -1,5 +1,5 @@
 // Gemini API Service (Gemini 3 version)
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenAI, Modality, RawReferenceImage } from '@google/genai';
 import type { AspectRatio, Media } from '../types/app';
 import { ERROR_MESSAGES, GEMINI_MODELS, VALID_IMAGE_ASPECT_RATIOS } from './constants';
 
@@ -12,6 +12,22 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
+// Get Vertex AI client (for Imagen edit/customization APIs that are Vertex-only)
+const getVertexAiClient = () => {
+    const project = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+    const location = process.env.GOOGLE_CLOUD_LOCATION;
+    if (!project || !location) {
+        throw new Error(
+            'Vertex AI configuration missing. Set GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION.'
+        );
+    }
+    return new GoogleGenAI({
+        vertexai: true,
+        project,
+        location,
+    });
+};
+
 // Convert data URL to base64
 export const dataUrlToBase64 = (dataUrl: string): string => {
     const base64Index = dataUrl.indexOf('base64,');
@@ -19,6 +35,34 @@ export const dataUrlToBase64 = (dataUrl: string): string => {
         return dataUrl;
     }
     return dataUrl.substring(base64Index + 7);
+};
+
+const containsReferenceToken = (text: string): boolean => /\[\d+\]/.test(text);
+
+const withReferenceHint = (prompt: string, referenceCount: number, hasOriginal: boolean): string => {
+    // If user already references images like [1], do not mutate prompt semantics.
+    if (containsReferenceToken(prompt)) return prompt;
+
+    const ids = Array.from({ length: referenceCount }, (_, i) => i + 1);
+    const refs = ids.map((id) => `[${id}]`).join(', ');
+    const originalNote = hasOriginal
+        ? '※ [1] は編集元（ベース）画像として扱います。'
+        : '※ 参照画像はキャラクター/スタイル/構図の一貫性のガイドとして扱います。';
+
+    return `${prompt}\n\n参照画像: ${refs}\n${originalNote}`;
+};
+
+const toRawReferenceImages = (images: Media[], startId = 1): RawReferenceImage[] => {
+    return images.map((img, idx) => {
+        const ref = new RawReferenceImage();
+        ref.referenceId = startId + idx;
+        ref.referenceImage = {
+            imageBytes: dataUrlToBase64(img.url),
+            mimeType: img.mimeType,
+        } as any;
+        ref.referenceType = 'RAW';
+        return ref;
+    });
 };
 
 // --- Text Generation ---
@@ -267,12 +311,56 @@ export const editImage = async (prompt: string, originalImage: Media) => {
     return result;
 };
 
+// --- Image Generation/Editing with Reference Images (Vertex AI only) ---
+/**
+ * Generate/edit an image using reference images (subject/style customization).
+ * NOTE: This requires Vertex AI backend (not Gemini Developer API).
+ */
+export const generateOrEditImageWithReferences = async (input: {
+    prompt: string;
+    referenceImages: Media[];
+    originalImage?: Media;
+    outputMimeType?: 'image/png' | 'image/jpeg' | 'image/webp';
+}) => {
+    const ai = getVertexAiClient();
+    const outputMimeType = input.outputMimeType || 'image/png';
+
+    // Build reference images:
+    // - If originalImage exists, use it as [1]
+    // - referenceImages start at [2]
+    const refs: RawReferenceImage[] = [];
+    if (input.originalImage) {
+        refs.push(...toRawReferenceImages([input.originalImage], 1));
+        refs.push(...toRawReferenceImages(input.referenceImages, 2));
+    } else {
+        refs.push(...toRawReferenceImages(input.referenceImages, 1));
+    }
+
+    const prompt = withReferenceHint(input.prompt, refs.length, !!input.originalImage);
+
+    const response = await ai.models.editImage({
+        model: 'imagen-3.0-capability-001',
+        prompt,
+        referenceImages: refs as any,
+        config: {
+            numberOfImages: 1,
+            outputMimeType,
+        },
+    } as any);
+
+    const imageBytes = response?.generatedImages?.[0]?.image?.imageBytes;
+    if (!imageBytes) {
+        throw new Error(ERROR_MESSAGES.IMAGE_NO_IMAGES);
+    }
+    return `data:${outputMimeType};base64,${imageBytes}`;
+};
+
 // --- Video Generation ---
 /**
  * Generate video using Veo API
  * @param prompt - Text prompt for video generation
  * @param aspectRatio - Aspect ratio (16:9 or 9:16)
- * @param referenceImages - Optional array of reference images (max 8)
+ * @param referenceImages - Optional array of reference images (max 3)
  *                          Can also accept a single Media for backward compatibility
  */
 export const generateVideo = async (
@@ -289,27 +377,29 @@ export const generateVideo = async (
             : [referenceImages]
         : [];
 
-    // Build config (NOTE: current Veo model used in this project does NOT support `config.referenceImages`)
+    // Build config
     const config: any = {
         numberOfVideos: 1,
         resolution: '720p',
         aspectRatio: aspectRatio as '16:9' | '9:16',
     };
 
+    // Add reference images when provided (max 3)
+    if (images.length > 0) {
+        config.referenceImages = images.slice(0, 3).map((img) => ({
+            image: {
+                imageBytes: dataUrlToBase64(img.url),
+                mimeType: img.mimeType,
+            },
+            referenceType: 'ASSET',
+        }));
+    }
+
     const request: any = {
         model: GEMINI_MODELS.VEO,
         prompt,
         config,
     };
-
-    // Use only the first image as `image` input (multi-reference images are not supported by the current model).
-    if (images.length > 0) {
-        const first = images[0];
-        request.image = {
-            imageBytes: dataUrlToBase64(first.url),
-            mimeType: first.mimeType,
-        };
-    }
 
     const result = await ai.models.generateVideos(request);
 

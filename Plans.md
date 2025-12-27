@@ -1,7 +1,7 @@
 # Plans.md - BlunaAI 開発計画
 
 > **最終更新**: 2025-12-28
-> **現在のブランチ**: pr-45
+> **現在のブランチ**: develop
 > **モード**: 2-Agent (Cursor + Claude Code)
 
 ---
@@ -28,6 +28,8 @@
 - **フェーズ2.6**: 動画生成（Veo）複数画像対応 ✅
 - **フェーズ2.6.3**: Veo 3.1 fast 実仕様対応（1枚制限） ✅
 - **フェーズ2.6.4**: video/download 403対応 ✅
+- **フェーズ2.6.5**: 動画（Veo 3.1）複数参照画像（最大3枚） ✅
+- **フェーズ2.6.6**: 画像（Vertex AI）複数参照画像（最大3枚） ✅
 - **フェーズ2.8**: パスワード変更機能 ✅
 
 ---
@@ -53,7 +55,7 @@
 
 ### 受け入れ基準（Acceptance Criteria）
 
-- [ ] VIDEO モードで `referenceImages`（2〜8枚）を付けて送信する場合、`lastGeneratedImage` が無くてもブロックされない `cc:TODO`
+- [ ] VIDEO モードで `referenceImages`（1〜3枚）を付けて送信する場合、`lastGeneratedImage` が無くてもブロックされない `cc:TODO`
 - [ ] `referenceImages` があるときは、画像参照表現が含まれていても **自動注入（lastGeneratedImage注入）を行わない** `cc:TODO`
 - [ ] 既存の「最後に生成した画像を参照して動画化/分析」フローは壊れない `cc:TODO`
 - [ ] ユニットテスト（可能なら `__tests__/components/ChatInput.test.tsx` or 新規）で再現ケースを追加 `cc:TODO`
@@ -106,7 +108,7 @@
 
 ---
 
-## 🟢 フェーズ2.6.1: フェーズ2.6 を develop にマージ（PR/CI/CD） `cc:WIP`
+## 🟢 フェーズ2.6.1: フェーズ2.6 を develop にマージ（PR/CI/CD） `cc:完了`
 
 > **目的**: フェーズ2.6 の変更を develop に安全に取り込む（CI/CD オールグリーン確認をゲートにする）。
 > **対象（追記）**: フェーズ2.6 系の修正（例: 2.6.3/2.6.4 の "Veo実仕様対応・download 403 UX改善"）も、このPR/CIゲートを必須とする。
@@ -114,20 +116,16 @@
 ### 受け入れ基準（Acceptance Criteria）
 
 - [x] develop 向け PR が作成されている `cc:完了`
-- [ ] **CI/CD が全てグリーン**（**1つでも赤/未完了ならマージ禁止**） `cc:WIP`
-- [ ] コンフリクトが発生した場合は解消済み `cc:WIP`
-- [ ] 上記を満たした状態で develop にマージ済み `cc:WIP`
+- [x] **CI/CD が全てグリーン**（**1つでも赤/未完了ならマージ禁止**） `cc:完了`
+- [x] コンフリクトが発生した場合は解消済み `cc:完了`
+- [x] 上記を満たした状態で develop にマージ済み `cc:完了`
 
 ### Claude Code への依頼（PM）
 
 - [x] **PR作成**: 変更（2.6.3/2.6.4）を含む develop 向けPRを作成 `cc:完了`
 - [x] **ローカル検証**: `npm test` / `npm run build` を実行し結果をPR本文に記載 `cc:完了`
-- [ ] **CI監視**: すべてグリーンになるまで修正・push を繰り返す `cc:WIP`
-- [ ] **報告**: `/handoff-to-cursor` で PR URL と CI 状態を報告 `cc:WIP`
-
-### 参考
-
-- `.claude/memory/patterns.md` の「PR作成〜CIオールグリーンまで（2-Agent）」に従う
+- [x] **CI監視**: すべてグリーンになるまで修正・push を繰り返す `cc:完了`
+- [x] **報告**: `/handoff-to-cursor` で PR URL と CI 状態を報告 `cc:完了`
 
 ---
 
@@ -154,7 +152,8 @@
 
 ### 2025-12-28
 - フェーズ2.6.3/2.6.4 完了（VIDEO mode 1枚制限、video/download 403対応）
-- PR #46 作成（develop向け）
+- PR #46 マージ完了
+- フェーズ2.6.5/2.6.6 完了（複数参照画像対応: 動画/画像ともに最大3枚）
 
 ### 2025-12-26
 - 2-Agent ワークフロー導入

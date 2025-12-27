@@ -81,7 +81,9 @@ export const GEMINI_MODELS = {
     // Image model (Gemini 3 Pro Image - unified generation and editing)
     PRO_IMAGE: 'gemini-3-pro-image-preview',
     // Video model (Veo 3.1 - unchanged)
-    VEO: 'veo-3.1-fast-generate-preview',
+    // NOTE: `veo-3.1-fast-generate-preview` rejects `referenceImages` in our current environment.
+    // `veo-3.1-generate-preview` accepts `referenceImages` (up to 3) and is required by product requirements.
+    VEO: 'veo-3.1-generate-preview',
 } as const;
 
 // Error Messages

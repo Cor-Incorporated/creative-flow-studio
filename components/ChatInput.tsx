@@ -44,8 +44,10 @@ interface ChatInputProps {
 
 // Maximum reference images for chat/search modes
 const MAX_REFERENCE_IMAGES = 8;
-// Video mode only supports 1 image (Veo 3.1 fast limitation)
-const MAX_VIDEO_REFERENCE_IMAGES = 1;
+// Image mode supports up to 3 reference images (character/style consistency)
+const MAX_IMAGE_REFERENCE_IMAGES = 3;
+// Video mode supports up to 3 reference images (Veo 3.1 ingredients-to-video)
+const MAX_VIDEO_REFERENCE_IMAGES = 3;
 
 const MODE_CONFIG = {
     chat: { label: 'チャット', icon: ChatBubbleIcon, color: 'bg-blue-600' },
@@ -148,7 +150,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             const maxImages = mode === 'video' ? MAX_VIDEO_REFERENCE_IMAGES : MAX_REFERENCE_IMAGES;
             if (referenceImages.length + imageFiles.length > maxImages) {
                 if (mode === 'video') {
-                    setValidationError('動画生成では参照画像は1枚のみ使用できます');
+                    setValidationError(`動画生成では参照画像は最大${MAX_VIDEO_REFERENCE_IMAGES}枚まで使用できます`);
                 } else {
                     setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
                 }
@@ -181,6 +183,72 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 setUploadedMedia(null);
             }
             setReferenceImages((prev) => [...prev, ...newImages]);
+            setIsMenuOpen(false);
+            return;
+        }
+
+        // Image mode: allow one base image (uploadedMedia) + up to 3 reference images (referenceImages)
+        if (mode === 'image') {
+            const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image'));
+            if (imageFiles.length === 0) {
+                setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                return;
+            }
+
+            // If user selected multiple images, treat the first as base image when none exists.
+            const baseCandidate = uploadedMedia ? null : imageFiles[0] || null;
+            const refsToAdd = uploadedMedia ? imageFiles : imageFiles.slice(1);
+
+            if (referenceImages.length + refsToAdd.length > MAX_IMAGE_REFERENCE_IMAGES) {
+                setValidationError(`画像生成では参照画像は最大${MAX_IMAGE_REFERENCE_IMAGES}枚まで使用できます`);
+                return;
+            }
+
+            // Convert base image
+            if (baseCandidate) {
+                if (baseCandidate.size > MAX_FILE_SIZE) {
+                    setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+                    return;
+                }
+                if (!ALLOWED_IMAGE_TYPES.includes(baseCandidate.type)) {
+                    setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                    return;
+                }
+                try {
+                    const url = await fileToBase64(baseCandidate);
+                    setUploadedMedia({ url, mimeType: baseCandidate.type, type: 'image' });
+                } catch (error) {
+                    if (DEBUG_MEDIA) console.error('[ChatInput] Error converting base image to base64:', error);
+                    setValidationError('ファイルの読み込みに失敗しました');
+                    return;
+                }
+            }
+
+            // Convert reference images
+            const newRefs: Media[] = [];
+            for (const file of refsToAdd) {
+                if (file.size > MAX_FILE_SIZE) {
+                    setValidationError(ERROR_MESSAGES.FILE_TOO_LARGE);
+                    return;
+                }
+                if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                    setValidationError(ERROR_MESSAGES.INVALID_FILE_TYPE);
+                    return;
+                }
+                try {
+                    const url = await fileToBase64(file);
+                    newRefs.push({ url, mimeType: file.type, type: 'image' });
+                } catch (error) {
+                    if (DEBUG_MEDIA) console.error('[ChatInput] Error converting reference image to base64:', error);
+                    setValidationError('ファイルの読み込みに失敗しました');
+                    return;
+                }
+            }
+
+            setValidationError(null);
+            if (newRefs.length > 0) {
+                setReferenceImages((prev) => [...prev, ...newRefs]);
+            }
             setIsMenuOpen(false);
             return;
         }
@@ -283,7 +351,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         const maxImages = mode === 'video' ? MAX_VIDEO_REFERENCE_IMAGES : MAX_REFERENCE_IMAGES;
                         if (referenceImages.length >= maxImages) {
                             if (mode === 'video') {
-                                setValidationError('動画生成では参照画像は1枚のみ使用できます');
+                                setValidationError(`動画生成では参照画像は最大${MAX_VIDEO_REFERENCE_IMAGES}枚まで使用できます`);
                             } else {
                                 setValidationError(`画像は最大${MAX_REFERENCE_IMAGES}枚までです`);
                             }
@@ -295,8 +363,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         }
                         setReferenceImages((prev) => [...prev, { url, mimeType: file.type, type: 'image' }]);
                     } else {
-                        // For image mode, use single upload (for editing/generation)
-                        setUploadedMedia({ url, mimeType: file.type, type: 'image' });
+                        // Image mode: paste sets base image first, then fills reference images up to max.
+                        if (mode === 'image') {
+                            if (!uploadedMedia) {
+                                setUploadedMedia({ url, mimeType: file.type, type: 'image' });
+                            } else if (referenceImages.length < MAX_IMAGE_REFERENCE_IMAGES) {
+                                setReferenceImages((prev) => [...prev, { url, mimeType: file.type, type: 'image' }]);
+                            } else {
+                                setValidationError(`画像生成では参照画像は最大${MAX_IMAGE_REFERENCE_IMAGES}枚まで使用できます`);
+                            }
+                        } else {
+                            // For other modes (fallback), use single upload
+                            setUploadedMedia({ url, mimeType: file.type, type: 'image' });
+                        }
                     }
                 }
                 break;
@@ -374,13 +453,15 @@ const ChatInput: React.FC<ChatInputProps> = ({
                 </div>
             )}
 
-            {/* Reference Images Preview (Chat/Search/Video modes) */}
+            {/* Reference Images Preview (Chat/Search/Image/Video modes) */}
             {referenceImages.length > 0 && (
                 <div className="mx-4 mt-2">
                     <p className="text-xs text-gray-400 mb-1">
                         {mode === 'video'
                             ? `参照画像 (${referenceImages.length}/${MAX_VIDEO_REFERENCE_IMAGES})`
-                            : `分析画像 (${referenceImages.length}/${MAX_REFERENCE_IMAGES})`}
+                            : mode === 'image'
+                                ? `参照画像 (${referenceImages.length}/${MAX_IMAGE_REFERENCE_IMAGES})`
+                                : `分析画像 (${referenceImages.length}/${MAX_REFERENCE_IMAGES})`}
                     </p>
                     <div className="flex flex-wrap gap-2">
                         {referenceImages.map((img, index) => (

@@ -41,10 +41,11 @@ vi.mock('@/lib/gemini', () => ({
             },
         ],
     }),
+    generateOrEditImageWithReferences: vi.fn().mockResolvedValue('data:image/png;base64,base64RefImageData'),
 }));
 
 // Import mocked functions for direct access in tests
-import { generateImage, editImage } from '@/lib/gemini';
+import { generateImage, editImage, generateOrEditImageWithReferences } from '@/lib/gemini';
 
 describe('POST /api/gemini/image', () => {
     beforeEach(() => {
@@ -199,6 +200,81 @@ describe('POST /api/gemini/image', () => {
                 resourceType: 'gemini-3-pro-image', // Gemini 3 unified model
             })
         );
+    });
+
+    it('should generate image with reference images (Vertex AI path) and log usage', async () => {
+        (getServerSession as any).mockResolvedValue({
+            user: { id: 'user-pro', email: 'pro@example.com' },
+        });
+
+        (checkSubscriptionLimits as any).mockResolvedValue({
+            allowed: true,
+            plan: { name: 'PRO' },
+            usageCount: 150,
+            limit: 1000,
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/gemini/image', {
+            method: 'POST',
+            body: JSON.stringify({
+                prompt: 'Create a character image using these references',
+                aspectRatio: '1:1',
+                referenceImages: [
+                    { type: 'image', url: 'data:image/jpeg;base64,ref1...', mimeType: 'image/jpeg' },
+                    { type: 'image', url: 'data:image/jpeg;base64,ref2...', mimeType: 'image/jpeg' },
+                ],
+            }),
+        });
+
+        const response = await POST(request);
+        expect(response.status).toBe(200);
+
+        expect(vi.mocked(generateOrEditImageWithReferences)).toHaveBeenCalledWith(
+            expect.objectContaining({
+                prompt: expect.any(String),
+                referenceImages: expect.any(Array),
+            })
+        );
+
+        expect(logUsage).toHaveBeenCalledWith(
+            'user-pro',
+            'image_generation',
+            expect.objectContaining({
+                isEditing: false,
+                hasReferenceImages: true,
+            })
+        );
+    });
+
+    it('should return 400 when 4 reference images provided (exceeds maximum)', async () => {
+        (getServerSession as any).mockResolvedValue({
+            user: { id: 'user-pro', email: 'pro@example.com' },
+        });
+
+        (checkSubscriptionLimits as any).mockResolvedValue({
+            allowed: true,
+            plan: { name: 'PRO' },
+            usageCount: 150,
+            limit: 1000,
+        });
+
+        const request = new NextRequest('http://localhost:3000/api/gemini/image', {
+            method: 'POST',
+            body: JSON.stringify({
+                prompt: 'Too many refs',
+                referenceImages: Array.from({ length: 4 }, () => ({
+                    type: 'image',
+                    url: 'data:image/jpeg;base64,ref...',
+                    mimeType: 'image/jpeg',
+                })),
+            }),
+        });
+
+        const response = await POST(request);
+        expect(response.status).toBe(400);
+        const data = await response.json();
+        expect(data.code).toBe('VALIDATION_ERROR');
+        expect(data.error).toContain('Too many reference images');
     });
 
     it('should return 400 for invalid aspect ratio', async () => {
